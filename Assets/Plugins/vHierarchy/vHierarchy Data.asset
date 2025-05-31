@@ -13,5 +13,57 @@ MonoBehaviour:
   m_Name: vHierarchy Data
   m_EditorClassIdentifier: 
   sceneDatasByGuid:
-    keys: []
-    values: []
+    keys:
+    - 99c9720ab356a0642a771bea13969a05
+    values:
+    - goDatasByGlobalId:
+        keys:
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1250292880-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-802459841-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1253748453-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-649836322-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-826401193-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1023597441-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1481020781-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1836448757-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-671820820-0
+        values:
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 4
+          icon: Settings Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+      goDatasByInstanceId:
+        keys: 2066ffffe4afffffb46effffacafffff6c6effff106effffc06dffffdad9fffffcbeffff
+        values:
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 4
+          icon: Settings Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
