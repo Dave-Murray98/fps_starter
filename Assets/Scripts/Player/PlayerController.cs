@@ -75,19 +75,140 @@ public class PlayerController : MonoBehaviour
         playerCamera.Initialize(this);
         playerAudio.Initialize(this);
 
-        // Subscribe to input events
-        if (inputManager != null)
-        {
-            inputManager.OnJumpPressed += HandleJumpInput;
-            inputManager.OnCrouchPressed += HandleCrouchInput;
-            inputManager.OnCrouchReleased += HandleCrouchReleased;
-        }
+        // ALWAYS re-subscribe to input events (even if already subscribed)
+        SubscribeToInputEvents();
 
         // Lock cursor for first-person
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
         Debug.Log("PlayerController initialized");
+    }
+
+    private void SubscribeToInputEvents()
+    {
+        if (inputManager != null)
+        {
+            // Unsubscribe first to prevent double subscription
+            inputManager.OnJumpPressed -= HandleJumpInput;
+            inputManager.OnCrouchPressed -= HandleCrouchInput;
+            inputManager.OnCrouchReleased -= HandleCrouchReleased;
+
+            // Subscribe to input events
+            inputManager.OnJumpPressed += HandleJumpInput;
+            inputManager.OnCrouchPressed += HandleCrouchInput;
+            inputManager.OnCrouchReleased += HandleCrouchReleased;
+
+            Debug.Log("PlayerController subscribed to input events");
+        }
+        else
+        {
+            Debug.LogWarning("InputManager is null in PlayerController!");
+        }
+    }
+
+    public void RefreshComponentReferences()
+    {
+        // Re-get references in case they changed
+        inputManager = GameManager.Instance?.inputManager;
+        playerData = GameManager.Instance?.playerData;
+
+        // Re-subscribe to input events
+        SubscribeToInputEvents();
+
+        // NEW: Start a coroutine to save position after player has moved away from spawn
+        StartCoroutine(SavePositionAfterMovement());
+
+        Debug.Log("[PlayerController] Component references refreshed");
+    }
+
+    private System.Collections.IEnumerator SavePositionAfterMovement()
+    {
+        Vector3 initialPosition = transform.position;
+
+        // Wait a bit for player to potentially move
+        yield return new WaitForSeconds(2f);
+
+        // Check if player has moved significantly from spawn
+        float distanceMoved = Vector3.Distance(initialPosition, transform.position);
+
+        if (distanceMoved > 1f) // If player moved more than 1 unit
+        {
+            SavePositionToSaveSystem();
+            Debug.Log($"[PlayerController] Position saved after movement: {transform.position}");
+        }
+        else
+        {
+            Debug.Log("[PlayerController] Player hasn't moved much, not saving spawn position");
+        }
+    }
+
+    private void SavePositionToSaveSystem()
+    {
+        // Update SaveManager data
+        if (SaveManager.Instance != null && SaveManager.Instance.CurrentGameData != null)
+        {
+            if (SaveManager.Instance.CurrentGameData.playerData == null)
+            {
+                SaveManager.Instance.CurrentGameData.playerData = new PlayerSaveData();
+            }
+            SaveManager.Instance.CurrentGameData.playerData.position = transform.position;
+            SaveManager.Instance.CurrentGameData.playerData.rotation.y = transform.eulerAngles.y;
+            SaveManager.Instance.CurrentGameData.playerData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        }
+
+        // Update ScenePersistenceManager data
+        if (ScenePersistenceManager.Instance != null)
+        {
+            var persistentData = ScenePersistenceManager.Instance.GetPersistentData();
+            if (persistentData != null)
+            {
+                if (persistentData.playerData == null)
+                {
+                    persistentData.playerData = new PlayerSaveData();
+                }
+                persistentData.playerData.position = transform.position;
+                persistentData.playerData.rotation.y = transform.eulerAngles.y;
+                persistentData.playerData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            }
+        }
+    }
+
+    public void LoadPositionFromSaveSystem()
+    {
+        Debug.Log("Loading player position from save system...");
+        Vector3 savedPosition = Vector3.zero;
+        float savedRotation = 0f;
+        bool foundSaveData = false;
+
+        // Try SaveManager first
+        if (SaveManager.Instance != null && SaveManager.Instance.CurrentGameData?.playerData != null)
+        {
+            var playerData = SaveManager.Instance.CurrentGameData.playerData;
+            savedPosition = playerData.position;
+            savedRotation = playerData.rotation.y;
+            foundSaveData = true;
+            Debug.Log($"PlayerController loaded position FROM SAVEMANAGER: {savedPosition}");
+        }
+        // Try ScenePersistenceManager
+        else if (ScenePersistenceManager.Instance != null)
+        {
+            var persistentData = ScenePersistenceManager.Instance.GetPersistentData();
+            if (persistentData?.playerData != null)
+            {
+                savedPosition = persistentData.playerData.position;
+                savedRotation = persistentData.playerData.rotation.y;
+                foundSaveData = true;
+                Debug.Log($"PlayerController loaded position FROM SCENEPERSISTENCEMANAGER: {savedPosition}");
+            }
+        }
+
+        if (foundSaveData && savedPosition != Vector3.zero)
+        {
+            transform.position = savedPosition;
+            transform.rotation = Quaternion.Euler(0, savedRotation, 0);
+            Debug.Log($"PlayerController loaded position from save: {savedPosition}");
+        }
     }
 
     private void Update()

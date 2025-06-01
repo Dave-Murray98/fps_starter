@@ -65,8 +65,6 @@ public class PlayerCamera : MonoBehaviour
         playerData = GameManager.Instance.playerData;
 
         SetupCinemachine();
-
-        Debug.Log("PlayerCamera initialized with Cinemachine 3.1.3 and DOTween");
     }
 
     private void SetupCinemachine()
@@ -115,16 +113,16 @@ public class PlayerCamera : MonoBehaviour
             {
                 noiseComponent.AmplitudeGain = 0f; // Start with no shake
                 noiseComponent.FrequencyGain = 1f;
-                Debug.Log("Camera shake component found and initialized");
+                //Debug.Log("Camera shake component found and initialized");
             }
             else
             {
-                Debug.LogWarning("CinemachineBasicMultiChannelPerlin component not found on virtual camera!");
+                //Debug.LogWarning("CinemachineBasicMultiChannelPerlin component not found on virtual camera!");
             }
 
             // Set initial FOV
             SetFOV(normalFOV);
-            Debug.Log($"Initial FOV set to: {normalFOV}");
+            // Debug.Log($"Initial FOV set to: {normalFOV}");
 
             // Store original camera transform position for bob effects
             originalCameraOffset = virtualCamera.transform.localPosition;
@@ -133,14 +131,14 @@ public class PlayerCamera : MonoBehaviour
             float crouchHeightDifference = (playerData?.crouchHeightMultiplier ?? 0.5f);
             crouchCameraOffset = originalCameraOffset + Vector3.down * (1f - crouchHeightDifference);
 
-            Debug.Log($"Camera offsets - Original: {originalCameraOffset}, Crouch: {crouchCameraOffset}");
+            //Debug.Log($"Camera offsets - Original: {originalCameraOffset}, Crouch: {crouchCameraOffset}");
         }
 
         // Setup input provider - disable it since we handle input manually
         if (inputProvider != null)
         {
             inputProvider.enabled = false;
-            Debug.Log("CinemachineInputAxisController disabled - we handle input manually");
+            //Debug.Log("CinemachineInputAxisController disabled - we handle input manually");
         }
     }
 
@@ -279,7 +277,7 @@ public class PlayerCamera : MonoBehaviour
             return Camera.main.fieldOfView;
         }
 
-        Debug.LogWarning("Could not find any camera for FOV - returning default");
+        // Debug.LogWarning("Could not find any camera for FOV - returning default");
         return normalFOV;
     }
 
@@ -320,7 +318,7 @@ public class PlayerCamera : MonoBehaviour
         Vector3 targetOffset = isCrouching ? crouchCameraOffset : originalCameraOffset;
         Vector3 startOffset = virtualCamera.transform.localPosition;
 
-        Debug.Log($"Camera crouch transition: {startOffset} → {targetOffset}");
+        //Debug.Log($"Camera crouch transition: {startOffset} → {targetOffset}");
 
         // Smooth transition to new camera height
         crouchTweener = DOTween.To(
@@ -335,11 +333,11 @@ public class PlayerCamera : MonoBehaviour
     {
         if (!enableCameraShake || noiseComponent == null)
         {
-            Debug.LogWarning("Camera shake failed: enableCameraShake=" + enableCameraShake + ", noiseComponent=" + (noiseComponent != null));
+            //Debug.LogWarning("Camera shake failed: enableCameraShake=" + enableCameraShake + ", noiseComponent=" + (noiseComponent != null));
             return;
         }
 
-        Debug.Log($"Starting camera shake: intensity={intensity}, duration={duration}, isMoving={controller.IsMoving}");
+        //Debug.Log($"Starting camera shake: intensity={intensity}, duration={duration}, isMoving={controller.IsMoving}");
 
         // Set shake intensity
         noiseComponent.AmplitudeGain = intensity;
@@ -350,12 +348,12 @@ public class PlayerCamera : MonoBehaviour
             x =>
             {
                 noiseComponent.AmplitudeGain = x;
-                if (x > 0.01f) Debug.Log($"Shake amplitude: {x:F3}, cameraMoving: {controller.IsMoving}");
+                //if (x > 0.01f) Debug.Log($"Shake amplitude: {x:F3}, cameraMoving: {controller.IsMoving}");
             },
             0f,
             duration
-        ).SetUpdate(!useTimeScale)
-        .OnComplete(() => Debug.Log("Camera shake completed"));
+        ).SetUpdate(!useTimeScale);
+        //.OnComplete(() => Debug.Log("Camera shake completed"));
     }
 
     public void PlayLandingShake()
@@ -397,47 +395,6 @@ public class PlayerCamera : MonoBehaviour
     // Input method
     public void SetLookInput(Vector2 input) => lookInput = input;
 
-    // Debug and test methods
-    [Button("Test Camera Shake")]
-    private void TestCameraShake()
-    {
-        Debug.Log("Testing camera shake...");
-        ShakeCamera(0.5f, 1f);
-    }
-
-    [Button("Debug Camera Components")]
-    private void DebugCameraComponents()
-    {
-        Debug.Log("=== CAMERA DEBUG INFO ===");
-        Debug.Log($"virtualCamera: {virtualCamera != null}");
-        Debug.Log($"cinemachineCamera: {cinemachineCamera != null}");
-        Debug.Log($"cinemachinePOV: {cinemachinePOV != null}");
-        Debug.Log($"noiseComponent: {noiseComponent != null}");
-        if (noiseComponent != null)
-        {
-            Debug.Log($"Current Noise Amplitude: {noiseComponent.AmplitudeGain}");
-            Debug.Log($"Current Noise Frequency: {noiseComponent.FrequencyGain}");
-        }
-        Debug.Log($"enableCameraShake: {enableCameraShake}");
-    }
-
-    [Button("Force Shake Test")]
-    private void ForceShakeTest()
-    {
-        if (noiseComponent != null)
-        {
-            Debug.Log("Setting noise amplitude directly to 1.0");
-            noiseComponent.AmplitudeGain = 1.0f;
-
-            // Reset after 2 seconds
-            DOTween.To(() => noiseComponent.AmplitudeGain, x => noiseComponent.AmplitudeGain = x, 0f, 2f);
-        }
-        else
-        {
-            Debug.LogError("noiseComponent is null!");
-        }
-    }
-
     // State change notification
     public void OnMovementStateChanged(MovementState previousState, MovementState newState)
     {
@@ -466,7 +423,7 @@ public class PlayerCamera : MonoBehaviour
         if (previousState == MovementState.Falling &&
             (newState == MovementState.Idle || newState == MovementState.Walking || newState == MovementState.Running))
         {
-            Debug.Log($"Landing detected: {previousState} → {newState} - triggering shake");
+            //Debug.Log($"Landing detected: {previousState} → {newState} - triggering shake");
             PlayLandingShake();
         }
     }

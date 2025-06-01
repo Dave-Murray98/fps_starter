@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,6 +23,7 @@ public class UIManager : MonoBehaviour
         {
             pauseMenu.SetActive(false);
         }
+
     }
 
 
@@ -70,4 +72,14 @@ public class UIManager : MonoBehaviour
         GameEvents.OnGameResumed -= HidePauseMenu;
     }
 
+    public void UpdateUIAfterSceneLoad()
+    {
+        Debug.Log("UIManager: UpdateUIAfterSceneLoad called. NOTHING IMPLEMENTED HERE YET!");
+
+        if (GameManager.Instance != null)
+        {
+            UpdateHealthBar(GameManager.Instance.playerManager.currentHealth, GameManager.Instance.playerData.maxHealth);
+        }
+
+    }
 }

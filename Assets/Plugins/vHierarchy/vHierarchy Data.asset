@@ -15,11 +15,13 @@ MonoBehaviour:
   sceneDatasByGuid:
     keys:
     - 99c9720ab356a0642a771bea13969a05
+    - 
+    - f3c14b763cc304047b13e2bbf586e0cc
     values:
     - goDatasByGlobalId:
         keys:
         - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1250292880-0
-        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-802459841-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-94847454-0
         - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1253748453-0
         - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-649836322-0
         - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-826401193-0
@@ -27,11 +29,13 @@ MonoBehaviour:
         - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1481020781-0
         - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1836448757-0
         - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-671820820-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-148905633-0
+        - GlobalObjectId_V1-2-99c9720ab356a0642a771bea13969a05-1497029596-0
         values:
         - iColor: 9
           icon: Canvas Icon
-        - iColor: 4
-          icon: Settings Icon
+        - iColor: 0
+          icon: cs Script Icon
         - iColor: 0
           icon: StandaloneInputModule Icon
         - iColor: 0
@@ -46,13 +50,15 @@ MonoBehaviour:
           icon: Terrain Icon
         - iColor: 3
           icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: DirectionalLight Icon
       goDatasByInstanceId:
-        keys: 2066ffffe4afffffb46effffacafffff6c6effff106effffc06dffffdad9fffffcbeffff
+        keys: f0c80000fac800008cc80000c4c80000e4c8000022c9000048c9000096c8000014f6ffffc6f5ffff84d400008ed4000058d4000078d40000b6d40000dcd4000028d4000034d700003ed7000008d7000028d7000066d700008cd70000d8d6000056df000092de000060df0000f0de00002adf00004adf000088df0000aedf0000fade000098de000070e600009ae500007ae60000fee5000038e600005ce60000a2e60000c8e6000008e60000a0e5000044e900006ee800004ee90000d2e800000ce9000030e9000076e900009ce90000dce8000074e8000082ed0000acec00008ced000010ed00004aed00006eed0000b4ed0000daed00001aed0000b2ec0000c0f10000eaf00000caf100004ef1000088f10000acf10000f2f1000018f2000058f10000f0f0000094f40000bef300009ef4000022f400005cf4000080f40000c6f40000ecf400002cf40000c4f3000068f7000092f6000072f70000f6f6000030f7000054f700009af70000c0f7000000f7000098f600005c80ffff
         values:
         - iColor: 9
           icon: Canvas Icon
-        - iColor: 4
-          icon: Settings Icon
         - iColor: 0
           icon: StandaloneInputModule Icon
         - iColor: 0
@@ -67,3 +73,189 @@ MonoBehaviour:
           icon: Terrain Icon
         - iColor: 3
           icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 9
+          icon: Canvas Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: StandaloneInputModule Icon
+        - iColor: 0
+          icon: Settings Icon
+        - iColor: 0
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: AudioSource Icon
+        - iColor: 0
+          icon: Canvas Icon
+        - iColor: 2
+          icon: Terrain Icon
+        - iColor: 3
+          icon: AvatarMask On Icon
+        - iColor: 0
+          icon: cs Script Icon
+        - iColor: 0
+          icon: DirectionalLight Icon
+    - goDatasByGlobalId:
+        keys: []
+        values: []
+      goDatasByInstanceId:
+        keys: 
+        values: []
+    - goDatasByGlobalId:
+        keys: []
+        values: []
+      goDatasByInstanceId:
+        keys: 
+        values: []
