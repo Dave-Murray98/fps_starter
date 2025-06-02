@@ -48,9 +48,16 @@ public class SaveManager : MonoBehaviour
     {
         DebugLog("Starting save operation...");
 
+        // Show loading screen for saving
+        LoadingScreenManager.Instance?.ShowLoadingScreen("Saving Game...", "Please wait");
+        LoadingScreenManager.Instance?.SetProgress(0.1f);
+        yield return new WaitForSecondsRealtime(0.1f);
+
         currentSaveData = new GameSaveData();
         currentSaveData.saveTime = System.DateTime.Now;
         currentSaveData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+
+        LoadingScreenManager.Instance?.SetProgress(0.3f);
 
         // Save player persistent data
         if (PlayerPersistenceManager.Instance != null)
@@ -58,29 +65,43 @@ public class SaveManager : MonoBehaviour
             currentSaveData.playerPersistentData = PlayerPersistenceManager.Instance.GetPersistentDataForSave();
         }
 
+        LoadingScreenManager.Instance?.SetProgress(0.5f);
+
         // Save scene data
         if (SceneDataManager.Instance != null)
         {
             currentSaveData.sceneData = SceneDataManager.Instance.GetSceneDataForSaving();
         }
 
-        // Save player position data (for save/load, not doorway transitions)
+        LoadingScreenManager.Instance?.SetProgress(0.7f);
+
+        // Save player position data
         SavePlayerPositionData();
 
-        // Save to file
+        LoadingScreenManager.Instance?.SetProgress(0.9f);
+
+        // Save to file (moved try-catch outside of coroutine logic)
+        bool saveSuccess = false;
         try
         {
             ES3.Save("gameData", currentSaveData, saveFileName + ".es3");
+            saveSuccess = true;
             DebugLog("Game saved successfully");
-            OnSaveComplete?.Invoke(true);
         }
         catch (System.Exception e)
         {
             Debug.LogError($"Save failed: {e.Message}");
-            OnSaveComplete?.Invoke(false);
+            saveSuccess = false;
         }
 
-        yield return null;
+        LoadingScreenManager.Instance?.SetProgress(1f);
+        yield return new WaitForSecondsRealtime(0.3f);
+
+        // Invoke completion event based on save result
+        OnSaveComplete?.Invoke(saveSuccess);
+
+        // Hide loading screen
+        LoadingScreenManager.Instance?.HideLoadingScreen();
     }
 
     private System.Collections.IEnumerator LoadGameCoroutine()
@@ -93,7 +114,7 @@ public class SaveManager : MonoBehaviour
             yield break;
         }
 
-        // FIX: Tell PlayerPersistenceManager that we're handling restoration
+        // Tell PlayerPersistenceManager that we're handling restoration
         if (PlayerPersistenceManager.Instance != null && currentSaveData.playerPersistentData != null)
         {
             PlayerPersistenceManager.Instance.LoadPersistentDataFromSave(currentSaveData.playerPersistentData);
@@ -110,24 +131,33 @@ public class SaveManager : MonoBehaviour
 
         if (targetScene != currentScene)
         {
-            // Different scene - transition and then restore
+            // Different scene - let SceneTransitionManager handle loading screen
             SceneTransitionManager.Instance.LoadSceneFromSave(targetScene);
 
-            // Wait for scene to load, then restore everything
+            // Wait for scene to load
             yield return new WaitUntil(() => UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == targetScene);
             yield return new WaitForEndOfFrame();
-            yield return new WaitForSeconds(0.2f); // Give scene time to initialize
+            yield return new WaitForSeconds(0.2f);
 
             RestoreAllDataAfterSceneLoad();
         }
         else
         {
-            // Same scene - restore everything immediately
+            // Same scene - show our own loading screen
+            LoadingScreenManager.Instance?.ShowLoadingScreenForSaveLoad(currentScene);
+
+            yield return new WaitForSecondsRealtime(0.2f);
+            LoadingScreenManager.Instance?.SetProgress(0.3f);
+
             yield return new WaitForEndOfFrame();
             RestoreAllDataInSameScene();
+
+            LoadingScreenManager.Instance?.SetProgress(1f);
+            yield return new WaitForSecondsRealtime(0.5f);
+            LoadingScreenManager.Instance?.HideLoadingScreen();
         }
 
-        // FIX: Ensure game is unpaused after loading
+        // Ensure game is unpaused after loading
         if (GameManager.Instance != null && GameManager.Instance.isPaused)
         {
             GameManager.Instance.ResumeGame();
@@ -137,44 +167,31 @@ public class SaveManager : MonoBehaviour
         DebugLog("Game loaded successfully");
         OnLoadComplete?.Invoke(true);
 
-        // FIX: Tell PlayerPersistenceManager we're done
+        // Tell PlayerPersistenceManager we're done
         if (PlayerPersistenceManager.Instance != null)
         {
             PlayerPersistenceManager.Instance.SaveManagerRestorationComplete();
         }
     }
 
-    // FIX: Combined restoration method for different scene loads
+    // [Rest of the SaveManager methods remain the same...]
+
     private void RestoreAllDataAfterSceneLoad()
     {
         DebugLog("Restoring all data after scene load...");
-
-        // Restore player position first
         RestorePlayerPositionData();
-
-        // Restore player data
         RestorePlayerDataAfterSceneLoad();
-
-        // Restore scene data
         RestoreSceneDataAfterSceneLoad();
     }
 
-    // FIX: Combined restoration method for same scene loads
     private void RestoreAllDataInSameScene()
     {
         DebugLog("Restoring all data in same scene...");
-
-        // Restore player position
         RestorePlayerPositionData();
-
-        // Restore player data
         RestorePlayerDataInSameScene();
-
-        // Restore scene data
         RestoreSceneDataInSameScene();
     }
 
-    // FIX: Restore player data after scene load (different scene)
     private void RestorePlayerDataAfterSceneLoad()
     {
         if (currentSaveData?.playerPersistentData == null) return;
@@ -186,7 +203,6 @@ public class SaveManager : MonoBehaviour
         {
             playerManager.currentHealth = currentSaveData.playerPersistentData.currentHealth;
 
-            // Trigger UI update
             if (GameManager.Instance?.playerData != null)
             {
                 GameEvents.TriggerPlayerHealthChanged(playerManager.currentHealth, GameManager.Instance.playerData.maxHealth);
@@ -203,7 +219,6 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    // Restore player data in same scene (existing method)
     private void RestorePlayerDataInSameScene()
     {
         if (currentSaveData?.playerPersistentData == null) return;
@@ -215,7 +230,6 @@ public class SaveManager : MonoBehaviour
         {
             playerManager.currentHealth = currentSaveData.playerPersistentData.currentHealth;
 
-            // Trigger UI update
             if (GameManager.Instance?.playerData != null)
             {
                 GameEvents.TriggerPlayerHealthChanged(playerManager.currentHealth, GameManager.Instance.playerData.maxHealth);
@@ -232,7 +246,6 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    // FIX: Restore scene data after scene load (different scene)
     private void RestoreSceneDataAfterSceneLoad()
     {
         if (currentSaveData?.sceneData == null) return;
@@ -242,7 +255,6 @@ public class SaveManager : MonoBehaviour
 
         var sceneData = currentSaveData.sceneData[currentScene];
 
-        // Find all saveable objects except player-related ones
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
             .Where(s => !IsPlayerRelatedComponent(s))
@@ -268,7 +280,6 @@ public class SaveManager : MonoBehaviour
         DebugLog($"Restored scene data after scene load: {currentScene}");
     }
 
-    // Restore scene data in same scene (existing method)
     private void RestoreSceneDataInSameScene()
     {
         if (currentSaveData?.sceneData == null) return;
@@ -278,7 +289,6 @@ public class SaveManager : MonoBehaviour
 
         var sceneData = currentSaveData.sceneData[currentScene];
 
-        // Find all saveable objects except player-related ones
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
             .Where(s => !IsPlayerRelatedComponent(s))

@@ -18,8 +18,8 @@ public class SceneTransitionManager : MonoBehaviour
     public static SceneTransitionManager Instance { get; private set; }
 
     [Header("Transition Settings")]
-    public bool showLoadingScreen = true;
     public float minLoadingTime = 1f;
+    public bool showDebugLogs = true;
 
     // Track if we're loading from a save (to handle positioning correctly)
     private bool isLoadingFromSave = false;
@@ -51,8 +51,8 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     public void TransitionThroughDoorway(string targetScene, string targetDoorwayID)
     {
-        isLoadingFromSave = false; // This is a doorway transition
-        StartCoroutine(DoTransition(targetScene, targetDoorwayID, TransitionType.Doorway));
+        isLoadingFromSave = false;
+        StartCoroutine(DoTransitionWithLoading(targetScene, targetDoorwayID, TransitionType.Doorway));
     }
 
     /// <summary>
@@ -60,37 +60,84 @@ public class SceneTransitionManager : MonoBehaviour
     /// </summary>
     public void LoadSceneFromSave(string targetScene)
     {
-        isLoadingFromSave = true; // This is a save load
-        StartCoroutine(DoTransition(targetScene, "", TransitionType.SaveLoad));
+        isLoadingFromSave = true;
+        StartCoroutine(DoTransitionWithLoading(targetScene, "", TransitionType.SaveLoad));
     }
 
-    private System.Collections.IEnumerator DoTransition(string targetScene, string targetDoorwayID, TransitionType transitionType)
+    private System.Collections.IEnumerator DoTransitionWithLoading(string targetScene, string targetDoorwayID, TransitionType transitionType)
     {
         OnTransitionStarted?.Invoke(targetScene);
+        DebugLog($"Starting {transitionType} transition to {targetScene}");
 
-        // Tell the save system what kind of transition this is
-        SceneDataManager.Instance.PrepareSceneTransition(targetScene, targetDoorwayID, transitionType);
-
-        if (showLoadingScreen)
+        // Show appropriate loading screen
+        if (transitionType == TransitionType.Doorway)
         {
-            yield return new WaitForSeconds(minLoadingTime);
+            LoadingScreenManager.Instance?.ShowLoadingScreenForDoorway(targetScene);
+        }
+        else
+        {
+            LoadingScreenManager.Instance?.ShowLoadingScreenForSaveLoad(targetScene);
         }
 
-        // Load the scene
-        UnityEngine.SceneManagement.SceneManager.LoadScene(targetScene);
+        // Prepare the save system
+        SceneDataManager.Instance?.PrepareSceneTransition(targetScene, targetDoorwayID, transitionType);
+
+        // Phase 1: Preparation (0-20%)
+        LoadingScreenManager.Instance?.SetProgress(0.1f);
+        yield return new WaitForSecondsRealtime(0.2f);
+
+        LoadingScreenManager.Instance?.SetProgress(0.2f);
+        yield return new WaitForSecondsRealtime(0.1f);
+
+        // Phase 2: Scene Loading (20-80%)
+        LoadingScreenManager.Instance?.SetProgress(0.3f);
+
+        // Start the actual scene load
+        var sceneLoadOperation = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(targetScene);
+        sceneLoadOperation.allowSceneActivation = false;
+
+        // Monitor scene loading progress
+        while (sceneLoadOperation.progress < 0.9f)
+        {
+            float progress = Mathf.Lerp(0.3f, 0.8f, sceneLoadOperation.progress / 0.9f);
+            LoadingScreenManager.Instance?.SetProgress(progress);
+            yield return null;
+        }
+
+        // Phase 3: Finalization (80-100%)
+        LoadingScreenManager.Instance?.SetProgress(0.8f);
+
+        // Ensure minimum loading time
+        float loadStartTime = Time.unscaledTime;
+        while (Time.unscaledTime - loadStartTime < minLoadingTime)
+        {
+            float timeProgress = (Time.unscaledTime - loadStartTime) / minLoadingTime;
+            float progress = Mathf.Lerp(0.8f, 0.95f, timeProgress);
+            LoadingScreenManager.Instance?.SetProgress(progress);
+            yield return null;
+        }
+
+        // Activate the scene
+        LoadingScreenManager.Instance?.SetProgress(1f);
+        sceneLoadOperation.allowSceneActivation = true;
+
+        // Wait for scene to actually load
+        yield return sceneLoadOperation;
 
         OnTransitionCompleted?.Invoke(targetScene);
+        DebugLog($"Completed {transitionType} transition to {targetScene}");
+
+        // Hide loading screen after a brief pause
+        yield return new WaitForSecondsRealtime(0.2f);
+        LoadingScreenManager.Instance?.HideLoadingScreen();
     }
 
-    // FIX: Handle scene loaded event to restore player position correctly
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
         if (isLoadingFromSave)
         {
-            // When loading from save, let SaveManager handle player positioning
             StartCoroutine(RestorePlayerPositionFromSave());
         }
-        // For doorway transitions, SceneDataManager handles positioning
     }
 
     private System.Collections.IEnumerator RestorePlayerPositionFromSave()
@@ -98,12 +145,17 @@ public class SceneTransitionManager : MonoBehaviour
         yield return new WaitForEndOfFrame();
         yield return new WaitForSeconds(0.1f);
 
-        // Get the save data and restore player position
         if (SaveManager.Instance != null)
         {
-            // The SaveManager will handle this in its LoadGameCoroutine
-            // We just need to make sure we don't interfere
-            Debug.Log("SceneTransitionManager: Letting SaveManager handle player positioning");
+            DebugLog("SceneTransitionManager: Letting SaveManager handle player positioning");
+        }
+    }
+
+    private void DebugLog(string message)
+    {
+        if (showDebugLogs)
+        {
+            Debug.Log($"[SceneTransitionManager] {message}");
         }
     }
 
