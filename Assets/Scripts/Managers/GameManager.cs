@@ -43,9 +43,6 @@ public class GameManager : MonoBehaviour
     [Header("Game State")]
     public bool isPaused = false;
 
-    [Header("Save System")]
-    public bool enableAutoSave = true;
-
     // Events for manager system
     public static event Action OnManagersInitialized;
     public static event Action OnManagersRefreshed;
@@ -69,13 +66,6 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         InitializeManagers();
-
-        // Initialize save system
-        if (SaveManager.Instance != null)
-        {
-            SaveManager.Instance.OnSaveComplete += OnSaveComplete;
-            SaveManager.Instance.OnLoadComplete += OnLoadComplete;
-        }
     }
 
     private void OnEnable()
@@ -97,10 +87,8 @@ public class GameManager : MonoBehaviour
     private void InitializeManagers()
     {
         Debug.Log("GameManager: Initializing managers...");
-
         FindAndRegisterManagers();
         InitializeAllManagers();
-
         OnManagersInitialized?.Invoke();
         Debug.Log("GameManager: All managers initialized");
     }
@@ -109,7 +97,7 @@ public class GameManager : MonoBehaviour
     {
         allManagers.Clear();
 
-        // ALWAYS re-find scene-based managers (they change with each scene)
+        // Find scene-based managers
         playerManager = FindFirstObjectByType<PlayerManager>();
         inputManager = FindFirstObjectByType<InputManager>();
         uiManager = FindFirstObjectByType<UIManager>();
@@ -143,23 +131,16 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator RefreshManagerReferencesCoroutine()
     {
-        // Wait a frame for all objects to be created
         yield return null;
-
-        // Additional wait to ensure everything is properly set up
         yield return new WaitForSeconds(0.1f);
-
         RefreshManagerReferences();
     }
 
     private void RefreshManagerReferences()
     {
         Debug.Log("GameManager: Refreshing manager references...");
-
-        // Re-find and re-register managers
         FindAndRegisterManagers();
 
-        // Refresh all manager references
         foreach (var manager in allManagers)
         {
             try
@@ -176,55 +157,27 @@ public class GameManager : MonoBehaviour
         Debug.Log("GameManager: Manager references refreshed");
     }
 
-    // Existing methods...
-    private void OnSaveComplete(bool success)
-    {
-        if (success)
-        {
-            Debug.Log("Game saved successfully!");
-        }
-        else
-        {
-            Debug.LogError("Failed to save game!");
-        }
-    }
-
-    private void OnLoadComplete(bool success)
-    {
-        if (success)
-        {
-            Debug.Log("Game loaded successfully!");
-        }
-        else
-        {
-            Debug.LogError("Failed to load game!");
-        }
-    }
-
+    // Simplified save/load methods - just delegate to SimplifiedSaveManager
     [Button]
     public void SaveGame()
     {
-        if (SaveManager.Instance != null)
-        {
-            SaveManager.Instance.SaveGame();
-        }
+        SaveManager.Instance?.SaveGame();
     }
 
     [Button]
     public void LoadGame()
     {
-        if (SaveManager.Instance != null)
-        {
-            SaveManager.Instance.LoadGame();
-        }
+        SaveManager.Instance?.LoadGame();
     }
 
     public void NewGame()
     {
-        if (SaveManager.Instance != null)
+        // Just create a fresh game state
+        if (playerManager != null && playerData != null)
         {
-            SaveManager.Instance.NewGame();
+            playerManager.currentHealth = playerData.maxHealth;
         }
+        Debug.Log("New game started");
     }
 
     public void PauseGame()
@@ -265,13 +218,6 @@ public class GameManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (SaveManager.Instance != null)
-        {
-            SaveManager.Instance.OnSaveComplete -= OnSaveComplete;
-            SaveManager.Instance.OnLoadComplete -= OnLoadComplete;
-        }
-
-        // Cleanup all managers
         foreach (var manager in allManagers)
         {
             try

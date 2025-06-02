@@ -646,6 +646,7 @@ MonoBehaviour:
   groundCheckDistance: 0.1
   slopeLimit: 45
   showGroundDebug: 0
+  rb: {fileID: 0}
 --- !u!114 &3165935447440300241
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -731,14 +732,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveID: PlayerSaveComponent_12_(0.00, 0.52, 0.00)
   autoGenerateID: 1
-  enableDebugLogs: 0
+  enableDebugLogs: 1
   playerController: {fileID: 5026250899846009166}
   playerManager: {fileID: 0}
   playerData: {fileID: 11400000, guid: fb46b840e8974a14fb0e0f5059c27420, type: 2}
-  saveTransform: 1
-  saveStats: 1
-  saveSettings: 1
-  saveAbilities: 1
 --- !u!1 &8863942212892959195
 GameObject:
   m_ObjectHideFlags: 0

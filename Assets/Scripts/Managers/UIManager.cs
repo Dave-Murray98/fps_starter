@@ -85,6 +85,44 @@ public class UIManager : MonoBehaviour, IManager
         GameManager.Instance.QuitGame();
     }
 
+    public void OnSaveGameButtonClicked()
+    {
+        SaveManager.Instance.SaveGame();
+    }
+
+    // FIX: Load game with proper pause handling
+    public void OnLoadGameButtonClicked()
+    {
+        StartCoroutine(LoadGameWithPauseHandling());
+    }
+
+    // FIX: Handle loading while paused
+    private System.Collections.IEnumerator LoadGameWithPauseHandling()
+    {
+        // Remember if we were paused
+        bool wasPaused = GameManager.Instance.isPaused;
+
+        // Temporarily unpause for the load operation
+        if (wasPaused)
+        {
+            Debug.Log("UIManager: Temporarily unpausing for load operation");
+            Time.timeScale = 1f; // Allow coroutines to run
+        }
+
+        // Start the load operation
+        SaveManager.Instance.LoadGame();
+
+        // Wait a frame to let the load start
+        yield return null;
+
+        // The load operation will handle scene transitions and everything else
+        // We don't need to restore pause state because:
+        // 1. If loading same scene, player probably wants to continue playing
+        // 2. If loading different scene, pause state gets reset anyway
+
+        Debug.Log("UIManager: Load game initiated");
+    }
+
     public void UpdateUIAfterSceneLoad()
     {
         Debug.Log("UIManager: UpdateUIAfterSceneLoad called");

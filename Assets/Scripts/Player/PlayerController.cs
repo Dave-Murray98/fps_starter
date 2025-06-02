@@ -78,7 +78,7 @@ public class PlayerController : MonoBehaviour
         playerAudio.Initialize(this);
 
         // Lock cursor for first-person
-        Cursor.lockState = CursorLockMode.Locked;
+        //Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
         Debug.Log("PlayerController initialized");
@@ -86,7 +86,6 @@ public class PlayerController : MonoBehaviour
 
     private void OnInputManagerReady(InputManager newInputManager)
     {
-        // Connect to the new InputManager
         ConnectToInputManager(newInputManager);
     }
 
@@ -94,13 +93,11 @@ public class PlayerController : MonoBehaviour
     {
         Debug.Log("PlayerController: Refreshing component references");
 
-        // Get references
+        // Get references from SimplifiedGameManager
         inputManager = GameManager.Instance?.inputManager;
         playerData = GameManager.Instance?.playerData;
 
-        Debug.Log($"PlayerController: GameManager.Instance.inputManager = {GameManager.Instance?.inputManager?.GetInstanceID()}");
-
-        // Connect to InputManager immediately if available
+        // Connect to InputManager if available
         if (inputManager != null)
         {
             ConnectToInputManager(inputManager);
@@ -109,17 +106,12 @@ public class PlayerController : MonoBehaviour
         {
             Debug.LogWarning("PlayerController: InputManager is null in RefreshComponentReferences!");
         }
-
-        // Start coroutine to save position after player has moved
-        StartCoroutine(SavePositionAfterMovement());
     }
 
     private void ConnectToInputManager(InputManager newInputManager)
     {
-        // Disconnect from previous InputManager
         DisconnectFromInputManager();
 
-        // Connect to new InputManager
         inputManager = newInputManager;
 
         if (inputManager != null)
@@ -129,10 +121,6 @@ public class PlayerController : MonoBehaviour
             inputManager.OnCrouchReleased += HandleCrouchReleased;
 
             Debug.Log($"PlayerController connected to InputManager: {inputManager.GetInstanceID()}");
-        }
-        else
-        {
-            Debug.LogWarning("PlayerController: InputManager is null!");
         }
     }
 
@@ -146,67 +134,23 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    private System.Collections.IEnumerator SavePositionAfterMovement()
-    {
-        Vector3 initialPosition = transform.position;
-        yield return new WaitForSeconds(2f);
-
-        float distanceMoved = Vector3.Distance(initialPosition, transform.position);
-        if (distanceMoved > 1f)
-        {
-            SavePositionToSaveSystem();
-            Debug.Log($"PlayerController: Position saved after movement: {transform.position}");
-        }
-    }
-
-    private void SavePositionToSaveSystem()
-    {
-        // Update SaveManager data
-        if (SaveManager.Instance != null && SaveManager.Instance.CurrentGameData != null)
-        {
-            if (SaveManager.Instance.CurrentGameData.playerData == null)
-            {
-                SaveManager.Instance.CurrentGameData.playerData = new PlayerSaveData();
-            }
-            SaveManager.Instance.CurrentGameData.playerData.position = transform.position;
-            SaveManager.Instance.CurrentGameData.playerData.rotation.y = transform.eulerAngles.y;
-            SaveManager.Instance.CurrentGameData.playerData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        }
-
-        // Update ScenePersistenceManager data
-        if (ScenePersistenceManager.Instance != null)
-        {
-            var persistentData = ScenePersistenceManager.Instance.GetPersistentData();
-            if (persistentData != null)
-            {
-                if (persistentData.playerData == null)
-                {
-                    persistentData.playerData = new PlayerSaveData();
-                }
-                persistentData.playerData.position = transform.position;
-                persistentData.playerData.rotation.y = transform.eulerAngles.y;
-                persistentData.playerData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            }
-        }
-    }
-
     private void Update()
     {
         if (!GameManager.Instance || GameManager.Instance.isPaused) return;
 
-        // TEMPORARY DEBUG CODE - Remove after fixing
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            Debug.Log("=== DEBUG: Space key pressed directly via Input.GetKeyDown ===");
-            if (inputManager != null)
-            {
-                inputManager.DebugInputState(); // Call the debug method
-            }
-            else
-            {
-                Debug.Log("InputManager is null in PlayerController!");
-            }
-        }
+        // // TEMPORARY DEBUG CODE - Remove after fixing
+        // if (Input.GetKeyDown(KeyCode.Space))
+        // {
+        //     Debug.Log("=== DEBUG: Space key pressed directly via Input.GetKeyDown ===");
+        //     if (inputManager != null)
+        //     {
+        //         inputManager.DebugInputState();
+        //     }
+        //     else
+        //     {
+        //         Debug.Log("InputManager is null in PlayerController!");
+        //     }
+        // }
 
         UpdateMovementState();
         HandleInput();
@@ -278,7 +222,7 @@ public class PlayerController : MonoBehaviour
     // Input handlers
     private void HandleJumpInput()
     {
-        Debug.Log("PlayerController: Jump input received!");
+        // Debug.Log("PlayerController: Jump input received!");
         if (canJump && movement.IsGrounded && !movement.IsCrouching)
         {
             movement.Jump();

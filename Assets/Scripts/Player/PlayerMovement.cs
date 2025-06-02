@@ -198,7 +198,7 @@ public class PlayerMovement : MonoBehaviour
         float jumpForce = Mathf.Sqrt(2f * Mathf.Abs(playerData?.gravity ?? 9.81f) * (playerData?.jumpHeight ?? 2f));
         rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
-        Debug.Log("Player jumped!");
+        //Debug.Log("Player jumped!");
     }
 
     public void StartCrouch()
@@ -243,7 +243,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnLanded()
     {
-        Debug.Log($"Player landed on {currentGroundType}");
+        //Debug.Log($"Player landed on {currentGroundType}");
     }
 
     // Input methods

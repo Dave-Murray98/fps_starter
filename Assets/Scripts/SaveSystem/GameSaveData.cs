@@ -8,19 +8,22 @@ using UnityEngine;
 [System.Serializable]
 public class GameSaveData
 {
-    [Header("Core Data")]
-    public PlayerSaveData playerData = new PlayerSaveData();
-    public GameProgressData progressData = new GameProgressData();
+    public System.DateTime saveTime;
+    public string currentScene;
 
-    [Header("Scene Data")]
-    public Dictionary<string, SceneSaveData> sceneData = new Dictionary<string, SceneSaveData>();
+    // Player data that persists between doorways
+    public PlayerPersistentData playerPersistentData;
 
-    [Header("Future Systems")]
-    public Dictionary<string, object> customData = new Dictionary<string, object>();
+    // Player position (only for save/load, not doorways)
+    public PlayerPositionData playerPositionData;
 
-    [Header("Meta Data")]
-    public string saveVersion = "1.0";
-    public DateTime saveTime = DateTime.Now;
-    public string currentScene = "";
-    public float totalPlayTime = 0f;
+    // Scene data for all visited scenes
+    public Dictionary<string, SceneSaveData> sceneData;
+}
+
+[System.Serializable]
+public class PlayerPositionData
+{
+    public Vector3 position;
+    public Vector3 rotation;
 }
