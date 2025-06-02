@@ -6,7 +6,7 @@ using UnityEngine;
 /// </summary>
 public enum TransitionType
 {
-    Portal,      // Player using portal/doorway - use scene persistence
+    Doorway,      // Player using portal/doorway - use scene persistence
     SaveLoad     // Player loading a save file - override with save data
 }
 
@@ -52,7 +52,7 @@ public class SceneTransitionManager : MonoBehaviour
     public void TransitionThroughDoorway(string targetScene, string targetDoorwayID)
     {
         isLoadingFromSave = false; // This is a doorway transition
-        StartCoroutine(DoTransition(targetScene, targetDoorwayID, TransitionType.Portal));
+        StartCoroutine(DoTransition(targetScene, targetDoorwayID, TransitionType.Doorway));
     }
 
     /// <summary>

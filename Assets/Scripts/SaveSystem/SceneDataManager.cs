@@ -43,7 +43,7 @@ public class SceneDataManager : MonoBehaviour
         DebugLog($"Preparing transition to {targetScene} via {transitionType}");
 
         // Save current scene data if this is a portal transition
-        if (transitionType == TransitionType.Portal)
+        if (transitionType == TransitionType.Doorway)
         {
             SaveCurrentSceneData();
         }
@@ -63,7 +63,7 @@ public class SceneDataManager : MonoBehaviour
         yield return new WaitForEndOfFrame();
         yield return new WaitForSeconds(0.1f);
 
-        if (pendingTransitionType == TransitionType.Portal)
+        if (pendingTransitionType == TransitionType.Doorway)
         {
             // Portal transition - restore scene data and position player at doorway
             RestoreSceneData(sceneName);

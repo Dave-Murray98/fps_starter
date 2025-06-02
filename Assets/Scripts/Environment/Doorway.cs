@@ -21,7 +21,10 @@ public class Doorway : MonoBehaviour
     private void Start()
     {
         if (string.IsNullOrEmpty(doorwayID))
+        {
+            Debug.LogWarning("Doorway ID not set, generating based on position.");
             doorwayID = $"Door_{transform.position.x}_{transform.position.z}";
+        }
     }
 
     private void Update()
@@ -34,6 +37,13 @@ public class Doorway : MonoBehaviour
 
     public void UseDoorway()
     {
+        if (string.IsNullOrEmpty(targetScene))
+        {
+            Debug.LogError("Target scene is not set for doorway: " + doorwayID);
+            return;
+        }
+
+
         // Save player persistent data before transition
         PlayerPersistenceManager.Instance?.SavePlayerDataForTransition();
 
