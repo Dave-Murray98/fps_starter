@@ -3,17 +3,27 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class UIManager : MonoBehaviour
+public class UIManager : MonoBehaviour, IManager
 {
     [Header("UI References")]
     public GameObject pauseMenu;
     public Slider healthBar;
     public TextMeshProUGUI healthText;
 
-
     public void Initialize()
     {
         Debug.Log("UIManager Initialized");
+        RefreshReferences();
+    }
+
+    public void RefreshReferences()
+    {
+        Debug.Log("UIManager: Refreshing references");
+
+        // Re-subscribe to events (unsubscribe first to prevent duplicates)
+        GameEvents.OnPlayerHealthChanged -= UpdateHealthBar;
+        GameEvents.OnGamePaused -= ShowPauseMenu;
+        GameEvents.OnGameResumed -= HidePauseMenu;
 
         GameEvents.OnPlayerHealthChanged += UpdateHealthBar;
         GameEvents.OnGamePaused += ShowPauseMenu;
@@ -24,8 +34,18 @@ public class UIManager : MonoBehaviour
             pauseMenu.SetActive(false);
         }
 
+        // Update UI with current values
+        UpdateUIAfterSceneLoad();
     }
 
+    public void Cleanup()
+    {
+        Debug.Log("UIManager: Cleaning up");
+
+        GameEvents.OnPlayerHealthChanged -= UpdateHealthBar;
+        GameEvents.OnGamePaused -= ShowPauseMenu;
+        GameEvents.OnGameResumed -= HidePauseMenu;
+    }
 
     private void ShowPauseMenu()
     {
@@ -51,13 +71,13 @@ public class UIManager : MonoBehaviour
         }
         if (healthText != null)
         {
-            healthText.text = $"{currentHealth}/{maxHealth}";
+            healthText.text = $"{currentHealth:F0}/{maxHealth:F0}";
         }
     }
 
     public void OnResumeButtonClicked()
     {
-        GameManager.Instance.ResumeGame(); // This will toggle the pause state
+        GameManager.Instance.ResumeGame();
     }
 
     public void OnQuitButtonClicked()
@@ -65,21 +85,18 @@ public class UIManager : MonoBehaviour
         GameManager.Instance.QuitGame();
     }
 
-    private void OnDestroy()
-    {
-        GameEvents.OnPlayerHealthChanged -= UpdateHealthBar;
-        GameEvents.OnGamePaused -= ShowPauseMenu;
-        GameEvents.OnGameResumed -= HidePauseMenu;
-    }
-
     public void UpdateUIAfterSceneLoad()
     {
-        Debug.Log("UIManager: UpdateUIAfterSceneLoad called. NOTHING IMPLEMENTED HERE YET!");
+        Debug.Log("UIManager: UpdateUIAfterSceneLoad called");
 
-        if (GameManager.Instance != null)
+        if (GameManager.Instance?.playerManager != null && GameManager.Instance?.playerData != null)
         {
             UpdateHealthBar(GameManager.Instance.playerManager.currentHealth, GameManager.Instance.playerData.maxHealth);
         }
+    }
 
+    private void OnDestroy()
+    {
+        Cleanup();
     }
 }

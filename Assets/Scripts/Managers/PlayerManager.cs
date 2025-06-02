@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-public class PlayerManager : MonoBehaviour
+public class PlayerManager : MonoBehaviour, IManager
 {
     [Header("Current Stats")]
     public float currentHealth;
@@ -17,19 +17,29 @@ public class PlayerManager : MonoBehaviour
     {
         Debug.Log("PlayerManager Initialized");
 
-        playerData = GameManager.Instance.playerData;
-
-        if (playerData != null)
-        {
-            //Load health from save system first
-            LoadHealthFromSaveSystem();
-            GameEvents.TriggerPlayerHealthChanged(currentHealth, playerData.maxHealth);
-        }
-
+        RefreshReferences();
         GameEvents.OnPlayerDeath += HandlePlayerDeath;
     }
 
-    //Load health from save system
+    public void RefreshReferences()
+    {
+        Debug.Log("PlayerManager: Refreshing references");
+
+        playerData = GameManager.Instance?.playerData;
+
+        if (playerData != null)
+        {
+            LoadHealthFromSaveSystem();
+            GameEvents.TriggerPlayerHealthChanged(currentHealth, playerData.maxHealth);
+        }
+    }
+
+    public void Cleanup()
+    {
+        Debug.Log("PlayerManager: Cleaning up");
+        GameEvents.OnPlayerDeath -= HandlePlayerDeath;
+    }
+
     private void LoadHealthFromSaveSystem()
     {
         // Try to get health from SaveManager first
@@ -61,7 +71,6 @@ public class PlayerManager : MonoBehaviour
         Debug.Log("PlayerManager using max health (no save data found)");
     }
 
-    //Save health to save system whenever it changes
     private void SaveHealthToSaveSystem()
     {
         // Update SaveManager data
@@ -91,11 +100,6 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
-    {
-        GameEvents.OnPlayerDeath -= HandlePlayerDeath;
-    }
-
     private void Update()
     {
         if (isDead) return;
@@ -114,7 +118,6 @@ public class PlayerManager : MonoBehaviour
         currentHealth = Mathf.Clamp(currentHealth + amount, 0, playerData.maxHealth);
         GameEvents.TriggerPlayerHealthChanged(currentHealth, playerData.maxHealth);
 
-        //Save health whenever it changes
         SaveHealthToSaveSystem();
 
         if (currentHealth <= 0 && !isDead)
@@ -130,7 +133,6 @@ public class PlayerManager : MonoBehaviour
         isDead = false;
         currentHealth = playerData.maxHealth;
 
-        //Save the respawn health
         SaveHealthToSaveSystem();
 
         GameEvents.TriggerPlayerHealthChanged(currentHealth, playerData.maxHealth);
@@ -142,4 +144,10 @@ public class PlayerManager : MonoBehaviour
         if (isDead) return;
         Debug.Log("Handling Player Death...");
     }
+
+    private void OnDestroy()
+    {
+        Cleanup();
+    }
 }
+

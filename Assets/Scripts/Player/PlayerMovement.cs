@@ -15,7 +15,7 @@ public class PlayerMovement : MonoBehaviour
     // Private variables
     private PlayerController controller;
     private PlayerData playerData;
-    private Rigidbody rb;
+    [SerializeField] private Rigidbody rb;
     private CapsuleCollider capsuleCollider;
 
     // Movement state

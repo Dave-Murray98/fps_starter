@@ -1,7 +1,31 @@
 using System;
-using BehaviorDesigner.Runtime.Tasks.Unity.UnityAnimator;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using System.Collections.Generic;
+using System.Collections;
+
+
+/// <summary>
+/// Interface that all managers should implement for centralized management
+/// </summary>
+public interface IManager
+{
+    /// <summary>
+    /// Called when the manager should initialize itself
+    /// </summary>
+    void Initialize();
+
+    /// <summary>
+    /// Called when managers should refresh their references after scene load
+    /// </summary>
+    void RefreshReferences();
+
+    /// <summary>
+    /// Called when the manager should clean up
+    /// </summary>
+    void Cleanup();
+}
+
 
 public class GameManager : MonoBehaviour
 {
@@ -16,12 +40,17 @@ public class GameManager : MonoBehaviour
     public UIManager uiManager;
     public AudioManager audioManager;
 
-
     [Header("Game State")]
     public bool isPaused = false;
 
     [Header("Save System")]
     public bool enableAutoSave = true;
+
+    // Events for manager system
+    public static event Action OnManagersInitialized;
+    public static event Action OnManagersRefreshed;
+
+    private List<IManager> allManagers = new List<IManager>();
 
     private void Awake()
     {
@@ -29,30 +58,24 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            InitializeManagers();
         }
         else
         {
             Destroy(gameObject);
+            return;
         }
     }
 
-    private void InitializeManagers()
+    private void Start()
     {
-        if (playerManager == null)
-            playerManager = FindFirstObjectByType<PlayerManager>();
-        if (inputManager == null)
-            inputManager = FindFirstObjectByType<InputManager>();
-        if (uiManager == null)
-            uiManager = FindFirstObjectByType<UIManager>();
-        if (audioManager == null)
-            audioManager = FindFirstObjectByType<AudioManager>();
+        InitializeManagers();
 
-        playerManager?.Initialize();
-        inputManager?.Initialize();
-        uiManager?.Initialize();
-        audioManager?.Initialize();
-
+        // Initialize save system
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.OnSaveComplete += OnSaveComplete;
+            SaveManager.Instance.OnLoadComplete += OnLoadComplete;
+        }
     }
 
     private void OnEnable()
@@ -67,31 +90,102 @@ public class GameManager : MonoBehaviour
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
-        // Re-find manager references after scene load
-        StartCoroutine(RefreshManagerReferences());
+        Debug.Log($"Scene loaded: {scene.name}, refreshing manager references");
+        StartCoroutine(RefreshManagerReferencesCoroutine());
     }
 
-    private void Start()
+    private void InitializeManagers()
     {
-        // Initialize save system
-        if (SaveManager.Instance != null)
+        Debug.Log("GameManager: Initializing managers...");
+
+        FindAndRegisterManagers();
+        InitializeAllManagers();
+
+        OnManagersInitialized?.Invoke();
+        Debug.Log("GameManager: All managers initialized");
+    }
+
+    private void FindAndRegisterManagers()
+    {
+        allManagers.Clear();
+
+        // ALWAYS re-find scene-based managers (they change with each scene)
+        playerManager = FindFirstObjectByType<PlayerManager>();
+        inputManager = FindFirstObjectByType<InputManager>();
+        uiManager = FindFirstObjectByType<UIManager>();
+        audioManager = FindFirstObjectByType<AudioManager>();
+
+        Debug.Log($"GameManager: Found managers - Player: {playerManager != null}, Input: {inputManager != null}, UI: {uiManager != null}, Audio: {audioManager != null}");
+
+        // Register managers that implement IManager
+        if (playerManager != null) allManagers.Add(playerManager);
+        if (inputManager != null) allManagers.Add(inputManager);
+        if (uiManager != null) allManagers.Add(uiManager);
+        if (audioManager != null) allManagers.Add(audioManager);
+
+        Debug.Log($"GameManager: Registered {allManagers.Count} managers in scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+    }
+
+    private void InitializeAllManagers()
+    {
+        foreach (var manager in allManagers)
         {
-            SaveManager.Instance.OnSaveComplete += OnSaveComplete;
-            SaveManager.Instance.OnLoadComplete += OnLoadComplete;
+            try
+            {
+                manager.Initialize();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to initialize manager {manager.GetType().Name}: {e.Message}");
+            }
         }
     }
 
+    private IEnumerator RefreshManagerReferencesCoroutine()
+    {
+        // Wait a frame for all objects to be created
+        yield return null;
+
+        // Additional wait to ensure everything is properly set up
+        yield return new WaitForSeconds(0.1f);
+
+        RefreshManagerReferences();
+    }
+
+    private void RefreshManagerReferences()
+    {
+        Debug.Log("GameManager: Refreshing manager references...");
+
+        // Re-find and re-register managers
+        FindAndRegisterManagers();
+
+        // Refresh all manager references
+        foreach (var manager in allManagers)
+        {
+            try
+            {
+                manager.RefreshReferences();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to refresh references for manager {manager.GetType().Name}: {e.Message}");
+            }
+        }
+
+        OnManagersRefreshed?.Invoke();
+        Debug.Log("GameManager: Manager references refreshed");
+    }
+
+    // Existing methods...
     private void OnSaveComplete(bool success)
     {
         if (success)
         {
             Debug.Log("Game saved successfully!");
-            // Show save confirmation UI
         }
         else
         {
             Debug.LogError("Failed to save game!");
-            // Show error message
         }
     }
 
@@ -100,12 +194,10 @@ public class GameManager : MonoBehaviour
         if (success)
         {
             Debug.Log("Game loaded successfully!");
-            // Hide loading screen, update UI
         }
         else
         {
             Debug.LogError("Failed to load game!");
-            // Show error message, return to main menu
         }
     }
 
@@ -140,9 +232,8 @@ public class GameManager : MonoBehaviour
         if (!isPaused)
         {
             isPaused = true;
-            Time.timeScale = 0f; // Pause the game
+            Time.timeScale = 0f;
             GameEvents.TriggerGamePaused();
-            //Debug.Log("Game Paused");
         }
     }
 
@@ -151,23 +242,26 @@ public class GameManager : MonoBehaviour
         if (isPaused)
         {
             isPaused = false;
-            Time.timeScale = 1f; // Resume the game
+            Time.timeScale = 1f;
             GameEvents.TriggerGameResumed();
-            //Debug.Log("Game Resumed");
         }
     }
-
 
     public void QuitGame()
     {
         Debug.Log("Quitting Game");
 #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false; // Stop playing in the editor
+        UnityEditor.EditorApplication.isPlaying = false;
 #else
         Application.Quit();
 #endif
     }
 
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void RefreshReferences()
+    {
+        RefreshManagerReferences();
+    }
 
     private void OnDestroy()
     {
@@ -176,36 +270,18 @@ public class GameManager : MonoBehaviour
             SaveManager.Instance.OnSaveComplete -= OnSaveComplete;
             SaveManager.Instance.OnLoadComplete -= OnLoadComplete;
         }
-    }
 
-    private System.Collections.IEnumerator RefreshManagerReferences()
-    {
-        // Wait a frame for all objects to be created
-        yield return null;
-
-        // Re-find managers in the new scene
-        if (playerManager == null)
-            playerManager = FindFirstObjectByType<PlayerManager>();
-        if (inputManager == null)
-            inputManager = FindFirstObjectByType<InputManager>();
-        if (uiManager == null)
-            uiManager = FindFirstObjectByType<UIManager>();
-        if (audioManager == null)
-            audioManager = FindFirstObjectByType<AudioManager>();
-
-        // Re-initialize managers
-        playerManager?.Initialize();
-        inputManager?.Initialize();
-        uiManager?.Initialize();
-        audioManager?.Initialize();
-
-        Debug.Log("GameManager references refreshed after scene load");
-    }
-
-    // Add this method for manual refresh if needed
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    public void RefreshReferences()
-    {
-        StartCoroutine(RefreshManagerReferences());
+        // Cleanup all managers
+        foreach (var manager in allManagers)
+        {
+            try
+            {
+                manager.Cleanup();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to cleanup manager {manager.GetType().Name}: {e.Message}");
+            }
+        }
     }
 }

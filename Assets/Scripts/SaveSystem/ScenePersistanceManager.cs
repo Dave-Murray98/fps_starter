@@ -44,21 +44,21 @@ public class ScenePersistenceManager : MonoBehaviour
         }
     }
 
-
     /// <summary>
-    /// Call this before changing scenes to collect current scene data
+    /// Enhanced PrepareSceneChange with save context
     /// </summary>
-    public void PrepareSceneChange(string newSceneName, bool isLoadingFromSaveFile = false)
+    public void PrepareSceneChange(string newSceneName, bool isLoadingFromSaveFile = false, SaveContext saveContext = SaveContext.SceneTransition)
     {
         targetScene = newSceneName;
         isLoadingFromSave = isLoadingFromSaveFile;
 
         if (!isLoadingFromSave)
         {
-            CollectCurrentSceneData();
+            // Use the appropriate save context when collecting scene data
+            CollectCurrentSceneData(saveContext);
         }
 
-        Debug.Log($"Prepared scene change to: {newSceneName}, FromSave: {isLoadingFromSave}");
+        Debug.Log($"Prepared scene change to: {newSceneName}, FromSave: {isLoadingFromSave}, Context: {saveContext}");
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public class ScenePersistenceManager : MonoBehaviour
         {
             if (isLoadingFromSave)
             {
-                // Loading from save file - restore all data
+                // Loading from save file - restore all data including position
                 RestoreSceneData(sceneName, true);
                 RestorePlayerData();
             }
@@ -107,7 +107,10 @@ public class ScenePersistenceManager : MonoBehaviour
         return persistentData;
     }
 
-    private void CollectCurrentSceneData()
+    /// <summary>
+    /// Enhanced CollectCurrentSceneData with context awareness
+    /// </summary>
+    private void CollectCurrentSceneData(SaveContext context = SaveContext.GameSave)
     {
         if (persistentData == null) return;
 
@@ -124,19 +127,38 @@ public class ScenePersistenceManager : MonoBehaviour
         sceneData.lastVisited = System.DateTime.Now;
         sceneData.hasBeenVisited = true;
 
-        // Collect data from all ISaveable objects in the scene, but don't save the player position
+        // Collect data from all ISaveable objects with context awareness
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None).OfType<ISaveable>().ToArray();
 
-
+        int savedObjectCount = 0;
         foreach (var saveable in saveableObjects)
         {
             try
             {
                 saveable.OnBeforeSave();
-                var data = saveable.GetSaveData();
-                if (data != null)
+
+                // Handle PlayerSaveComponent specially based on context
+                if (saveable is PlayerSaveComponent playerSaveComponent)
                 {
-                    sceneData.SetObjectData(saveable.SaveID, data);
+                    object data = context == SaveContext.SceneTransition
+                        ? playerSaveComponent.GetSaveDataWithoutPosition()
+                        : playerSaveComponent.GetSaveData();
+
+                    if (data != null)
+                    {
+                        sceneData.SetObjectData(saveable.SaveID, data);
+                        savedObjectCount++;
+                    }
+                }
+                else
+                {
+                    // For all other ISaveable objects, always save normally
+                    var data = saveable.GetSaveData();
+                    if (data != null)
+                    {
+                        sceneData.SetObjectData(saveable.SaveID, data);
+                        savedObjectCount++;
+                    }
                 }
             }
             catch (System.Exception e)
@@ -146,7 +168,7 @@ public class ScenePersistenceManager : MonoBehaviour
         }
 
         OnSceneDataCollected?.Invoke(currentScene);
-        Debug.Log($"Collected scene data for: {currentScene} ({saveableObjects.Length} objects)");
+        Debug.Log($"Collected scene data for: {currentScene} ({savedObjectCount} objects) with context: {context}");
     }
 
     private void RestoreSceneData(string sceneName, bool restorePlayerPosition = true)
@@ -169,59 +191,45 @@ public class ScenePersistenceManager : MonoBehaviour
         // Find all ISaveable objects in the new scene
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None).OfType<ISaveable>().ToArray();
 
-        if (restorePlayerPosition)
+        int restoredObjectCount = 0;
+        foreach (var saveable in saveableObjects)
         {
-            foreach (var saveable in saveableObjects)
+            try
             {
-                try
+                var data = sceneData.GetObjectData<object>(saveable.SaveID);
+                if (data != null)
                 {
-                    var data = sceneData.GetObjectData<object>(saveable.SaveID);
-                    if (data != null)
+                    if (saveable is PlayerSaveComponent playerSaveComponent)
                     {
-                        saveable.LoadSaveData(data);
-                        saveable.OnAfterLoad();
-                    }
-                }
-                catch (System.Exception e)
-                {
-                    Debug.LogError($"Failed to load data for {saveable.SaveID}: {e.Message}");
-                }
-            }
-        }
-        else
-        {
-            foreach (var saveable in saveableObjects)
-            {
-                try
-                {
-                    var data = sceneData.GetObjectData<object>(saveable.SaveID);
-                    if (data != null && saveable is not PlayerSaveComponent) // Skip PlayerSaveComponent if not restoring position
-                    {
-                        saveable.LoadSaveData(data);
-                        saveable.OnAfterLoad();
-                    }
-                    else if (saveable is PlayerSaveComponent)
-                    {
-                        var playerSaveComponent = saveable as PlayerSaveComponent;
-                        if (playerSaveComponent != null)
+                        // Handle PlayerSaveComponent based on whether we want to restore position
+                        if (restorePlayerPosition)
+                        {
+                            playerSaveComponent.LoadSaveData(data);
+                        }
+                        else
                         {
                             playerSaveComponent.LoadSaveDataWithoutPosition(data);
-                            playerSaveComponent.OnAfterLoad();
-                            Debug.Log("Player data restored via PlayerSaveComponent without position");
                         }
+                        Debug.Log($"Player data restored via PlayerSaveComponent {(restorePlayerPosition ? "with" : "without")} position");
+                    }
+                    else
+                    {
+                        // For all other saveable objects, load normally
+                        saveable.LoadSaveData(data);
                     }
 
+                    saveable.OnAfterLoad();
+                    restoredObjectCount++;
                 }
-                catch (System.Exception e)
-                {
-                    Debug.LogError($"Failed to load data for {saveable.SaveID}: {e.Message}");
-                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to load data for {saveable.SaveID}: {e.Message}");
             }
         }
 
-
         OnSceneDataRestored?.Invoke(sceneData.sceneName);
-        Debug.Log($"Restored scene data for: {sceneData.sceneName} ({saveableObjects.Length} objects)");
+        Debug.Log($"Restored scene data for: {sceneData.sceneName} ({restoredObjectCount} objects)");
     }
 
     private void RestorePlayerData()

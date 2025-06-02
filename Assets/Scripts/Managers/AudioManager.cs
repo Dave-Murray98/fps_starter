@@ -1,14 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class AudioManager : MonoBehaviour
+public class AudioManager : MonoBehaviour, IManager
 {
-
-    public void Initialize()
-    {
-        Debug.Log("AudioManager Initialized");
-    }
-
     // Dictionary to store volume levels
     private Dictionary<string, float> volumeLevels = new Dictionary<string, float>()
     {
@@ -16,6 +10,25 @@ public class AudioManager : MonoBehaviour
         {"SFX", 1f},
         {"Music", 1f}
     };
+
+    public void Initialize()
+    {
+        Debug.Log("AudioManager Initialized");
+        RefreshReferences();
+    }
+
+    public void RefreshReferences()
+    {
+        Debug.Log("AudioManager: Refreshing references");
+        // AudioManager typically doesn't need to refresh references
+        // but we could reload audio settings here if needed
+    }
+
+    public void Cleanup()
+    {
+        Debug.Log("AudioManager: Cleaning up");
+        // Cleanup audio resources if needed
+    }
 
     public float GetVolume(string audioType)
     {
@@ -44,4 +57,8 @@ public class AudioManager : MonoBehaviour
         Debug.Log($"Set {audioType} volume to {volume}");
     }
 
+    private void OnDestroy()
+    {
+        Cleanup();
+    }
 }

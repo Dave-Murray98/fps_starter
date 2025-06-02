@@ -53,6 +53,21 @@ public class PlayerSaveComponent : SaveComponentBase
 
     public override object GetSaveData()
     {
+        // This method always includes position - used for game saves
+        return GetPlayerSaveData(true);
+    }
+
+    public object GetSaveDataWithoutPosition()
+    {
+        // This method excludes position - used for scene transitions
+        return GetPlayerSaveData(false);
+    }
+
+    /// <summary>
+    /// Unified method to get save data with or without position
+    /// </summary>
+    private object GetPlayerSaveData(bool includePosition)
+    {
         if (playerController == null)
         {
             Debug.LogError("PlayerController reference is null!");
@@ -61,8 +76,8 @@ public class PlayerSaveComponent : SaveComponentBase
 
         var saveData = new PlayerSaveData();
 
-        // Save transform data
-        if (saveTransform && playerTransform != null)
+        // Save transform data only if requested
+        if (includePosition && saveTransform && playerTransform != null)
         {
             saveData.position = playerTransform.position;
             saveData.rotation = playerTransform.eulerAngles;
@@ -109,65 +124,27 @@ public class PlayerSaveComponent : SaveComponentBase
             saveData.canCrouch = playerController.canCrouch;
         }
 
-        DebugLog($"Saved player data: Pos={saveData.position}, Health={saveData.health}/{saveData.maxHealth}");
-        return saveData;
-    }
-
-    public object GetSaveDataWithoutPosition()
-    {
-        if (playerController == null)
-        {
-            Debug.LogError("PlayerController reference is null!");
-            return null;
-        }
-
-        var saveData = new PlayerSaveData();
-
-        // Save stats from PlayerManager
-        if (saveStats && playerManager != null && playerData != null)
-        {
-            saveData.health = playerManager.currentHealth;
-            saveData.maxHealth = playerData.maxHealth;
-            saveData.level = 1; // You can add level system later
-            saveData.experience = 0f; // You can add experience system later
-        }
-
-        // Save settings from PlayerData and AudioManager
-        if (saveSettings)
-        {
-            if (playerData != null)
-            {
-                saveData.lookSensitivity = playerData.lookSensitivity;
-            }
-
-            if (audioManager != null)
-            {
-                saveData.masterVolume = audioManager.GetVolume("Master");
-                saveData.sfxVolume = audioManager.GetVolume("SFX");
-                saveData.musicVolume = audioManager.GetVolume("Music");
-            }
-            else
-            {
-                // Fallback values if AudioManager not available
-                saveData.masterVolume = 1f;
-                saveData.sfxVolume = 1f;
-                saveData.musicVolume = 1f;
-            }
-        }
-
-        // Save abilities from PlayerController
-        if (saveAbilities && playerController != null)
-        {
-            saveData.canJump = playerController.canJump;
-            saveData.canSprint = playerController.canSprint;
-            saveData.canCrouch = playerController.canCrouch;
-        }
-
-        DebugLog($"Saved player data: Pos={saveData.position}, Health={saveData.health}/{saveData.maxHealth}");
+        string positionInfo = includePosition ? $"Pos={saveData.position}" : "Pos=EXCLUDED";
+        DebugLog($"Saved player data: {positionInfo}, Health={saveData.health}/{saveData.maxHealth}");
         return saveData;
     }
 
     public override void LoadSaveData(object data)
+    {
+        // This method always loads position - used for game saves
+        LoadPlayerSaveData(data, true);
+    }
+
+    public void LoadSaveDataWithoutPosition(object data)
+    {
+        // This method excludes position - used for scene transitions
+        LoadPlayerSaveData(data, false);
+    }
+
+    /// <summary>
+    /// Unified method to load save data with or without position
+    /// </summary>
+    private void LoadPlayerSaveData(object data, bool includePosition)
     {
         if (!(data is PlayerSaveData playerSaveData))
         {
@@ -181,8 +158,8 @@ public class PlayerSaveComponent : SaveComponentBase
             return;
         }
 
-        // Load transform data
-        if (saveTransform && playerTransform != null)
+        // Load transform data only if requested
+        if (includePosition && saveTransform && playerTransform != null)
         {
             playerTransform.position = playerSaveData.position;
             playerTransform.eulerAngles = playerSaveData.rotation;
@@ -231,69 +208,8 @@ public class PlayerSaveComponent : SaveComponentBase
             playerController.canCrouch = playerSaveData.canCrouch;
         }
 
-        DebugLog($"Loaded player data: Pos={playerSaveData.position}, Health={playerSaveData.health}/{playerSaveData.maxHealth}");
-    }
-
-    public void LoadSaveDataWithoutPosition(object data)
-    {
-        DebugLog("Loading player save data without position...");
-
-
-        if (!(data is PlayerSaveData playerSaveData))
-        {
-            Debug.LogError("Invalid save data type for PlayerSaveComponent");
-            return;
-        }
-
-        if (playerController == null)
-        {
-            Debug.LogError("PlayerController reference is null!");
-            return;
-        }
-
-        // Load stats into PlayerManager
-        if (saveStats && playerManager != null)
-        {
-            // Set current health directly (PlayerManager will handle clamping)
-            playerManager.currentHealth = Mathf.Clamp(playerSaveData.health, 0f, playerSaveData.maxHealth);
-
-            // Update max health if it changed (you might want to modify PlayerData at runtime)
-            if (playerData != null && playerData.maxHealth != playerSaveData.maxHealth)
-            {
-                playerData.maxHealth = playerSaveData.maxHealth;
-            }
-
-            // Trigger health changed event to update UI
-            GameEvents.TriggerPlayerHealthChanged(playerManager.currentHealth, playerData?.maxHealth ?? 100f);
-
-            // TODO: Load level and experience when you add those systems
-        }
-
-        // Load settings into PlayerData and AudioManager
-        if (saveSettings)
-        {
-            if (playerData != null)
-            {
-                playerData.lookSensitivity = playerSaveData.lookSensitivity;
-            }
-
-            if (audioManager != null)
-            {
-                audioManager.SetVolume("Master", playerSaveData.masterVolume);
-                audioManager.SetVolume("SFX", playerSaveData.sfxVolume);
-                audioManager.SetVolume("Music", playerSaveData.musicVolume);
-            }
-        }
-
-        // Load abilities into PlayerController
-        if (saveAbilities && playerController != null)
-        {
-            playerController.canJump = playerSaveData.canJump;
-            playerController.canSprint = playerSaveData.canSprint;
-            playerController.canCrouch = playerSaveData.canCrouch;
-        }
-
-        DebugLog($"Loaded player data: Pos={playerSaveData.position}, Health={playerSaveData.health}/{playerSaveData.maxHealth}");
+        string positionInfo = includePosition ? $"Pos={playerSaveData.position}" : "Pos=EXCLUDED";
+        DebugLog($"Loaded player data: {positionInfo}, Health={playerSaveData.health}/{playerSaveData.maxHealth}");
     }
 
     public override void OnAfterLoad()

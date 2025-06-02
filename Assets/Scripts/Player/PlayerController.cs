@@ -62,21 +62,20 @@ public class PlayerController : MonoBehaviour
     private void Start()
     {
         Initialize();
+
+        // Subscribe to manager events
+        GameManager.OnManagersRefreshed += RefreshComponentReferences;
+        InputManager.OnInputManagerReady += OnInputManagerReady;
     }
 
     private void Initialize()
     {
-        // Get references
-        inputManager = GameManager.Instance.inputManager;
-        playerData = GameManager.Instance.playerData;
+        RefreshComponentReferences();
 
         // Initialize components
         movement.Initialize(this);
         playerCamera.Initialize(this);
         playerAudio.Initialize(this);
-
-        // ALWAYS re-subscribe to input events (even if already subscribed)
-        SubscribeToInputEvents();
 
         // Lock cursor for first-person
         Cursor.lockState = CursorLockMode.Locked;
@@ -85,61 +84,78 @@ public class PlayerController : MonoBehaviour
         Debug.Log("PlayerController initialized");
     }
 
-    private void SubscribeToInputEvents()
+    private void OnInputManagerReady(InputManager newInputManager)
     {
+        // Connect to the new InputManager
+        ConnectToInputManager(newInputManager);
+    }
+
+    private void RefreshComponentReferences()
+    {
+        Debug.Log("PlayerController: Refreshing component references");
+
+        // Get references
+        inputManager = GameManager.Instance?.inputManager;
+        playerData = GameManager.Instance?.playerData;
+
+        Debug.Log($"PlayerController: GameManager.Instance.inputManager = {GameManager.Instance?.inputManager?.GetInstanceID()}");
+
+        // Connect to InputManager immediately if available
         if (inputManager != null)
         {
-            // Unsubscribe first to prevent double subscription
-            inputManager.OnJumpPressed -= HandleJumpInput;
-            inputManager.OnCrouchPressed -= HandleCrouchInput;
-            inputManager.OnCrouchReleased -= HandleCrouchReleased;
+            ConnectToInputManager(inputManager);
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController: InputManager is null in RefreshComponentReferences!");
+        }
 
-            // Subscribe to input events
+        // Start coroutine to save position after player has moved
+        StartCoroutine(SavePositionAfterMovement());
+    }
+
+    private void ConnectToInputManager(InputManager newInputManager)
+    {
+        // Disconnect from previous InputManager
+        DisconnectFromInputManager();
+
+        // Connect to new InputManager
+        inputManager = newInputManager;
+
+        if (inputManager != null)
+        {
             inputManager.OnJumpPressed += HandleJumpInput;
             inputManager.OnCrouchPressed += HandleCrouchInput;
             inputManager.OnCrouchReleased += HandleCrouchReleased;
 
-            Debug.Log("PlayerController subscribed to input events");
+            Debug.Log($"PlayerController connected to InputManager: {inputManager.GetInstanceID()}");
         }
         else
         {
-            Debug.LogWarning("InputManager is null in PlayerController!");
+            Debug.LogWarning("PlayerController: InputManager is null!");
         }
     }
 
-    public void RefreshComponentReferences()
+    private void DisconnectFromInputManager()
     {
-        // Re-get references in case they changed
-        inputManager = GameManager.Instance?.inputManager;
-        playerData = GameManager.Instance?.playerData;
-
-        // Re-subscribe to input events
-        SubscribeToInputEvents();
-
-        // NEW: Start a coroutine to save position after player has moved away from spawn
-        StartCoroutine(SavePositionAfterMovement());
-
-        Debug.Log("[PlayerController] Component references refreshed");
+        if (inputManager != null)
+        {
+            inputManager.OnJumpPressed -= HandleJumpInput;
+            inputManager.OnCrouchPressed -= HandleCrouchInput;
+            inputManager.OnCrouchReleased -= HandleCrouchReleased;
+        }
     }
 
     private System.Collections.IEnumerator SavePositionAfterMovement()
     {
         Vector3 initialPosition = transform.position;
-
-        // Wait a bit for player to potentially move
         yield return new WaitForSeconds(2f);
 
-        // Check if player has moved significantly from spawn
         float distanceMoved = Vector3.Distance(initialPosition, transform.position);
-
-        if (distanceMoved > 1f) // If player moved more than 1 unit
+        if (distanceMoved > 1f)
         {
             SavePositionToSaveSystem();
-            Debug.Log($"[PlayerController] Position saved after movement: {transform.position}");
-        }
-        else
-        {
-            Debug.Log("[PlayerController] Player hasn't moved much, not saving spawn position");
+            Debug.Log($"PlayerController: Position saved after movement: {transform.position}");
         }
     }
 
@@ -174,46 +190,23 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    public void LoadPositionFromSaveSystem()
-    {
-        Debug.Log("Loading player position from save system...");
-        Vector3 savedPosition = Vector3.zero;
-        float savedRotation = 0f;
-        bool foundSaveData = false;
-
-        // Try SaveManager first
-        if (SaveManager.Instance != null && SaveManager.Instance.CurrentGameData?.playerData != null)
-        {
-            var playerData = SaveManager.Instance.CurrentGameData.playerData;
-            savedPosition = playerData.position;
-            savedRotation = playerData.rotation.y;
-            foundSaveData = true;
-            Debug.Log($"PlayerController loaded position FROM SAVEMANAGER: {savedPosition}");
-        }
-        // Try ScenePersistenceManager
-        else if (ScenePersistenceManager.Instance != null)
-        {
-            var persistentData = ScenePersistenceManager.Instance.GetPersistentData();
-            if (persistentData?.playerData != null)
-            {
-                savedPosition = persistentData.playerData.position;
-                savedRotation = persistentData.playerData.rotation.y;
-                foundSaveData = true;
-                Debug.Log($"PlayerController loaded position FROM SCENEPERSISTENCEMANAGER: {savedPosition}");
-            }
-        }
-
-        if (foundSaveData && savedPosition != Vector3.zero)
-        {
-            transform.position = savedPosition;
-            transform.rotation = Quaternion.Euler(0, savedRotation, 0);
-            Debug.Log($"PlayerController loaded position from save: {savedPosition}");
-        }
-    }
-
     private void Update()
     {
         if (!GameManager.Instance || GameManager.Instance.isPaused) return;
+
+        // TEMPORARY DEBUG CODE - Remove after fixing
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            Debug.Log("=== DEBUG: Space key pressed directly via Input.GetKeyDown ===");
+            if (inputManager != null)
+            {
+                inputManager.DebugInputState(); // Call the debug method
+            }
+            else
+            {
+                Debug.Log("InputManager is null in PlayerController!");
+            }
+        }
 
         UpdateMovementState();
         HandleInput();
@@ -285,9 +278,14 @@ public class PlayerController : MonoBehaviour
     // Input handlers
     private void HandleJumpInput()
     {
+        Debug.Log("PlayerController: Jump input received!");
         if (canJump && movement.IsGrounded && !movement.IsCrouching)
         {
             movement.Jump();
+        }
+        else
+        {
+            Debug.Log($"PlayerController: Jump blocked - canJump: {canJump}, isGrounded: {movement.IsGrounded}, isCrouching: {movement.IsCrouching}");
         }
     }
 
@@ -323,11 +321,9 @@ public class PlayerController : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (inputManager != null)
-        {
-            inputManager.OnJumpPressed -= HandleJumpInput;
-            inputManager.OnCrouchPressed -= HandleCrouchInput;
-            inputManager.OnCrouchReleased -= HandleCrouchReleased;
-        }
+        // Unsubscribe from events
+        GameManager.OnManagersRefreshed -= RefreshComponentReferences;
+        InputManager.OnInputManagerReady -= OnInputManagerReady;
+        DisconnectFromInputManager();
     }
 }

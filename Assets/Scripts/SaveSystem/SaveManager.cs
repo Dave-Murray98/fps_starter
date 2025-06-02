@@ -1,9 +1,18 @@
 using UnityEngine;
 using System.Collections;
-using System.Collections.Generic;
-using ES3Types;
 using System.Linq;
 
+
+/// <summary>
+/// Defines the context in which save data is being collected
+/// This allows different behavior based on the situation
+/// </summary>
+public enum SaveContext
+{
+    GameSave,           // Full game save - save everything including player position
+    SceneTransition,    // Scene change via portal - save scene objects but not player position
+    AutoSave            // Auto-save - save everything
+}
 
 /// <summary>
 /// Main save/load system manager
@@ -11,7 +20,6 @@ using System.Linq;
 /// </summary>
 public class SaveManager : MonoBehaviour
 {
-
     public static SaveManager Instance { get; private set; }
 
     // Add this flag to track application quitting
@@ -214,7 +222,7 @@ public class SaveManager : MonoBehaviour
             if (CanAutoSave())
             {
                 DebugLog("Auto-saving...");
-                yield return SaveGameCoroutine();
+                yield return SaveGameCoroutine(SaveContext.AutoSave);
                 OnAutoSave?.Invoke();
             }
         }
@@ -278,7 +286,7 @@ public class SaveManager : MonoBehaviour
 
                 // Set persistent data for scene management
                 ScenePersistenceManager.Instance.SetPersistentData(saveData);
-                ScenePersistenceManager.Instance.PrepareSceneChange(targetScene, true);
+                ScenePersistenceManager.Instance.PrepareSceneChange(targetScene, true, SaveContext.GameSave);
 
                 UnityEngine.SceneManagement.SceneManager.LoadScene(targetScene);
             }
@@ -291,9 +299,9 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    private IEnumerator SaveGameCoroutine()
+    private IEnumerator SaveGameCoroutine(SaveContext saveContext = SaveContext.GameSave)
     {
-        DebugLog("Starting save operation...");
+        DebugLog($"Starting save operation with context: {saveContext}...");
         bool success = false;
 
         // Update save metadata
@@ -365,7 +373,7 @@ public class SaveManager : MonoBehaviour
 
             if (!string.IsNullOrEmpty(targetScene))
             {
-                ScenePersistenceManager.Instance.PrepareSceneChange(targetScene, true);
+                ScenePersistenceManager.Instance.PrepareSceneChange(targetScene, true, SaveContext.GameSave);
 
                 // Only load scene if it's different from current scene
                 if (targetScene != currentScene)
@@ -575,7 +583,7 @@ public class SaveManager : MonoBehaviour
     {
         if (CanAutoSave())
         {
-            StartCoroutine(SaveGameCoroutine());
+            StartCoroutine(SaveGameCoroutine(SaveContext.AutoSave));
         }
     }
 
