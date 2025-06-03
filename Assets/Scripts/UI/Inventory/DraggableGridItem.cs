@@ -48,7 +48,7 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
     private void SetupRotationInput()
     {
         // Find the InputManager and get the UI action map
-        var inputManager = FindObjectOfType<InputManager>();
+        var inputManager = FindFirstObjectByType<InputManager>();
         if (inputManager?.inputActions != null)
         {
             var uiActionMap = inputManager.inputActions.FindActionMap("UI");
