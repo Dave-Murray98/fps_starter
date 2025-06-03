@@ -79,9 +79,9 @@ public class PlayerController : MonoBehaviour
 
         // Lock cursor for first-person
         //Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        //Cursor.visible = false;
 
-        Debug.Log("PlayerController initialized");
+        //Debug.Log("PlayerController initialized");
     }
 
     private void OnInputManagerReady(InputManager newInputManager)
@@ -91,7 +91,7 @@ public class PlayerController : MonoBehaviour
 
     private void RefreshComponentReferences()
     {
-        Debug.Log("PlayerController: Refreshing component references");
+        //Debug.Log("PlayerController: Refreshing component references");
 
         // Get references from SimplifiedGameManager
         inputManager = GameManager.Instance?.inputManager;
@@ -104,7 +104,7 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("PlayerController: InputManager is null in RefreshComponentReferences!");
+            // Debug.LogWarning("PlayerController: InputManager is null in RefreshComponentReferences!");
         }
     }
 
@@ -120,7 +120,7 @@ public class PlayerController : MonoBehaviour
             inputManager.OnCrouchPressed += HandleCrouchInput;
             inputManager.OnCrouchReleased += HandleCrouchReleased;
 
-            Debug.Log($"PlayerController connected to InputManager: {inputManager.GetInstanceID()}");
+            //            Debug.Log($"PlayerController connected to InputManager: {inputManager.GetInstanceID()}");
         }
     }
 

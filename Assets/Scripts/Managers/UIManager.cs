@@ -12,13 +12,13 @@ public class UIManager : MonoBehaviour, IManager
 
     public void Initialize()
     {
-        Debug.Log("UIManager Initialized");
+        //   Debug.Log("UIManager Initialized");
         RefreshReferences();
     }
 
     public void RefreshReferences()
     {
-        Debug.Log("UIManager: Refreshing references");
+        //        Debug.Log("UIManager: Refreshing references");
 
         // Re-subscribe to events (unsubscribe first to prevent duplicates)
         GameEvents.OnPlayerHealthChanged -= UpdateHealthBar;
@@ -40,7 +40,7 @@ public class UIManager : MonoBehaviour, IManager
 
     public void Cleanup()
     {
-        Debug.Log("UIManager: Cleaning up");
+        //Debug.Log("UIManager: Cleaning up");
 
         GameEvents.OnPlayerHealthChanged -= UpdateHealthBar;
         GameEvents.OnGamePaused -= ShowPauseMenu;
@@ -120,12 +120,12 @@ public class UIManager : MonoBehaviour, IManager
         // 1. If loading same scene, player probably wants to continue playing
         // 2. If loading different scene, pause state gets reset anyway
 
-        Debug.Log("UIManager: Load game initiated");
+        //     Debug.Log("UIManager: Load game initiated");
     }
 
     public void UpdateUIAfterSceneLoad()
     {
-        Debug.Log("UIManager: UpdateUIAfterSceneLoad called");
+        //   Debug.Log("UIManager: UpdateUIAfterSceneLoad called");
 
         if (GameManager.Instance?.playerManager != null && GameManager.Instance?.playerData != null)
         {

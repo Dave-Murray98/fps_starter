@@ -66,7 +66,7 @@ public class LoadingScreenManager : MonoBehaviour
             progressSlider.value = 0f;
         }
 
-        Debug.Log("LoadingScreenManager initialized");
+        //        Debug.Log("LoadingScreenManager initialized");
     }
 
     private void Update()

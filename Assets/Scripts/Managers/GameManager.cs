@@ -80,17 +80,17 @@ public class GameManager : MonoBehaviour
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
-        Debug.Log($"Scene loaded: {scene.name}, refreshing manager references");
+        //Debug.Log($"Scene loaded: {scene.name}, refreshing manager references");
         StartCoroutine(RefreshManagerReferencesCoroutine());
     }
 
     private void InitializeManagers()
     {
-        Debug.Log("GameManager: Initializing managers...");
+        //Debug.Log("GameManager: Initializing managers...");
         FindAndRegisterManagers();
         InitializeAllManagers();
         OnManagersInitialized?.Invoke();
-        Debug.Log("GameManager: All managers initialized");
+        //Debug.Log("GameManager: All managers initialized");
     }
 
     private void FindAndRegisterManagers()
@@ -103,7 +103,7 @@ public class GameManager : MonoBehaviour
         uiManager = FindFirstObjectByType<UIManager>();
         audioManager = FindFirstObjectByType<AudioManager>();
 
-        Debug.Log($"GameManager: Found managers - Player: {playerManager != null}, Input: {inputManager != null}, UI: {uiManager != null}, Audio: {audioManager != null}");
+        //  Debug.Log($"GameManager: Found managers - Player: {playerManager != null}, Input: {inputManager != null}, UI: {uiManager != null}, Audio: {audioManager != null}");
 
         // Register managers that implement IManager
         if (playerManager != null) allManagers.Add(playerManager);
@@ -111,7 +111,7 @@ public class GameManager : MonoBehaviour
         if (uiManager != null) allManagers.Add(uiManager);
         if (audioManager != null) allManagers.Add(audioManager);
 
-        Debug.Log($"GameManager: Registered {allManagers.Count} managers in scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+        //  Debug.Log($"GameManager: Registered {allManagers.Count} managers in scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
     }
 
     private void InitializeAllManagers()
@@ -138,7 +138,7 @@ public class GameManager : MonoBehaviour
 
     private void RefreshManagerReferences()
     {
-        Debug.Log("GameManager: Refreshing manager references...");
+        //  Debug.Log("GameManager: Refreshing manager references...");
         FindAndRegisterManagers();
 
         foreach (var manager in allManagers)
@@ -154,7 +154,7 @@ public class GameManager : MonoBehaviour
         }
 
         OnManagersRefreshed?.Invoke();
-        Debug.Log("GameManager: Manager references refreshed");
+        // Debug.Log("GameManager: Manager references refreshed");
     }
 
     // Simplified save/load methods - just delegate to SimplifiedSaveManager

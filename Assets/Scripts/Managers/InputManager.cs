@@ -60,7 +60,7 @@ public class InputManager : MonoBehaviour, IManager
 
     public void Initialize()
     {
-        Debug.Log($"InputManager Initialized - Instance ID: {GetInstanceID()}");
+        //        Debug.Log($"InputManager Initialized - Instance ID: {GetInstanceID()}");
         isCleanedUp = false;
 
         SetupInputActions();
@@ -78,7 +78,7 @@ public class InputManager : MonoBehaviour, IManager
 
     public void RefreshReferences()
     {
-        Debug.Log($"InputManager: Refreshing references - Instance ID: {GetInstanceID()}");
+        //    Debug.Log($"InputManager: Refreshing references - Instance ID: {GetInstanceID()}");
 
         // CRITICAL: Ensure input actions are enabled when refreshing
         if (!isCleanedUp)
@@ -90,7 +90,7 @@ public class InputManager : MonoBehaviour, IManager
 
     public void Cleanup()
     {
-        Debug.Log($"InputManager: Cleaning up - Instance ID: {GetInstanceID()}");
+        //   Debug.Log($"InputManager: Cleaning up - Instance ID: {GetInstanceID()}");
 
         // Mark as cleaned up to prevent event calls
         isCleanedUp = true;
@@ -137,7 +137,7 @@ public class InputManager : MonoBehaviour, IManager
 
         SubscribeToInputActions();
 
-        Debug.Log("Input actions set up successfully");
+        //  Debug.Log("Input actions set up successfully");
     }
 
     private void SubscribeToInputActions()
@@ -189,7 +189,7 @@ public class InputManager : MonoBehaviour, IManager
             return;
         }
 
-        Debug.Log("Jump action performed");
+        // Debug.Log("Jump action performed");
 
         JumpPressed = true;
         OnJumpPressed?.Invoke();
@@ -258,7 +258,7 @@ public class InputManager : MonoBehaviour, IManager
             return;
         }
 
-        Debug.Log("Enabling LOCOMOTION input actions");
+        //  Debug.Log("Enabling LOCOMOTION input actions");
 
         // CRITICAL: Ensure action maps are valid before enabling
         if (locomotionActionMap == null || uiActionMap == null)
@@ -273,30 +273,30 @@ public class InputManager : MonoBehaviour, IManager
         // Verify that actions are actually enabled
         bool locomotionEnabled = locomotionActionMap?.enabled ?? false;
         bool uiEnabled = uiActionMap?.enabled ?? false;
-        Debug.Log($"Input actions enabled - Locomotion: {locomotionEnabled}, UI: {uiEnabled}");
+        //  Debug.Log($"Input actions enabled - Locomotion: {locomotionEnabled}, UI: {uiEnabled}");
 
         // Also verify specific actions
-        if (jumpAction != null)
-        {
-            Debug.Log($"Jump action enabled: {jumpAction.enabled}");
-        }
-        else
-        {
-            Debug.LogWarning("Jump action is null!");
-        }
+        // if (jumpAction != null)
+        // {
+        //     Debug.Log($"Jump action enabled: {jumpAction.enabled}");
+        // }
+        // else
+        // {
+        //     Debug.LogWarning("Jump action is null!");
+        // }
     }
 
     public void DisableLocomotionInput()
     {
         if (isCleanedUp) return;
 
-        Debug.Log("Disabling LOCOMOTION input actions");
+        //    Debug.Log("Disabling LOCOMOTION input actions");
         locomotionActionMap?.Disable();
     }
 
     private void DisableAllInputActions()
     {
-        Debug.Log("Disabling all input actions");
+        //        Debug.Log("Disabling all input actions");
         locomotionActionMap?.Disable();
         uiActionMap?.Disable();
     }

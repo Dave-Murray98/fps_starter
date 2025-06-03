@@ -13,20 +13,20 @@ public class AudioManager : MonoBehaviour, IManager
 
     public void Initialize()
     {
-        Debug.Log("AudioManager Initialized");
+        //        Debug.Log("AudioManager Initialized");
         RefreshReferences();
     }
 
     public void RefreshReferences()
     {
-        Debug.Log("AudioManager: Refreshing references");
+        //   Debug.Log("AudioManager: Refreshing references");
         // AudioManager typically doesn't need to refresh references
         // but we could reload audio settings here if needed
     }
 
     public void Cleanup()
     {
-        Debug.Log("AudioManager: Cleaning up");
+        // Debug.Log("AudioManager: Cleaning up");
         // Cleanup audio resources if needed
     }
 

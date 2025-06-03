@@ -58,7 +58,7 @@ public class PlayerMovement : MonoBehaviour
         crouchHeight = originalHeight * 0.5f;
         crouchCenter = new Vector3(originalCenter.x, originalCenter.y - (originalHeight - crouchHeight) * 0.5f, originalCenter.z);
 
-        Debug.Log("PlayerMovement initialized");
+        //        Debug.Log("PlayerMovement initialized");
     }
 
     private void FixedUpdate()

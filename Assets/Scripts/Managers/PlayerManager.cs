@@ -16,14 +16,14 @@ public class PlayerManager : MonoBehaviour, IManager
 
     public void Initialize()
     {
-        Debug.Log("PlayerManager Initialized");
+        //        Debug.Log("PlayerManager Initialized");
         RefreshReferences();
         GameEvents.OnPlayerDeath += HandlePlayerDeath;
     }
 
     public void RefreshReferences()
     {
-        Debug.Log("PlayerManager: Refreshing references");
+        //   Debug.Log("PlayerManager: Refreshing references");
         playerData = GameManager.Instance?.playerData;
 
         if (playerData != null)
@@ -40,7 +40,7 @@ public class PlayerManager : MonoBehaviour, IManager
 
     public void Cleanup()
     {
-        Debug.Log("PlayerManager: Cleaning up");
+        //       Debug.Log("PlayerManager: Cleaning up");
         GameEvents.OnPlayerDeath -= HandlePlayerDeath;
     }
 

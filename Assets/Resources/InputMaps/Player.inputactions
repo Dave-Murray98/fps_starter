@@ -209,6 +209,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "RotateInventoryItem",
+                    "type": "Button",
+                    "id": "66ccb00a-25b8-48ed-badc-d9b4ee33b5fe",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -231,6 +240,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "Pause",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "6eedd334-0f4f-479a-bbc6-2586d97a6c4e",
+                    "path": "<Keyboard>/r",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "RotateInventoryItem",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

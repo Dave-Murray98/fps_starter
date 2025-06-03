@@ -33,7 +33,7 @@ public class PlayerAudio : MonoBehaviour
         if (footstepAudioSource == null) footstepAudioSource = GetComponent<AudioSource>();
         if (effectSource == null) effectSource = footstepAudioSource;
 
-        Debug.Log("PlayerAudio Initialized");
+        //        Debug.Log("PlayerAudio Initialized");
     }
 
     private void Update()
