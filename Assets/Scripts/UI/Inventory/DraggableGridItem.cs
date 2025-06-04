@@ -13,13 +13,13 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
     private GridItem gridItem;
     private GridVisual gridVisual;
     private RectTransform rectTransform;
-    private Image itemImage;
+    private InventoryItemShapeRenderer shapeRenderer;
     private Canvas canvas;
     private CanvasGroup canvasGroup;
 
     private Vector2 originalPosition;
     private Vector2Int originalGridPosition;
-    private bool originalRotationState; // Store original rotation state
+    private int originalRotation; // Store original rotation state
     private bool isDragging = false;
     private bool wasValidPlacement = false;
 
@@ -31,7 +31,7 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
     private void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
-        itemImage = GetComponent<Image>();
+        shapeRenderer = GetComponent<InventoryItemShapeRenderer>();
         canvasGroup = GetComponent<CanvasGroup>();
 
         if (canvasGroup == null)
@@ -74,7 +74,7 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
     private void OnRotateInput(InputAction.CallbackContext context)
     {
         // Only rotate if this item is being dragged
-        if (isDragging)
+        if (isDragging && canRotate)
         {
             RotateItem();
         }
@@ -93,35 +93,23 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
         // Reset rotation transform
         transform.rotation = Quaternion.identity;
 
-        UpdateVisual();
-        UpdateSize();
+        // Initialize the shape renderer
+        if (shapeRenderer == null)
+        {
+            shapeRenderer = gameObject.AddComponent<InventoryItemShapeRenderer>();
+        }
+
+        shapeRenderer.Initialize(gridItem);
         UpdatePosition();
-    }
-
-    private void UpdateVisual()
-    {
-        if (itemImage != null && gridItem != null)
-        {
-            itemImage.color = gridItem.ItemColor;
-        }
-    }
-
-    private void UpdateSize()
-    {
-        if (rectTransform != null && gridItem != null)
-        {
-            float width = gridItem.Width * gridVisual.CellSize + (gridItem.Width - 1) * gridVisual.CellSpacing;
-            float height = gridItem.Height * gridVisual.CellSize + (gridItem.Height - 1) * gridVisual.CellSpacing;
-            rectTransform.sizeDelta = new Vector2(width, height);
-        }
     }
 
     private void UpdatePosition()
     {
-        if (rectTransform != null && gridItem != null)
+        if (rectTransform != null && gridItem != null && gridVisual != null)
         {
-            Vector2 worldPos = gridVisual.GetCellWorldPosition(gridItem.GridPosition.x, gridItem.GridPosition.y);
-            rectTransform.localPosition = worldPos;
+            // Position the item exactly where the preview showed it would be
+            Vector2 gridPos = gridVisual.GetCellWorldPosition(gridItem.GridPosition.x, gridItem.GridPosition.y);
+            rectTransform.localPosition = gridPos;
         }
     }
 
@@ -130,17 +118,16 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
         isDragging = true;
         originalPosition = rectTransform.localPosition;
         originalGridPosition = gridItem.GridPosition;
-        originalRotationState = gridItem.IsRotated; // Store original rotation state
+        originalRotation = gridItem.currentRotation; // Store original rotation state
 
         // Remove item from grid data
-        gridVisual.GridData.RemoveItem(gridItem.GridPosition.x, gridItem.GridPosition.y,
-                                      gridItem.Width, gridItem.Height);
+        gridVisual.GridData.RemoveItem(gridItem.ID);
 
         // Visual feedback
         canvasGroup.alpha = 0.8f;
         transform.SetAsLastSibling(); // Bring to front
 
-        gridVisual.RefreshVisual();
+        // DON'T call RefreshVisual here - it creates duplicates!
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -150,15 +137,14 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
         // Move the item with the mouse
         rectTransform.localPosition += (Vector3)(eventData.delta / canvas.scaleFactor);
 
-        // Get grid position under mouse
+        // Get grid position under mouse - use the GridVisual's coordinate system directly
         Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
 
         // Check if placement is valid
-        bool isValid = gridVisual.GridData.IsValidPosition(gridPos.x, gridPos.y,
-                                                          gridItem.Width, gridItem.Height);
+        bool isValid = gridVisual.GridData.IsValidPosition(gridPos, gridItem);
 
         // Show placement preview
-        gridVisual.ShowPlacementPreview(gridPos, gridItem.Width, gridItem.Height, isValid);
+        gridVisual.ShowPlacementPreview(gridPos, gridItem, isValid);
         wasValidPlacement = isValid;
     }
 
@@ -172,36 +158,43 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
         Vector2Int targetGridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
 
         // Try to place the item
-        if (wasValidPlacement && gridVisual.GridData.PlaceItem(targetGridPos.x, targetGridPos.y,
-                                                               gridItem.Width, gridItem.Height, gridItem.ID))
+        if (wasValidPlacement)
         {
-            // Successful placement
+            // Update item position and place it
             gridItem.SetGridPosition(targetGridPos);
-            AnimateToGridPosition();
+            if (gridVisual.GridData.PlaceItem(gridItem))
+            {
+                // Successful placement
+                AnimateToGridPosition();
+            }
+            else
+            {
+                // Failed to place - revert
+                RevertToOriginalState();
+            }
         }
         else
         {
-            // Invalid placement - revert to original state completely
+            // Invalid placement - revert to original state
             RevertToOriginalState();
         }
 
         gridVisual.ClearPlacementPreview();
-        gridVisual.RefreshVisual();
+        // DON'T call RefreshVisual here either - causes duplicates!
     }
 
     private void RevertToOriginalState()
     {
         // Revert rotation if it was changed during drag
-        if (gridItem.IsRotated != originalRotationState)
+        if (gridItem.currentRotation != originalRotation)
         {
-            gridItem.RotateItem(); // This will toggle it back to original state
-            UpdateSize(); // Update visual size to match reverted rotation
+            gridItem.SetRotation(originalRotation);
+            shapeRenderer.RefreshVisual(); // Update visual to match reverted rotation
         }
 
         // Restore original grid position
-        gridVisual.GridData.PlaceItem(originalGridPosition.x, originalGridPosition.y,
-                                     gridItem.Width, gridItem.Height, gridItem.ID);
         gridItem.SetGridPosition(originalGridPosition);
+        gridVisual.GridData.PlaceItem(gridItem);
 
         // Animate back to original position
         AnimateToOriginalPosition();
@@ -217,32 +210,44 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
     {
         if (!canRotate || !isDragging) return;
 
-        // Store the current cursor position relative to the grid
-        Vector2 mousePos;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            gridVisual.GetComponent<RectTransform>(),
-            Input.mousePosition,
-            canvas.worldCamera,
-            out mousePos);
-
-        // Store current item center position before rotation
-        Vector2 currentCenter = new Vector3(rectTransform.localPosition.x, rectTransform.localPosition.y, 0) + new Vector3(rectTransform.sizeDelta.x * 0.5f, -rectTransform.sizeDelta.y * 0.5f, 0);
+        // Store the current center position before rotation
+        Vector2 currentCenter = GetShapeCenter();
 
         // Rotate the item data
         gridItem.RotateItem();
-        UpdateSize();
+        shapeRenderer.RefreshVisual();
 
         // Calculate the new position to keep the center in the same place
-        Vector2 newTopLeft = currentCenter - new Vector2(
-            rectTransform.sizeDelta.x * 0.5f,
-            -rectTransform.sizeDelta.y * 0.5f);
-
-        rectTransform.localPosition = newTopLeft;
+        Vector2 newCenter = GetShapeCenter();
+        Vector2 offset = currentCenter - newCenter;
+        rectTransform.localPosition += (Vector3)offset;
 
         // Update the drag preview based on current mouse position
         Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
-        bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos.x, gridPos.y, gridItem.Width, gridItem.Height);
-        gridVisual.ShowPlacementPreview(gridPos, gridItem.Width, gridItem.Height, isValidPlacement);
+        bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos, gridItem);
+        gridVisual.ShowPlacementPreview(gridPos, gridItem, isValidPlacement);
+        wasValidPlacement = isValidPlacement;
+        wasValidPlacement = isValidPlacement;
+    }
+
+    private Vector2 GetShapeCenter()
+    {
+        // Calculate the center of the current shape
+        var shapeData = gridItem.CurrentShapeData;
+        if (shapeData.cells.Length == 0)
+            return rectTransform.localPosition;
+
+        Vector2 center = Vector2.zero;
+        foreach (var cell in shapeData.cells)
+        {
+            center += new Vector2(
+                cell.x * (shapeRenderer.CellSize + shapeRenderer.CellSpacing),
+                -cell.y * (shapeRenderer.CellSize + shapeRenderer.CellSpacing)
+            );
+        }
+        center /= shapeData.cells.Length;
+
+        return rectTransform.localPosition + new Vector3(center.x, center.y, 0);
     }
 
     private void AnimateToGridPosition()

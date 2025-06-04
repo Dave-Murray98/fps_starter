@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 6098956829196612377}
   - component: {fileID: 8906271851341392976}
-  - component: {fileID: 9146079173789253235}
   - component: {fileID: 4728663345720689421}
+  - component: {fileID: 4924369327961948407}
   - component: {fileID: 9068931910606259627}
   m_Layer: 5
   m_Name: DraggableItem
@@ -38,7 +38,7 @@ RectTransform:
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 50, y: 50}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_Pivot: {x: 0, y: 1}
 --- !u!222 &8906271851341392976
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -47,36 +47,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8720481152623599973}
   m_CullTransparentMesh: 1
---- !u!114 &9146079173789253235
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8720481152623599973}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
 --- !u!114 &4728663345720689421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -91,6 +61,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   canRotate: 1
   snapAnimationDuration: 0.2
+--- !u!114 &4924369327961948407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8720481152623599973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1578aa97f70f6c42b710a7b6c5a5e41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cellPrefab: {fileID: 3593697759460975583, guid: dc9bfa814d37c4a45bc70f86eba51bff, type: 3}
+  cellSize: 50
+  cellSpacing: 2
+  borderColor: {r: 0, g: 0, b: 0, a: 1}
+  borderWidth: 2
 --- !u!225 &9068931910606259627
 CanvasGroup:
   m_ObjectHideFlags: 0

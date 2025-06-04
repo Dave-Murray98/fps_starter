@@ -6,24 +6,24 @@ public class GridVisual : MonoBehaviour
 {
     [Header("Grid Settings")]
     [SerializeField] private int gridWidth = 10;
-    [SerializeField] private int gridHeight = 8;
+    [SerializeField] private int gridHeight = 10;
     [SerializeField] private float cellSize = 50f;
     [SerializeField] private float cellSpacing = 2f;
 
     [Header("Visual Settings")]
-    [SerializeField] private Color emptyCellColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
-    [SerializeField] private Color validPlacementColor = new Color(0f, 1f, 0f, 0.3f);
-    [SerializeField] private Color invalidPlacementColor = new Color(1f, 0f, 0f, 0.3f);
+    [SerializeField] private Color gridLineColor = new Color(0.5f, 0.5f, 0.5f, 0.7f);
+    [SerializeField] private Color validPreviewColor = new Color(0f, 1f, 0f, 0.5f);
+    [SerializeField] private Color invalidPreviewColor = new Color(1f, 0f, 0f, 0.5f);
 
     [Header("Prefabs")]
-    [SerializeField] private GameObject cellPrefab;
     [SerializeField] private GameObject itemPrefab;
+    [SerializeField] private GameObject previewCellPrefab;
 
     private GridData gridData;
-    private Transform gridParent;
-    private Transform itemParent;
-    private Dictionary<Vector2Int, Image> cellImages;
-    private Dictionary<int, GameObject> itemVisuals;
+    private RectTransform rectTransform;
+    private List<GameObject> itemVisuals = new List<GameObject>();
+    private List<GameObject> previewCells = new List<GameObject>();
+    private List<Image> gridLines = new List<Image>();
 
     public GridData GridData => gridData;
     public float CellSize => cellSize;
@@ -31,116 +31,233 @@ public class GridVisual : MonoBehaviour
 
     private void Awake()
     {
-        InitializeGrid();
-    }
-
-    private void InitializeGrid()
-    {
+        rectTransform = GetComponent<RectTransform>();
         gridData = new GridData(gridWidth, gridHeight);
-        cellImages = new Dictionary<Vector2Int, Image>();
-        itemVisuals = new Dictionary<int, GameObject>();
 
-        CreateGridParents();
-        CreateGridCells();
+        CreateGridLines();
+        CreatePreviewCellPrefab();
+        SetupGridSize();
     }
 
-    private void CreateGridParents()
+    private void CreatePreviewCellPrefab()
     {
-        // Create parent for grid cells
-        GameObject gridParentObj = new GameObject("GridCells");
-        gridParentObj.AddComponent<RectTransform>();
-        gridParentObj.transform.SetParent(transform, false);
-        gridParent = gridParentObj.transform;
-
-        // Create parent for items
-        GameObject itemParentObj = new GameObject("GridItems");
-        itemParentObj.AddComponent<RectTransform>();
-        itemParentObj.transform.SetParent(transform, false);
-        itemParent = itemParentObj.transform;
-    }
-
-    private void CreateGridCells()
-    {
-        for (int x = 0; x < gridWidth; x++)
+        if (previewCellPrefab == null)
         {
-            for (int y = 0; y < gridHeight; y++)
+            GameObject cell = new GameObject("PreviewCell");
+            RectTransform cellRect = cell.AddComponent<RectTransform>();
+            cellRect.sizeDelta = new Vector2(cellSize, cellSize);
+
+            //set the anchor to top-left
+            cellRect.anchorMin = new Vector2(0, 1);
+            cellRect.anchorMax = new Vector2(0, 1);
+            cellRect.pivot = new Vector2(0, 1);
+
+            Image cellImage = cell.AddComponent<Image>();
+            cellImage.color = validPreviewColor;
+            cellImage.raycastTarget = false; // Don't block mouse events
+
+            previewCellPrefab = cell;
+        }
+    }
+
+    private void SetupGridSize()
+    {
+        float totalWidth = gridWidth * cellSize + (gridWidth - 1) * cellSpacing;
+        float totalHeight = gridHeight * cellSize + (gridHeight - 1) * cellSpacing;
+        rectTransform.sizeDelta = new Vector2(totalWidth, totalHeight);
+    }
+
+    private void CreateGridLines()
+    {
+        // Clear existing grid lines
+        foreach (var line in gridLines)
+        {
+            if (line != null)
+                DestroyImmediate(line.gameObject);
+        }
+        gridLines.Clear();
+
+        // Create vertical lines
+        for (int x = 0; x <= gridWidth; x++)
+        {
+            CreateGridLine(
+                new Vector2(x * (cellSize + cellSpacing) - cellSpacing * 0.5f, 0),
+                new Vector2(1, gridHeight * cellSize + (gridHeight - 1) * cellSpacing)
+            );
+        }
+
+        // Create horizontal lines - FIXED: Back to negative Y for UI coordinates
+        for (int y = 0; y <= gridHeight; y++)
+        {
+            CreateGridLine(
+                new Vector2(0, -y * (cellSize + cellSpacing) + cellSpacing * 0.5f),
+                new Vector2(gridWidth * cellSize + (gridWidth - 1) * cellSpacing, 1)
+            );
+        }
+    }
+
+    private void CreateGridLine(Vector2 position, Vector2 size)
+    {
+        GameObject lineObj = new GameObject("GridLine");
+        lineObj.transform.SetParent(transform, false);
+
+        RectTransform lineRect = lineObj.AddComponent<RectTransform>();
+        lineRect.anchorMin = new Vector2(0, 1);
+        lineRect.anchorMax = new Vector2(0, 1);
+        lineRect.pivot = new Vector2(0, 1);
+        lineRect.anchoredPosition = position;
+        lineRect.sizeDelta = size;
+
+        Image lineImage = lineObj.AddComponent<Image>();
+        lineImage.color = gridLineColor;
+        lineImage.raycastTarget = false;
+
+        gridLines.Add(lineImage);
+    }
+
+    public void AddItem(TetrominoType shapeType, Vector2Int gridPosition)
+    {
+        string itemID = System.Guid.NewGuid().ToString();
+        GridItem item = new GridItem(itemID, shapeType, gridPosition);
+
+        if (gridData.PlaceItem(item))
+        {
+            CreateItemVisual(item);
+        }
+    }
+
+    private void CreateItemVisual(GridItem item)
+    {
+        GameObject itemObj;
+
+        if (itemPrefab != null)
+        {
+            itemObj = Instantiate(itemPrefab, transform);
+        }
+        else
+        {
+            itemObj = new GameObject($"Item_{item.ID}");
+            itemObj.transform.SetParent(transform, false);
+            itemObj.AddComponent<RectTransform>();
+            itemObj.AddComponent<InventoryItemShapeRenderer>();
+            itemObj.AddComponent<DraggableGridItem>();
+        }
+
+        // Initialize the draggable component
+        DraggableGridItem draggable = itemObj.GetComponent<DraggableGridItem>();
+        if (draggable != null)
+        {
+            draggable.Initialize(item, this);
+        }
+
+        itemVisuals.Add(itemObj);
+    }
+
+    public void RefreshVisual()
+    {
+        // FIXED: Only refresh if we're not in the middle of a drag operation
+        bool anyItemDragging = false;
+        foreach (var visual in itemVisuals)
+        {
+            if (visual != null)
             {
-                CreateCell(x, y);
+                var draggable = visual.GetComponent<DraggableGridItem>();
+                if (draggable != null && draggable.GridItem != null)
+                {
+                    // Check if any item is currently being dragged (not in grid)
+                    if (!gridData.GetAllItems().Contains(draggable.GridItem))
+                    {
+                        anyItemDragging = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Only do full refresh if nothing is being dragged
+        if (!anyItemDragging)
+        {
+            // Clear existing item visuals
+            foreach (var visual in itemVisuals)
+            {
+                if (visual != null)
+                    Destroy(visual);
+            }
+            itemVisuals.Clear();
+
+            // Recreate visuals for all items
+            var allItems = gridData.GetAllItems();
+            foreach (var item in allItems)
+            {
+                CreateItemVisual(item);
             }
         }
     }
 
-    private void CreateCell(int x, int y)
-    {
-        GameObject cell = cellPrefab != null ? Instantiate(cellPrefab, gridParent) : CreateDefaultCell();
-
-        // Position the cell using RectTransform
-        RectTransform cellRect = cell.GetComponent<RectTransform>();
-        if (cellRect == null)
-        {
-            cellRect = cell.AddComponent<RectTransform>();
-        }
-
-        // Set anchor to top-left to match draggable items
-        cellRect.anchorMin = new Vector2(0, 1);
-        cellRect.anchorMax = new Vector2(0, 1);
-        cellRect.pivot = new Vector2(0, 1);
-
-        Vector2 position = GetCellWorldPosition(x, y);
-        cellRect.localPosition = position;
-
-        // Setup cell visual
-        Image cellImage = cell.GetComponent<Image>();
-        if (cellImage == null)
-        {
-            cellImage = cell.AddComponent<Image>();
-        }
-
-        cellImage.color = emptyCellColor;
-        cellImages[new Vector2Int(x, y)] = cellImage;
-
-        // Set cell size
-        cellRect.sizeDelta = new Vector2(cellSize, cellSize);
-
-        cell.name = $"Cell_{x}_{y}";
-    }
-
-    private GameObject CreateDefaultCell()
-    {
-        GameObject cell = new GameObject("Cell");
-        cell.AddComponent<RectTransform>();
-        cell.AddComponent<Image>();
-        return cell;
-    }
-
-    public Vector2 GetCellWorldPosition(int x, int y)
-    {
-        float posX = x * (cellSize + cellSpacing);
-        float posY = -y * (cellSize + cellSpacing); // Negative because UI Y grows downward
-        return new Vector2(posX, posY);
-    }
-
-    public Vector2Int GetGridPosition(Vector2 worldPosition)
-    {
-        int x = Mathf.FloorToInt(worldPosition.x / (cellSize + cellSpacing));
-        int y = Mathf.FloorToInt(-worldPosition.y / (cellSize + cellSpacing));
-        return new Vector2Int(x, y);
-    }
-
-    public void ShowPlacementPreview(Vector2Int position, int width, int height, bool isValid)
+    public void ShowPlacementPreview(Vector2Int gridPosition, GridItem item, bool isValid)
     {
         ClearPlacementPreview();
 
-        Color previewColor = isValid ? validPlacementColor : invalidPlacementColor;
+        var previewPositions = item.GetOccupiedPositionsAt(gridPosition);
+        Color previewColor = isValid ? validPreviewColor : invalidPreviewColor;
 
-        for (int x = position.x; x < position.x + width; x++)
+        foreach (var pos in previewPositions)
         {
-            for (int y = position.y; y < position.y + height; y++)
+            if (pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight)
             {
-                Vector2Int cellPos = new Vector2Int(x, y);
-                if (cellImages.ContainsKey(cellPos))
+                GameObject previewCell = Instantiate(previewCellPrefab, transform);
+                previewCell.name = $"Preview_{pos.x}_{pos.y}";
+
+                RectTransform cellRect = previewCell.GetComponent<RectTransform>();
+                cellRect.anchorMin = new Vector2(0, 1);
+                cellRect.anchorMax = new Vector2(0, 1);
+                cellRect.pivot = new Vector2(0, 1);
+
+                Vector2 cellPos = GetCellWorldPosition(pos.x, pos.y);
+                cellRect.anchoredPosition = cellPos;
+                cellRect.sizeDelta = new Vector2(cellSize, cellSize);
+
+                Image cellImage = previewCell.GetComponent<Image>();
+                cellImage.color = previewColor;
+                cellImage.raycastTarget = false;
+
+                previewCells.Add(previewCell);
+            }
+        }
+    }
+
+    // Legacy method for rectangular previews
+    public void ShowPlacementPreview(Vector2Int gridPosition, int width, int height, bool isValid)
+    {
+        ClearPlacementPreview();
+
+        Color previewColor = isValid ? validPreviewColor : invalidPreviewColor;
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                Vector2Int pos = gridPosition + new Vector2Int(x, y);
+
+                if (pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight)
                 {
-                    cellImages[cellPos].color = previewColor;
+                    GameObject previewCell = Instantiate(previewCellPrefab, transform);
+                    previewCell.name = $"Preview_{pos.x}_{pos.y}";
+
+                    RectTransform cellRect = previewCell.GetComponent<RectTransform>();
+                    cellRect.anchorMin = new Vector2(0, 1);
+                    cellRect.anchorMax = new Vector2(0, 1);
+                    cellRect.pivot = new Vector2(0, 1);
+
+                    Vector2 cellPos = GetCellWorldPosition(pos.x, pos.y);
+                    cellRect.anchoredPosition = cellPos;
+                    cellRect.sizeDelta = new Vector2(cellSize, cellSize);
+
+                    Image cellImage = previewCell.GetComponent<Image>();
+                    cellImage.color = previewColor;
+                    cellImage.raycastTarget = false;
+
+                    previewCells.Add(previewCell);
                 }
             }
         }
@@ -148,30 +265,49 @@ public class GridVisual : MonoBehaviour
 
     public void ClearPlacementPreview()
     {
-        foreach (var kvp in cellImages)
+        foreach (var cell in previewCells)
         {
-            Vector2Int pos = kvp.Key;
-            Image cellImage = kvp.Value;
-
-            if (gridData.GetCellValue(pos.x, pos.y) == 0)
-            {
-                cellImage.color = emptyCellColor;
-            }
+            if (cell != null)
+                Destroy(cell);
         }
+        previewCells.Clear();
     }
 
-    public void RefreshVisual()
+    public Vector2 GetCellWorldPosition(int x, int y)
     {
-        foreach (var kvp in cellImages)
-        {
-            Vector2Int pos = kvp.Key;
-            Image cellImage = kvp.Value;
+        return new Vector2(
+            x * (cellSize + cellSpacing),
+            -y * (cellSize + cellSpacing) // BACK to negative Y for UI coordinates
+        );
+    }
 
-            int cellValue = gridData.GetCellValue(pos.x, pos.y);
-            if (cellValue == 0)
-            {
-                cellImage.color = emptyCellColor;
-            }
-        }
+    public Vector2Int GetGridPosition(Vector2 localPosition)
+    {
+        // Convert local position (relative to GridVisual) to grid coordinates
+        int gridX = Mathf.FloorToInt(localPosition.x / (cellSize + cellSpacing));
+        int gridY = Mathf.FloorToInt(-localPosition.y / (cellSize + cellSpacing));
+
+        return new Vector2Int(gridX, gridY);
+    }
+
+    // Add test items for demonstration
+    [ContextMenu("Add Test Items")]
+    public void AddTestItems()
+    {
+        // Add one of each shape type for testing
+        AddItem(TetrominoType.Single, new Vector2Int(0, 0));
+        AddItem(TetrominoType.Line2, new Vector2Int(2, 0));
+        AddItem(TetrominoType.Square, new Vector2Int(4, 0));
+        AddItem(TetrominoType.Line4, new Vector2Int(0, 2));
+        AddItem(TetrominoType.LShape, new Vector2Int(6, 0));
+        AddItem(TetrominoType.Cross, new Vector2Int(0, 4));
+        AddItem(TetrominoType.ZShape, new Vector2Int(5, 4));
+    }
+
+    [ContextMenu("Clear All Items")]
+    public void ClearAllItems()
+    {
+        gridData.Clear();
+        RefreshVisual();
     }
 }

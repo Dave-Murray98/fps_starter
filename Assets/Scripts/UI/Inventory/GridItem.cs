@@ -3,66 +3,176 @@ using UnityEngine;
 [System.Serializable]
 public class GridItem
 {
-    [SerializeField] private int id;
-    [SerializeField] private int width;
-    [SerializeField] private int height;
-    [SerializeField] private Color itemColor = Color.white;
-    [SerializeField] private string itemName;
+    [Header("Basic Properties")]
+    public string ID;
+    public string ItemName; // Added ItemName property
+    public Vector2Int GridPosition;
 
-    // Current position in grid
-    [System.NonSerialized] private Vector2Int gridPosition;
-    [System.NonSerialized] private bool isRotated = false;
+    [Header("Shape Properties")]
+    public TetrominoType shapeType;
+    public int currentRotation = 0;
 
-    public int ID => id;
-    public int Width => isRotated ? height : width;
-    public int Height => isRotated ? width : height;
-    public int OriginalWidth => width;
-    public int OriginalHeight => height;
-    public Color ItemColor => itemColor;
-    public string ItemName => itemName;
-    public Vector2Int GridPosition => gridPosition;
-    public bool IsRotated => isRotated;
+    // Cached data for performance
+    private TetrominoData _currentShapeData;
+    private bool _dataCached = false;
 
-    public GridItem(int id, int width, int height, Color color, string name = "")
+    public GridItem(string id, TetrominoType type, Vector2Int gridPosition)
     {
-        this.id = id;
-        this.width = width;
-        this.height = height;
-        this.itemColor = color;
-        this.itemName = string.IsNullOrEmpty(name) ? $"Item_{id}" : name;
-        this.gridPosition = Vector2Int.zero;
+        ID = id;
+        shapeType = type;
+        GridPosition = gridPosition;
+        currentRotation = 0;
+        ItemName = $"Item_{id}"; // Default name
+        RefreshShapeData();
     }
 
-    public void SetGridPosition(Vector2Int position)
+    public GridItem(string id, TetrominoType type, Vector2Int gridPosition, string itemName)
     {
-        gridPosition = position;
+        ID = id;
+        shapeType = type;
+        GridPosition = gridPosition;
+        currentRotation = 0;
+        ItemName = itemName;
+        RefreshShapeData();
     }
 
-    public void RotateItem()
+    // Get current shape data (cached)
+    public TetrominoData CurrentShapeData
     {
-        isRotated = !isRotated;
+        get
+        {
+            if (!_dataCached)
+                RefreshShapeData();
+            return _currentShapeData;
+        }
     }
 
-    public void ResetRotation()
-    {
-        isRotated = false;
-    }
-
-    // Get all grid positions this item occupies
+    // Get all occupied grid positions relative to GridPosition
     public Vector2Int[] GetOccupiedPositions()
     {
-        Vector2Int[] positions = new Vector2Int[Width * Height];
-        int index = 0;
+        var shapeData = CurrentShapeData;
+        Vector2Int[] positions = new Vector2Int[shapeData.cells.Length];
 
-        for (int x = 0; x < Width; x++)
+        for (int i = 0; i < shapeData.cells.Length; i++)
         {
-            for (int y = 0; y < Height; y++)
-            {
-                positions[index] = new Vector2Int(gridPosition.x + x, gridPosition.y + y);
-                index++;
-            }
+            positions[i] = GridPosition + shapeData.cells[i];
         }
 
         return positions;
+    }
+
+    // Get occupied positions for a specific grid position (for validation)
+    public Vector2Int[] GetOccupiedPositionsAt(Vector2Int position)
+    {
+        var shapeData = CurrentShapeData;
+        Vector2Int[] positions = new Vector2Int[shapeData.cells.Length];
+
+        for (int i = 0; i < shapeData.cells.Length; i++)
+        {
+            positions[i] = position + shapeData.cells[i];
+        }
+
+        return positions;
+    }
+
+    // Get occupied positions for a specific rotation (for validation)
+    public Vector2Int[] GetOccupiedPositionsAt(Vector2Int position, int rotation)
+    {
+        var shapeData = TetrominoDefinitions.GetRotationState(shapeType, rotation);
+        Vector2Int[] positions = new Vector2Int[shapeData.cells.Length];
+
+        for (int i = 0; i < shapeData.cells.Length; i++)
+        {
+            positions[i] = position + shapeData.cells[i];
+        }
+
+        return positions;
+    }
+
+    // Rotate the item (cycles through all available rotations)
+    public void RotateItem()
+    {
+        int maxRotations = TetrominoDefinitions.GetRotationCount(shapeType);
+        currentRotation = (currentRotation + 1) % maxRotations;
+        RefreshShapeData();
+    }
+
+    // Set specific rotation
+    public void SetRotation(int rotation)
+    {
+        int maxRotations = TetrominoDefinitions.GetRotationCount(shapeType);
+        currentRotation = Mathf.Clamp(rotation, 0, maxRotations - 1);
+        RefreshShapeData();
+    }
+
+    // Set grid position
+    public void SetGridPosition(Vector2Int position)
+    {
+        GridPosition = position;
+    }
+
+    // Get bounding box of the shape
+    public Vector2Int GetBoundingSize()
+    {
+        var shapeData = CurrentShapeData;
+        if (shapeData.cells.Length == 0)
+            return Vector2Int.one;
+
+        int minX = int.MaxValue, minY = int.MaxValue;
+        int maxX = int.MinValue, maxY = int.MinValue;
+
+        foreach (var cell in shapeData.cells)
+        {
+            minX = Mathf.Min(minX, cell.x);
+            maxX = Mathf.Max(maxX, cell.x);
+            minY = Mathf.Min(minY, cell.y);
+            maxY = Mathf.Max(maxY, cell.y);
+        }
+
+        return new Vector2Int(maxX - minX + 1, maxY - minY + 1);
+    }
+
+    // Get the color of this item
+    public Color ItemColor => CurrentShapeData.color;
+
+    // Check if this shape can rotate (has multiple rotation states)
+    public bool CanRotate => TetrominoDefinitions.GetRotationCount(shapeType) > 1;
+
+    // Check if item is currently rotated from its base state
+    public bool IsRotated => currentRotation != 0;
+
+    // Refresh cached shape data
+    private void RefreshShapeData()
+    {
+        _currentShapeData = TetrominoDefinitions.GetRotationState(shapeType, currentRotation);
+        _dataCached = true;
+    }
+
+    // Legacy compatibility properties (for existing GridItem interface)
+    public int Width => GetBoundingSize().x;
+    public int Height => GetBoundingSize().y;
+
+    // Create a simple rectangular GridItem for backwards compatibility
+    public static GridItem CreateRectangular(string id, int width, int height, Color color, Vector2Int gridPosition)
+    {
+        // For rectangular items, we'll use the Square type and adjust as needed
+        // This is a simplified approach - you might want to create custom rectangular types
+        TetrominoType type = TetrominoType.Single;
+
+        if (width == 1 && height == 1) type = TetrominoType.Single;
+        else if (width == 2 && height == 2) type = TetrominoType.Square;
+        else if ((width == 1 && height == 2) || (width == 2 && height == 1)) type = TetrominoType.Line2;
+        else if ((width == 1 && height == 4) || (width == 4 && height == 1)) type = TetrominoType.Line4;
+
+        var item = new GridItem(id, type, gridPosition);
+        item.ItemName = $"Rectangular_{width}x{height}";
+        return item;
+    }
+
+    public static GridItem CreateRectangular(string id, int width, int height, Color color, Vector2Int gridPosition, string itemName)
+    {
+        var item = CreateRectangular(id, width, height, color, gridPosition);
+        item.ItemName = itemName;
+        return item;
     }
 }
