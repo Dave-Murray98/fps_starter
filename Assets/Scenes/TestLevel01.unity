@@ -1796,24 +1796,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gridVisual: {fileID: 2041368708}
   draggableItemPrefab: {fileID: 8720481152623599973, guid: acfca489b943bf14487f98b9b45114ea, type: 3}
-  testItems: []
-  complexTestItems:
-  - itemName: Apple
+  testItems:
+  - itemName: 1
     shapeType: 0
     quantity: 1
-  - itemName: Rifle
+  - itemName: 2
     shapeType: 1
     quantity: 1
-  - itemName: Pistol
+  - itemName: 3
     shapeType: 2
     quantity: 1
-  - itemName: Grenade
+  - itemName: 4
+    shapeType: 3
+    quantity: 1
+  - itemName: 5
     shapeType: 4
     quantity: 1
-  - itemName: Next
+  - itemName: 6
     shapeType: 5
     quantity: 1
-  - itemName: Z
+  - itemName: 7
     shapeType: 6
     quantity: 1
 --- !u!4 &1848890814

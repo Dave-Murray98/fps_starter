@@ -9,8 +9,8 @@ public enum TetrominoType
     Square,    // Blue 2x2 square
     Line4,     // Purple 1x4 line
     LShape,    // Red L-shape
-    Cross,     // Yellow cross/plus shape
-    ZShape     // Orange Z-shape
+    Comb,      // Yellow comb/rake shape (was Cross)
+    Corner     // Orange corner/truncated L shape (was ZShape)
 }
 
 [System.Serializable]
@@ -141,58 +141,87 @@ public static class TetrominoDefinitions
             }, new Color(1f, 0.2f, 0.2f))
         };
 
-        // Cross/Plus Shape - Yellow
-        _rotationStates[TetrominoType.Cross] = new TetrominoData[]
+        // Comb/Rake Shape - Yellow (4 horizontal cubes with cubes hanging from 2nd and 4th positions)
+        _rotationStates[TetrominoType.Comb] = new TetrominoData[]
         {
-            new TetrominoData(TetrominoType.Cross, new Vector2Int[]
+            // 0° - Horizontal comb with teeth pointing down
+            new TetrominoData(TetrominoType.Comb, new Vector2Int[]
             {
-                new Vector2Int(1, 0),     // Top
-                new Vector2Int(0, 1),     // Left
-                new Vector2Int(1, 1),     // Center
-                new Vector2Int(2, 1),     // Right
-                new Vector2Int(3, 1),     // Far Right
-                new Vector2Int(1, 2),     // Bottom Left
-                new Vector2Int(2, 2)      // Bottom Right
-            }, new Color(1f, 1f, 0.2f)) // Yellow
+                new Vector2Int(0, 0),     // Left tooth base
+                new Vector2Int(1, 0),     // Left middle base
+                new Vector2Int(2, 0),     // Right middle base
+                new Vector2Int(3, 0),     // Right tooth base
+                new Vector2Int(1, 1),     // Left tooth hanging down
+                new Vector2Int(3, 1)      // Right tooth hanging down
+            }, new Color(1f, 1f, 0.2f)), // Yellow
+            
+            // 90° - Vertical comb with teeth pointing right
+            new TetrominoData(TetrominoType.Comb, new Vector2Int[]
+            {
+                new Vector2Int(0, 0),     // Top base
+                new Vector2Int(0, 1),     // Upper middle base
+                new Vector2Int(0, 2),     // Lower middle base
+                new Vector2Int(0, 3),     // Bottom base
+                new Vector2Int(1, 1),     // Upper tooth pointing right
+                new Vector2Int(1, 3)      // Lower tooth pointing right
+            }, new Color(1f, 1f, 0.2f)),
+            
+            // 180° - Horizontal comb with teeth pointing up
+            new TetrominoData(TetrominoType.Comb, new Vector2Int[]
+            {
+                new Vector2Int(1, 0),     // Left tooth hanging up
+                new Vector2Int(3, 0),     // Right tooth hanging up
+                new Vector2Int(0, 1),     // Left base
+                new Vector2Int(1, 1),     // Left middle base
+                new Vector2Int(2, 1),     // Right middle base
+                new Vector2Int(3, 1)      // Right base
+            }, new Color(1f, 1f, 0.2f)),
+            
+            // 270° - Vertical comb with teeth pointing left
+            new TetrominoData(TetrominoType.Comb, new Vector2Int[]
+            {
+                new Vector2Int(1, 1),     // Upper tooth pointing left
+                new Vector2Int(1, 3),     // Lower tooth pointing left
+                new Vector2Int(2, 0),     // Top base
+                new Vector2Int(2, 1),     // Upper middle base
+                new Vector2Int(2, 2),     // Lower middle base
+                new Vector2Int(2, 3)      // Bottom base
+            }, new Color(1f, 1f, 0.2f))
         };
 
-        // ZShape - Orange
-        _rotationStates[TetrominoType.ZShape] = new TetrominoData[]
+        // Corner/Truncated L Shape - Orange (3-cell L without the long arm)
+        _rotationStates[TetrominoType.Corner] = new TetrominoData[]
         {
-            // 0° - Z horizontal
-            new TetrominoData(TetrominoType.ZShape, new Vector2Int[]
+            // 0° - Corner pointing right and down
+            new TetrominoData(TetrominoType.Corner, new Vector2Int[]
             {
-                new Vector2Int(0, 0),
-                new Vector2Int(1, 0),
-                new Vector2Int(1, 1),
-                new Vector2Int(2, 1)
+                new Vector2Int(0, 0),     // Base corner
+                new Vector2Int(1, 0),     // Right extension
+                new Vector2Int(0, 1)      // Down extension
             }, new Color(1f, 0.5f, 0.2f)), // Orange
             
-            // 90° - Z vertical
-            new TetrominoData(TetrominoType.ZShape, new Vector2Int[]
+            // 90° - Corner pointing down and left
+            new TetrominoData(TetrominoType.Corner, new Vector2Int[]
             {
-                new Vector2Int(1, 0),
-                new Vector2Int(0, 1),
-                new Vector2Int(1, 1),
-                new Vector2Int(0, 2)
+                new Vector2Int(0, 0),     // Right top
+                new Vector2Int(0, 1),     // Base corner
+                new Vector2Int(1, 1)      // Left extension
             }, new Color(1f, 0.5f, 0.2f)),
             
-            // 180° - Z horizontal flipped
-            new TetrominoData(TetrominoType.ZShape, new Vector2Int[]
+            // 180° - Corner pointing left and up
+            new TetrominoData(TetrominoType.Corner, new Vector2Int[]
             {
-                new Vector2Int(0, 0),
-                new Vector2Int(1, 0),
-                new Vector2Int(1, 1),
-                new Vector2Int(2, 1)
+                new Vector2Int(1, 0),     // Up extension
+                new Vector2Int(0, 1),     // Left extension
+                new Vector2Int(1, 1)      // Base corner
             }, new Color(1f, 0.5f, 0.2f)),
             
-            // 270° - Z vertical flipped
-            new TetrominoData(TetrominoType.ZShape, new Vector2Int[]
+            // 270° - Corner pointing up and right
+            new TetrominoData(TetrominoType.Corner, new Vector2Int[]
             {
-                new Vector2Int(1, 0),
-                new Vector2Int(0, 1),
-                new Vector2Int(1, 1),
-                new Vector2Int(0, 2)
+                new Vector2Int(0, 0),     // Left extension
+                new Vector2Int(1, 0),     // Base corner
+                new Vector2Int(1, 1)      // Down extension
             }, new Color(1f, 0.5f, 0.2f))
         };
     }

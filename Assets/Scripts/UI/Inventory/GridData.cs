@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using System.Collections.Generic;
 
-[System.Serializable]
+[Serializable]
 public class GridData
 {
     private string[,] grid;
@@ -93,32 +93,6 @@ public class GridData
         }
 
         items[item.ID] = item;
-        return true;
-    }
-
-    // Legacy method for placing rectangular items
-    public bool PlaceItem(int x, int y, int width, int height, string itemID)
-    {
-        if (!IsValidPosition(x, y, width, height))
-            return false;
-
-        // Remove existing item if repositioning
-        if (items.ContainsKey(itemID))
-            RemoveItem(itemID);
-
-        // Place rectangular item
-        for (int checkX = x; checkX < x + width; checkX++)
-        {
-            for (int checkY = y; checkY < y + height; checkY++)
-            {
-                grid[checkX, checkY] = itemID;
-            }
-        }
-
-        // Create a complex grid item for backwards compatibility
-        var item = GridItem.CreateRectangular(itemID, width, height, Color.white, new Vector2Int(x, y));
-        items[itemID] = item;
-
         return true;
     }
 

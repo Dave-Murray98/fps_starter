@@ -147,32 +147,4 @@ public class GridItem
         _currentShapeData = TetrominoDefinitions.GetRotationState(shapeType, currentRotation);
         _dataCached = true;
     }
-
-    // Legacy compatibility properties (for existing GridItem interface)
-    public int Width => GetBoundingSize().x;
-    public int Height => GetBoundingSize().y;
-
-    // Create a simple rectangular GridItem for backwards compatibility
-    public static GridItem CreateRectangular(string id, int width, int height, Color color, Vector2Int gridPosition)
-    {
-        // For rectangular items, we'll use the Square type and adjust as needed
-        // This is a simplified approach - you might want to create custom rectangular types
-        TetrominoType type = TetrominoType.Single;
-
-        if (width == 1 && height == 1) type = TetrominoType.Single;
-        else if (width == 2 && height == 2) type = TetrominoType.Square;
-        else if ((width == 1 && height == 2) || (width == 2 && height == 1)) type = TetrominoType.Line2;
-        else if ((width == 1 && height == 4) || (width == 4 && height == 1)) type = TetrominoType.Line4;
-
-        var item = new GridItem(id, type, gridPosition);
-        item.ItemName = $"Rectangular_{width}x{height}";
-        return item;
-    }
-
-    public static GridItem CreateRectangular(string id, int width, int height, Color color, Vector2Int gridPosition, string itemName)
-    {
-        var item = CreateRectangular(id, width, height, color, gridPosition);
-        item.ItemName = itemName;
-        return item;
-    }
 }

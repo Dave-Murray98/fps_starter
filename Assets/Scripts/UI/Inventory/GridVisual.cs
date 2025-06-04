@@ -300,8 +300,8 @@ public class GridVisual : MonoBehaviour
         AddItem(TetrominoType.Square, new Vector2Int(4, 0));
         AddItem(TetrominoType.Line4, new Vector2Int(0, 2));
         AddItem(TetrominoType.LShape, new Vector2Int(6, 0));
-        AddItem(TetrominoType.Cross, new Vector2Int(0, 4));
-        AddItem(TetrominoType.ZShape, new Vector2Int(5, 4));
+        AddItem(TetrominoType.Comb, new Vector2Int(0, 4));
+        AddItem(TetrominoType.Corner, new Vector2Int(5, 4));
     }
 
     [ContextMenu("Clear All Items")]
