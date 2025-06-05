@@ -1797,27 +1797,17 @@ MonoBehaviour:
   gridVisual: {fileID: 2041368708}
   draggableItemPrefab: {fileID: 8720481152623599973, guid: acfca489b943bf14487f98b9b45114ea, type: 3}
   testItems:
-  - itemName: 1
-    shapeType: 0
+  - itemData: {fileID: 11400000, guid: ee366c60de47d95449568180ed39efee, type: 2}
     quantity: 1
-  - itemName: 2
-    shapeType: 1
+  - itemData: {fileID: 11400000, guid: c79afedd95b75064292edd612654db95, type: 2}
     quantity: 1
-  - itemName: 3
-    shapeType: 2
+  - itemData: {fileID: 11400000, guid: 01fb8c59fdbfbe24082c3017173f5c1a, type: 2}
     quantity: 1
-  - itemName: 4
-    shapeType: 3
+  - itemData: {fileID: 11400000, guid: 703253395b96603498acdbdcd3150161, type: 2}
     quantity: 1
-  - itemName: 5
-    shapeType: 4
+  - itemData: {fileID: 11400000, guid: 2041c0863791b3e4f8aa840a46cbcd1c, type: 2}
     quantity: 1
-  - itemName: 6
-    shapeType: 5
-    quantity: 1
-  - itemName: 7
-    shapeType: 6
-    quantity: 1
+  legacyTestItems: []
 --- !u!4 &1848890814
 Transform:
   m_ObjectHideFlags: 0

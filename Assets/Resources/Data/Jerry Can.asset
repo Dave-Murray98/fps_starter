@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3943def95315f084d917e2efd64303a2, type: 3}
+  m_Name: Jerry Can
+  m_EditorClassIdentifier: 
+  itemName: Jerry Can
+  description: Holds water
+  shapeType: 3
+  itemSprite: {fileID: 21300000, guid: 546ea7119cb8e2a43b3aa68ed43f04da, type: 3}
+  spriteScale: 2
+  spriteOffset: {x: 0, y: -1}
+  cellColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  stackSize: 1
+  isRotatable: 1
+  showDebugInfo: 0

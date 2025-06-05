@@ -5,8 +5,10 @@ public class GridItem
 {
     [Header("Basic Properties")]
     public string ID;
-    public string ItemName; // Added ItemName property
     public Vector2Int GridPosition;
+
+    [Header("Item Data")]
+    public ItemData itemData; // New: Reference to ScriptableObject
 
     [Header("Shape Properties")]
     public TetrominoType shapeType;
@@ -16,24 +18,103 @@ public class GridItem
     private TetrominoData _currentShapeData;
     private bool _dataCached = false;
 
+    // Legacy constructor for backwards compatibility
     public GridItem(string id, TetrominoType type, Vector2Int gridPosition)
     {
         ID = id;
         shapeType = type;
         GridPosition = gridPosition;
         currentRotation = 0;
-        ItemName = $"Item_{id}"; // Default name
+        itemData = null; // Will use shape-based rendering
         RefreshShapeData();
     }
 
+    // Legacy constructor with name
     public GridItem(string id, TetrominoType type, Vector2Int gridPosition, string itemName)
     {
         ID = id;
         shapeType = type;
         GridPosition = gridPosition;
         currentRotation = 0;
-        ItemName = itemName;
+        itemData = null;
         RefreshShapeData();
+    }
+
+    // New constructor with ItemData
+    public GridItem(string id, ItemData data, Vector2Int gridPosition)
+    {
+        ID = id;
+        itemData = data;
+        shapeType = data.shapeType;
+        GridPosition = gridPosition;
+        currentRotation = 0;
+        RefreshShapeData();
+    }
+
+    // Get item name (from ItemData if available, otherwise default)
+    public string ItemName
+    {
+        get
+        {
+            if (itemData != null)
+                return itemData.itemName;
+            return $"Item_{ID}";
+        }
+    }
+
+    // Get item description
+    public string Description
+    {
+        get
+        {
+            if (itemData != null)
+                return itemData.description;
+            return string.Empty;
+        }
+    }
+
+    // Get item sprite
+    public Sprite ItemSprite
+    {
+        get
+        {
+            if (itemData != null)
+                return itemData.itemSprite;
+            return null;
+        }
+    }
+
+    // Get sprite scale
+    public float SpriteScale
+    {
+        get
+        {
+            if (itemData != null)
+                return itemData.spriteScale;
+            return 1.0f;
+        }
+    }
+
+    // Get sprite offset
+    public Vector2 SpriteOffset
+    {
+        get
+        {
+            if (itemData != null)
+                return itemData.spriteOffset;
+            return Vector2.zero;
+        }
+    }
+
+    // Check if item can rotate
+    public bool CanRotate
+    {
+        get
+        {
+            if (itemData != null)
+                return itemData.isRotatable && TetrominoDefinitions.GetRotationCount(shapeType) > 1;
+            return TetrominoDefinitions.GetRotationCount(shapeType) > 1;
+        }
     }
 
     // Get current shape data (cached)
@@ -92,6 +173,8 @@ public class GridItem
     // Rotate the item (cycles through all available rotations)
     public void RotateItem()
     {
+        if (!CanRotate) return;
+
         int maxRotations = TetrominoDefinitions.GetRotationCount(shapeType);
         currentRotation = (currentRotation + 1) % maxRotations;
         RefreshShapeData();
@@ -132,11 +215,16 @@ public class GridItem
         return new Vector2Int(maxX - minX + 1, maxY - minY + 1);
     }
 
-    // Get the color of this item
-    public Color ItemColor => CurrentShapeData.color;
-
-    // Check if this shape can rotate (has multiple rotation states)
-    public bool CanRotate => TetrominoDefinitions.GetRotationCount(shapeType) > 1;
+    // Get the color of this item (from ItemData if available, otherwise fallback to shape color)
+    public Color ItemColor
+    {
+        get
+        {
+            if (itemData != null)
+                return itemData.CellColor;
+            return CurrentShapeData.color; // Fallback for legacy items
+        }
+    }
 
     // Check if item is currently rotated from its base state
     public bool IsRotated => currentRotation != 0;

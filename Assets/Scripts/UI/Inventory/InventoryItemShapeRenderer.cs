@@ -13,7 +13,11 @@ public class InventoryItemShapeRenderer : MonoBehaviour
     [SerializeField] private Color borderColor = Color.black;
     [SerializeField] private float borderWidth = 2f;
 
+    [Header("Image Overlay Settings")]
+    [SerializeField] private float imagePadding = 4f; // Padding around the image within the shape bounds
+
     private List<GameObject> cellObjects = new List<GameObject>();
+    private GameObject imageOverlay;
     private GridItem currentItem;
     private RectTransform rectTransform;
     private Canvas parentCanvas;
@@ -81,6 +85,7 @@ public class InventoryItemShapeRenderer : MonoBehaviour
         ClearCells();
         CreateCells();
         UpdateLayout();
+        UpdateImageOverlay();
     }
 
     private void ClearCells()
@@ -96,6 +101,16 @@ public class InventoryItemShapeRenderer : MonoBehaviour
             }
         }
         cellObjects.Clear();
+
+        // Clear image overlay
+        if (imageOverlay != null)
+        {
+            if (Application.isPlaying)
+                Destroy(imageOverlay);
+            else
+                DestroyImmediate(imageOverlay);
+            imageOverlay = null;
+        }
     }
 
     private void CreateCells()
@@ -116,11 +131,11 @@ public class InventoryItemShapeRenderer : MonoBehaviour
             cellRect.anchorMax = new Vector2(0, 1);
             cellRect.pivot = new Vector2(0, 1);
 
-            // Set cell color
+            // Set cell color - use item's custom color
             Image cellImage = cell.GetComponent<Image>();
             if (cellImage != null)
             {
-                cellImage.color = shapeData.color;
+                cellImage.color = currentItem.ItemColor; // Now uses custom color
             }
 
             // Position the cell - BACK to negative Y for UI coordinates
@@ -160,9 +175,112 @@ public class InventoryItemShapeRenderer : MonoBehaviour
         Vector2 totalSize = new Vector2(maxX - minX, maxY - minY);
         rectTransform.sizeDelta = totalSize;
         rectTransform.pivot = new Vector2(0, 1);
+    }
 
-        // DO NOT reposition cells - they should stay at their grid-relative positions
-        // The container positioning will be handled by UpdatePosition() to match the preview exactly
+    private void UpdateImageOverlay()
+    {
+        // Only create image overlay if item has a sprite
+        if (currentItem?.ItemSprite == null) return;
+
+        // Create image overlay GameObject
+        imageOverlay = new GameObject("ImageOverlay");
+        imageOverlay.transform.SetParent(transform, false);
+
+        // Add RectTransform
+        RectTransform imageRect = imageOverlay.AddComponent<RectTransform>();
+        imageRect.anchorMin = new Vector2(0, 1);
+        imageRect.anchorMax = new Vector2(0, 1);
+        imageRect.pivot = new Vector2(0.5f, 0.5f); // Center pivot for easier positioning
+
+        // Add Image component
+        Image overlayImage = imageOverlay.AddComponent<Image>();
+        overlayImage.sprite = currentItem.ItemSprite;
+        overlayImage.raycastTarget = false; // Don't block mouse events
+
+        // Calculate optimal size and position
+        CalculateImageSizeAndPosition(imageRect, overlayImage);
+
+        // Apply rotation based on current item rotation
+        ApplyImageRotation(imageRect);
+
+        // Ensure image is on top of cells
+        imageOverlay.transform.SetAsLastSibling();
+    }
+
+    private void ApplyImageRotation(RectTransform imageRect)
+    {
+        if (currentItem == null) return;
+
+        // Apply rotation based on current rotation state
+        // Each rotation state represents a 90-degree clockwise rotation
+        float rotationAngle = currentItem.currentRotation * -90f; // Negative for clockwise
+        imageRect.localRotation = Quaternion.Euler(0, 0, rotationAngle);
+    }
+
+    private void CalculateImageSizeAndPosition(RectTransform imageRect, Image overlayImage)
+    {
+        if (currentItem?.ItemSprite == null) return;
+
+        var shapeData = currentItem.CurrentShapeData;
+        if (shapeData.cells.Length == 0) return;
+
+        // Calculate the visual bounds of the shape
+        float minX = float.MaxValue, minY = float.MaxValue;
+        float maxX = float.MinValue, maxY = float.MinValue;
+
+        foreach (var cellPos in shapeData.cells)
+        {
+            float cellX = cellPos.x * (cellSize + cellSpacing);
+            float cellY = -cellPos.y * (cellSize + cellSpacing);
+
+            minX = Mathf.Min(minX, cellX);
+            maxX = Mathf.Max(maxX, cellX + cellSize);
+            minY = Mathf.Min(minY, cellY);
+            maxY = Mathf.Max(maxY, cellY + cellSize);
+        }
+
+        // Calculate available space for the image (with padding)
+        float availableWidth = (maxX - minX) - (imagePadding * 2);
+        float availableHeight = (maxY - minY) - (imagePadding * 2);
+
+        // Get sprite's natural aspect ratio
+        Sprite sprite = currentItem.ItemSprite;
+        float spriteAspect = sprite.rect.width / sprite.rect.height;
+
+        // Calculate size maintaining aspect ratio
+        float imageWidth, imageHeight;
+
+        if (availableWidth / availableHeight > spriteAspect)
+        {
+            // Height is the limiting factor
+            imageHeight = availableHeight;
+            imageWidth = imageHeight * spriteAspect;
+        }
+        else
+        {
+            // Width is the limiting factor
+            imageWidth = availableWidth;
+            imageHeight = imageWidth / spriteAspect;
+        }
+
+        // Apply user-defined scale
+        imageWidth *= currentItem.SpriteScale;
+        imageHeight *= currentItem.SpriteScale;
+
+        // Set size
+        imageRect.sizeDelta = new Vector2(imageWidth, imageHeight);
+
+        // Calculate center position of the shape
+        float centerX = (minX + maxX) / 2f;
+        float centerY = (minY + maxY) / 2f;
+
+        // Apply user-defined offset
+        Vector2 offset = currentItem.SpriteOffset;
+        offset.x *= cellSize; // Scale offset relative to cell size
+        offset.y *= cellSize;
+
+        // Position at center of shape with offset
+        imageRect.anchoredPosition = new Vector2(centerX + offset.x, centerY + offset.y);
     }
 
     public void UpdateCellColor(Color color)
@@ -182,6 +300,7 @@ public class InventoryItemShapeRenderer : MonoBehaviour
 
     public void SetAlpha(float alpha)
     {
+        // Update cell alpha
         foreach (var cell in cellObjects)
         {
             if (cell != null)
@@ -193,6 +312,18 @@ public class InventoryItemShapeRenderer : MonoBehaviour
                     color.a = alpha;
                     cellImage.color = color;
                 }
+            }
+        }
+
+        // Update image overlay alpha
+        if (imageOverlay != null)
+        {
+            Image overlayImage = imageOverlay.GetComponent<Image>();
+            if (overlayImage != null)
+            {
+                Color color = overlayImage.color;
+                color.a = alpha;
+                overlayImage.color = color;
             }
         }
     }
