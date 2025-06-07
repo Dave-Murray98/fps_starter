@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: Jerry Can
   description: Holds water
-  shapeType: 3
+  shapeType: 2
   itemSprite: {fileID: 21300000, guid: 546ea7119cb8e2a43b3aa68ed43f04da, type: 3}
   spriteScale: 2
   spriteOffset: {x: 0, y: -1}

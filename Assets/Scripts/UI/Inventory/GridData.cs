@@ -55,25 +55,6 @@ public class GridData
         return true;
     }
 
-    // Legacy method for simple rectangular validation
-    public bool IsValidPosition(int x, int y, int width, int height)
-    {
-        // Check bounds
-        if (x < 0 || y < 0 || x + width > gridWidth || y + height > gridHeight)
-            return false;
-
-        // Check if any cell in the rectangle is occupied
-        for (int checkX = x; checkX < x + width; checkX++)
-        {
-            for (int checkY = y; checkY < y + height; checkY++)
-            {
-                if (grid[checkX, checkY] != null)
-                    return false;
-            }
-        }
-
-        return true;
-    }
 
     // Place a complex item on the grid
     public bool PlaceItem(GridItem item)
@@ -116,24 +97,6 @@ public class GridData
 
         items.Remove(itemID);
         return true;
-    }
-
-    // Legacy method for removing rectangular items
-    public void RemoveItem(int x, int y, int width, int height)
-    {
-        // Find item at this position and remove it
-        for (int checkX = x; checkX < x + width && checkX < gridWidth; checkX++)
-        {
-            for (int checkY = y; checkY < y + height && checkY < gridHeight; checkY++)
-            {
-                if (checkX >= 0 && checkY >= 0 && grid[checkX, checkY] != null)
-                {
-                    string itemID = grid[checkX, checkY];
-                    RemoveItem(itemID);
-                    return; // Remove only the first item found
-                }
-            }
-        }
     }
 
     // Get item at specific grid position

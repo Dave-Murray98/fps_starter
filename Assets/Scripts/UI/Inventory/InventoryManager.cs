@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,9 +12,6 @@ public class InventoryManager : MonoBehaviour
 
     [Header("Item Data Configuration")]
     [SerializeField] private List<ItemInstanceData> testItems = new List<ItemInstanceData>();
-
-    [Header("Legacy Test Items (Fallback)")]
-    [SerializeField] private List<TestItemData> legacyTestItems = new List<TestItemData>();
 
     private Dictionary<string, DraggableGridItem> activeItems;
     private int nextItemId = 1;
@@ -42,20 +40,6 @@ public class InventoryManager : MonoBehaviour
             gridVisual = FindFirstObjectByType<GridVisual>();
         }
 
-        // Use ItemData items if available, otherwise fall back to legacy
-        if (testItems.Count > 0)
-        {
-            CreateItemDataItems();
-        }
-        else if (legacyTestItems.Count == 0)
-        {
-            AddDefaultLegacyTestItems();
-            CreateLegacyTestItems();
-        }
-        else
-        {
-            CreateLegacyTestItems();
-        }
     }
 
     private void CreateItemDataItems()
@@ -74,7 +58,7 @@ public class InventoryManager : MonoBehaviour
             for (int i = 0; i < itemInstance.quantity; i++)
             {
                 // Find a valid position for the item
-                Vector2Int position = FindValidPositionForShape(itemInstance.itemData.shapeType, currentX, currentY);
+                Vector2Int position = FindValidPositionForShape(itemInstance.itemData, currentX, currentY);
 
                 if (position.x != -1) // Valid position found
                 {
@@ -99,58 +83,11 @@ public class InventoryManager : MonoBehaviour
         }
     }
 
-    private void CreateLegacyTestItems()
-    {
-        int currentX = 0;
-        int currentY = 0;
 
-        foreach (var legacyItem in legacyTestItems)
-        {
-            for (int i = 0; i < legacyItem.quantity; i++)
-            {
-                // Find a valid position for the complex shape
-                Vector2Int position = FindValidPositionForShape(legacyItem.shapeType, currentX, currentY);
-
-                if (position.x != -1) // Valid position found
-                {
-                    CreateLegacyItem(legacyItem.itemName, legacyItem.shapeType, position);
-
-                    // Update position for next item
-                    var tempItem = new GridItem($"temp_{nextItemId}", legacyItem.shapeType, position);
-                    var bounds = tempItem.GetBoundingSize();
-                    currentX = position.x + bounds.x;
-
-                    // Move to next row if we're getting close to the edge
-                    if (currentX >= gridVisual.GridData.Width - 3)
-                    {
-                        currentX = 0;
-                        currentY += bounds.y + 1;
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning($"Could not find valid position for {legacyItem.itemName}");
-                }
-            }
-        }
-    }
-
-    private void AddDefaultLegacyTestItems()
-    {
-        // Add complex shape items as fallback
-        legacyTestItems.Add(new TestItemData { itemName = "Magic Crystal", shapeType = TetrominoType.Single, quantity = 2 });
-        legacyTestItems.Add(new TestItemData { itemName = "Spell Scroll", shapeType = TetrominoType.Line2, quantity = 1 });
-        legacyTestItems.Add(new TestItemData { itemName = "Tome", shapeType = TetrominoType.Square, quantity = 1 });
-        legacyTestItems.Add(new TestItemData { itemName = "Staff", shapeType = TetrominoType.Line4, quantity = 1 });
-        legacyTestItems.Add(new TestItemData { itemName = "Boomerang", shapeType = TetrominoType.LShape, quantity = 1 });
-        legacyTestItems.Add(new TestItemData { itemName = "Holy Symbol", shapeType = TetrominoType.Comb, quantity = 1 });
-        legacyTestItems.Add(new TestItemData { itemName = "Lightning Bolt", shapeType = TetrominoType.Corner, quantity = 1 });
-    }
-
-    private Vector2Int FindValidPositionForShape(TetrominoType shapeType, int startX = 0, int startY = 0)
+    private Vector2Int FindValidPositionForShape(ItemData itemData, int startX = 0, int startY = 0)
     {
         // Create a temporary item to test positioning
-        var tempItem = new GridItem($"temp_{nextItemId}", shapeType, Vector2Int.zero);
+        var tempItem = new GridItem($"temp_{nextItemId}", itemData, Vector2Int.zero);
 
         // Try to find a valid position starting from the given coordinates
         for (int y = startY; y < gridVisual.GridData.Height; y++)
@@ -182,7 +119,7 @@ public class InventoryManager : MonoBehaviour
         GridItem gridItem = new GridItem(itemId, itemData, Vector2Int.zero);
 
         // Find position if not provided
-        Vector2Int itemPosition = position ?? FindValidPositionForShape(itemData.shapeType);
+        Vector2Int itemPosition = position ?? FindValidPositionForShape(itemData);
 
         if (itemPosition.x == -1)
         {
@@ -210,41 +147,6 @@ public class InventoryManager : MonoBehaviour
         return draggableItem;
     }
 
-    // Legacy method for creating items without ItemData
-    public DraggableGridItem CreateLegacyItem(string itemName, TetrominoType shapeType, Vector2Int? position = null)
-    {
-        // Create grid item data
-        string itemId = $"item_{nextItemId}";
-        GridItem gridItem = new GridItem(itemId, shapeType, Vector2Int.zero, itemName);
-
-        // Find position if not provided
-        Vector2Int itemPosition = position ?? FindValidPositionForShape(shapeType);
-
-        if (itemPosition.x == -1)
-        {
-            Debug.LogError($"Cannot create item {itemName} - no valid position found");
-            return null;
-        }
-
-        gridItem.SetGridPosition(itemPosition);
-
-        // Place in grid data
-        if (!gridVisual.GridData.PlaceItem(gridItem))
-        {
-            Debug.LogError($"Failed to place item {itemName} in grid data");
-            return null;
-        }
-
-        // Create visual representation
-        GameObject itemObj = CreateItemVisual(gridItem);
-        DraggableGridItem draggableItem = itemObj.GetComponent<DraggableGridItem>();
-
-        // Store reference
-        activeItems[gridItem.ID] = draggableItem;
-        nextItemId++;
-
-        return draggableItem;
-    }
 
     private GameObject CreateItemVisual(GridItem gridItem)
     {
@@ -299,12 +201,6 @@ public class InventoryManager : MonoBehaviour
         return false;
     }
 
-    // Legacy method for backwards compatibility
-    public bool RemoveItem(int itemId)
-    {
-        return RemoveItem($"item_{itemId}");
-    }
-
     public void ClearInventory()
     {
         foreach (var item in activeItems.Values)
@@ -333,39 +229,23 @@ public class InventoryManager : MonoBehaviour
         {
             if (testItems.Count > 0)
                 CreateItemDataItems();
-            else
-                CreateLegacyTestItems();
+
         }
 
-        // Add some complex shapes directly (legacy mode)
+        // Add some complex shapes directly
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
-            CreateLegacyItem("Test Single", TetrominoType.Single);
+            CreateRandomItem();
         }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            CreateLegacyItem("Test Line2", TetrominoType.Line2);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            CreateLegacyItem("Test Square", TetrominoType.Square);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha4))
-        {
-            CreateLegacyItem("Test Line4", TetrominoType.Line4);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha5))
-        {
-            CreateLegacyItem("Test L-Shape", TetrominoType.LShape);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha6))
-        {
-            CreateLegacyItem("Test Comb", TetrominoType.Comb);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha7))
-        {
-            CreateLegacyItem("Test Corner", TetrominoType.Corner);
-        }
+    }
+
+    private void CreateRandomItem()
+    {
+        int randomIndex = UnityEngine.Random.Range(0, testItems.Count);
+        ItemInstanceData randomItemData = testItems[randomIndex];
+        ItemData randomItem = randomItemData.itemData;
+
+        CreateItem(randomItem);
     }
 
     // Public methods for external use

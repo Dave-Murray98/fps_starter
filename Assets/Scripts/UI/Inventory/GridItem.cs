@@ -18,27 +18,6 @@ public class GridItem
     private TetrominoData _currentShapeData;
     private bool _dataCached = false;
 
-    // Legacy constructor for backwards compatibility
-    public GridItem(string id, TetrominoType type, Vector2Int gridPosition)
-    {
-        ID = id;
-        shapeType = type;
-        GridPosition = gridPosition;
-        currentRotation = 0;
-        itemData = null; // Will use shape-based rendering
-        RefreshShapeData();
-    }
-
-    // Legacy constructor with name
-    public GridItem(string id, TetrominoType type, Vector2Int gridPosition, string itemName)
-    {
-        ID = id;
-        shapeType = type;
-        GridPosition = gridPosition;
-        currentRotation = 0;
-        itemData = null;
-        RefreshShapeData();
-    }
 
     // New constructor with ItemData
     public GridItem(string id, ItemData data, Vector2Int gridPosition)
@@ -220,9 +199,7 @@ public class GridItem
     {
         get
         {
-            if (itemData != null)
-                return itemData.CellColor;
-            return CurrentShapeData.color; // Fallback for legacy items
+            return itemData.CellColor;
         }
     }
 

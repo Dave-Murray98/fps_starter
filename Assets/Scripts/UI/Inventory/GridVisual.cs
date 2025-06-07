@@ -115,10 +115,10 @@ public class GridVisual : MonoBehaviour
         gridLines.Add(lineImage);
     }
 
-    public void AddItem(TetrominoType shapeType, Vector2Int gridPosition)
+    public void AddItem(ItemData itemData, Vector2Int gridPosition)
     {
         string itemID = System.Guid.NewGuid().ToString();
-        GridItem item = new GridItem(itemID, shapeType, gridPosition);
+        GridItem item = new GridItem(itemID, itemData, gridPosition);
 
         if (gridData.PlaceItem(item))
         {
@@ -226,43 +226,6 @@ public class GridVisual : MonoBehaviour
         }
     }
 
-    // Legacy method for rectangular previews
-    public void ShowPlacementPreview(Vector2Int gridPosition, int width, int height, bool isValid)
-    {
-        ClearPlacementPreview();
-
-        Color previewColor = isValid ? validPreviewColor : invalidPreviewColor;
-
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < height; y++)
-            {
-                Vector2Int pos = gridPosition + new Vector2Int(x, y);
-
-                if (pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight)
-                {
-                    GameObject previewCell = Instantiate(previewCellPrefab, transform);
-                    previewCell.name = $"Preview_{pos.x}_{pos.y}";
-
-                    RectTransform cellRect = previewCell.GetComponent<RectTransform>();
-                    cellRect.anchorMin = new Vector2(0, 1);
-                    cellRect.anchorMax = new Vector2(0, 1);
-                    cellRect.pivot = new Vector2(0, 1);
-
-                    Vector2 cellPos = GetCellWorldPosition(pos.x, pos.y);
-                    cellRect.anchoredPosition = cellPos;
-                    cellRect.sizeDelta = new Vector2(cellSize, cellSize);
-
-                    Image cellImage = previewCell.GetComponent<Image>();
-                    cellImage.color = previewColor;
-                    cellImage.raycastTarget = false;
-
-                    previewCells.Add(previewCell);
-                }
-            }
-        }
-    }
-
     public void ClearPlacementPreview()
     {
         foreach (var cell in previewCells)
@@ -288,20 +251,6 @@ public class GridVisual : MonoBehaviour
         int gridY = Mathf.FloorToInt(-localPosition.y / (cellSize + cellSpacing));
 
         return new Vector2Int(gridX, gridY);
-    }
-
-    // Add test items for demonstration
-    [ContextMenu("Add Test Items")]
-    public void AddTestItems()
-    {
-        // Add one of each shape type for testing
-        AddItem(TetrominoType.Single, new Vector2Int(0, 0));
-        AddItem(TetrominoType.Line2, new Vector2Int(2, 0));
-        AddItem(TetrominoType.Square, new Vector2Int(4, 0));
-        AddItem(TetrominoType.Line4, new Vector2Int(0, 2));
-        AddItem(TetrominoType.LShape, new Vector2Int(6, 0));
-        AddItem(TetrominoType.Comb, new Vector2Int(0, 4));
-        AddItem(TetrominoType.Corner, new Vector2Int(5, 4));
     }
 
     [ContextMenu("Clear All Items")]
