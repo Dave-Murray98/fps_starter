@@ -29,6 +29,14 @@ public class PlayerSaveData
     public bool canSprint = true;
     public bool canCrouch = true;
 
+    [Header("Inventory")]
+    public InventorySaveData inventoryData;
+
     // Easy to expand for future player stats
     public Dictionary<string, object> customStats = new Dictionary<string, object>();
+
+    public PlayerSaveData()
+    {
+        inventoryData = new InventorySaveData();
+    }
 }

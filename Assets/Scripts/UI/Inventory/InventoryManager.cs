@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 using UnityEngine;
 
 public class InventoryManager : MonoBehaviour, IManager
@@ -13,8 +14,8 @@ public class InventoryManager : MonoBehaviour, IManager
     [Header("Item Data Configuration")]
     [SerializeField] private List<ItemInstanceData> testItems = new List<ItemInstanceData>();
 
-    private Dictionary<string, DraggableGridItem> activeItems;
-    private int nextItemId = 1;
+    [ShowInInspector] public Dictionary<string, DraggableGridItem> activeItems;
+    public int nextItemId = 1;
 
     [System.Serializable]
     public class ItemInstanceData
@@ -103,8 +104,9 @@ public class InventoryManager : MonoBehaviour, IManager
     }
 
 
-    private Vector2Int FindValidPositionForShape(ItemData itemData, int startX = 0, int startY = 0)
+    public Vector2Int FindValidPositionForShape(ItemData itemData, int startX = 0, int startY = 0)
     {
+        Debug.Log("Creating tempItem to find valid position for shape: " + itemData.itemName);
         // Create a temporary item to test positioning
         var tempItem = new GridItem($"temp_{nextItemId}", itemData, Vector2Int.zero);
 
@@ -220,17 +222,43 @@ public class InventoryManager : MonoBehaviour, IManager
         return false;
     }
 
+    /// <summary>
+    /// Check if inventory has any items
+    /// </summary>
+    public bool HasItems()
+    {
+        return activeItems.Count > 0;
+    }
+
+    /// <summary>
+    /// Get total number of items in inventory
+    /// </summary>
+    public int GetItemCount()
+    {
+        return activeItems.Count;
+    }
+
     public void ClearInventory()
     {
-        foreach (var item in activeItems.Values)
+        Debug.Log("Clearing inventory...");
+        if (activeItems != null)
         {
-            if (item != null && item.gameObject != null)
+            foreach (var item in activeItems.Values)
             {
-                DestroyImmediate(item.gameObject);
+                if (item != null && item.gameObject != null)
+                {
+                    DestroyImmediate(item.gameObject);
+                }
             }
+            activeItems.Clear();
+
+        }
+        else
+        {
+            Debug.LogWarning("Active items dictionary is null, cannot clear inventory.");
+            return;
         }
 
-        activeItems.Clear();
         gridVisual.GridData.Clear();
         gridVisual.RefreshVisual();
         nextItemId = 1;
@@ -257,6 +285,8 @@ public class InventoryManager : MonoBehaviour, IManager
             CreateRandomItem();
         }
     }
+
+
 
     private void CreateRandomItem()
     {

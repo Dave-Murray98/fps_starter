@@ -13,11 +13,15 @@ MonoBehaviour:
   m_Name: PlayerData
   m_EditorClassIdentifier: 
   maxHealth: 100
+  currentHealth: 0
   healthRegenRate: 0
   walkSpeed: 5
   runSpeed: 8
   crouchSpeed: 2.5
   jumpHeight: 2
   gravity: -9.81
-  cameraSensitivity: 2
+  stopForce: 10
+  footstepRate: 0.5
+  lookSensitivity: 2
   verticalLookLimit: 85
+  crouchHeightMultiplier: 0.5

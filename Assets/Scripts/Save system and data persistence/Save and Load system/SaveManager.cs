@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting;
 
 
 /// <summary>
@@ -170,34 +171,31 @@ public class SaveManager : MonoBehaviour
         // Tell PlayerPersistenceManager we're done
         if (PlayerPersistenceManager.Instance != null)
         {
-            PlayerPersistenceManager.Instance.SaveManagerRestorationComplete();
+            PlayerPersistenceManager.Instance.OnSaveLoadComplete();
         }
     }
-
-    // [Rest of the SaveManager methods remain the same...]
 
     private void RestoreAllDataAfterSceneLoad()
     {
         DebugLog("Restoring all data after scene load...");
-        RestorePlayerPositionData();
-        RestorePlayerDataAfterSceneLoad();
-        RestoreSceneDataAfterSceneLoad();
+        RestorePlayerData();
+        RestoreSceneData();
     }
 
     private void RestoreAllDataInSameScene()
     {
         DebugLog("Restoring all data in same scene...");
-        RestorePlayerPositionData();
-        RestorePlayerDataInSameScene();
-        RestoreSceneDataInSameScene();
+        RestorePlayerData();
+        RestoreSceneData();
     }
 
-    private void RestorePlayerDataAfterSceneLoad()
+    private void RestorePlayerData()
     {
         if (currentSaveData?.playerPersistentData == null) return;
 
         var playerManager = FindFirstObjectByType<PlayerManager>();
         var playerController = FindFirstObjectByType<PlayerController>();
+        var inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
 
         if (playerManager != null)
         {
@@ -217,36 +215,27 @@ public class SaveManager : MonoBehaviour
             playerController.canSprint = currentSaveData.playerPersistentData.canSprint;
             playerController.canCrouch = currentSaveData.playerPersistentData.canCrouch;
         }
-    }
 
-    private void RestorePlayerDataInSameScene()
-    {
-        if (currentSaveData?.playerPersistentData == null) return;
-
-        var playerManager = FindFirstObjectByType<PlayerManager>();
-        var playerController = FindFirstObjectByType<PlayerController>();
-
-        if (playerManager != null)
+        //Restore inventory data
+        if (inventorySaveComponent != null && currentSaveData.playerPersistentData.inventoryData != null)
         {
-            playerManager.currentHealth = currentSaveData.playerPersistentData.currentHealth;
-
-            if (GameManager.Instance?.playerData != null)
+            try
             {
-                GameEvents.TriggerPlayerHealthChanged(playerManager.currentHealth, GameManager.Instance.playerData.maxHealth);
+                inventorySaveComponent.LoadInventoryFromSaveData(currentSaveData.playerPersistentData.inventoryData);
+                DebugLog($"Restored inventory after scene load: {currentSaveData.playerPersistentData.inventoryData.ItemCount} items");
             }
-
-            DebugLog($"Restored player health in same scene: {playerManager.currentHealth}");
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to restore inventory after scene load: {e.Message}");
+            }
         }
 
-        if (playerController != null)
-        {
-            playerController.canJump = currentSaveData.playerPersistentData.canJump;
-            playerController.canSprint = currentSaveData.playerPersistentData.canSprint;
-            playerController.canCrouch = currentSaveData.playerPersistentData.canCrouch;
-        }
+        RestorePlayerPositionData();
     }
 
-    private void RestoreSceneDataAfterSceneLoad()
+
+
+    private void RestoreSceneData()
     {
         if (currentSaveData?.sceneData == null) return;
 
@@ -257,7 +246,7 @@ public class SaveManager : MonoBehaviour
 
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
-            .Where(s => !IsPlayerRelatedComponent(s))
+            .Where(s => s.SaveCategory == SaveDataCategory.SceneDependent)
             .ToArray();
 
         foreach (var saveable in saveableObjects)
@@ -280,44 +269,7 @@ public class SaveManager : MonoBehaviour
         DebugLog($"Restored scene data after scene load: {currentScene}");
     }
 
-    private void RestoreSceneDataInSameScene()
-    {
-        if (currentSaveData?.sceneData == null) return;
 
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (!currentSaveData.sceneData.ContainsKey(currentScene)) return;
-
-        var sceneData = currentSaveData.sceneData[currentScene];
-
-        ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
-            .OfType<ISaveable>()
-            .Where(s => !IsPlayerRelatedComponent(s))
-            .ToArray();
-
-        foreach (var saveable in saveableObjects)
-        {
-            try
-            {
-                var data = sceneData.GetObjectData<object>(saveable.SaveID);
-                if (data != null)
-                {
-                    saveable.LoadSaveData(data);
-                    saveable.OnAfterLoad();
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"Failed to restore {saveable.SaveID} in same scene: {e.Message}");
-            }
-        }
-
-        DebugLog($"Restored scene data in same scene: {currentScene}");
-    }
-
-    private bool IsPlayerRelatedComponent(ISaveable saveable)
-    {
-        return saveable.SaveID.Contains("Player") || saveable.SaveID.Contains("player");
-    }
 
     private bool LoadSaveDataFromFile()
     {

@@ -5,6 +5,7 @@ public class EntityData : ScriptableObject
 {
     [Header("Health")]
     public float maxHealth = 100f;
+    public float currentHealth;
     public float healthRegenRate = 0f;
 
     [Header("Movement")]

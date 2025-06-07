@@ -28,6 +28,7 @@ public class GridItem
         GridPosition = gridPosition;
         currentRotation = 0;
         RefreshShapeData();
+        Debug.Log($"Created GridItem with ID: {ID}, ShapeType: {shapeType}, Position: {GridPosition}");
     }
 
     // Get item name (from ItemData if available, otherwise default)

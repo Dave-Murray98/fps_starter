@@ -17,6 +17,9 @@ public class PlayerSaveComponent : SaveComponentBase
 
     protected override void Awake()
     {
+        // Fixed ID for player
+        saveID = "Player_Main";
+        autoGenerateID = false;
         base.Awake();
 
         // Auto-find references
@@ -27,9 +30,6 @@ public class PlayerSaveComponent : SaveComponentBase
         if (playerData == null)
             playerData = GameManager.Instance?.playerData;
 
-        // Fixed ID for player
-        saveID = "Player_Main";
-        autoGenerateID = false;
     }
 
     public override object GetSaveData()
@@ -65,7 +65,16 @@ public class PlayerSaveComponent : SaveComponentBase
     public override void LoadSaveData(object data)
     {
         if (!(data is PlayerSaveData playerSaveData) || playerController == null)
+        {
+            DebugLog("Invalid player save data or PlayerController not found - cannot load");
+            if (data == null)
+                DebugLog("Player Data is null");
+            else
+                DebugLog($"Data type: {data.GetType()}");
+            if (playerController == null)
+                DebugLog("PlayerController is null");
             return;
+        }
 
         // Always load position (this is only called by SaveManager)
         playerController.transform.position = playerSaveData.position;
@@ -75,8 +84,13 @@ public class PlayerSaveComponent : SaveComponentBase
         if (playerManager != null)
         {
             playerManager.currentHealth = playerSaveData.health;
+            DebugLog($"Loaded player health: {playerSaveData.health}");
             if (playerData != null)
                 playerData.maxHealth = playerSaveData.maxHealth;
+        }
+        else
+        {
+            DebugLog("PlayerManager not found - cannot load health");
         }
 
         // Load abilities

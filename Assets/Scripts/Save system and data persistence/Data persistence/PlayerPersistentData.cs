@@ -14,10 +14,10 @@ public class PlayerPersistentData
     public bool canSprint = true;
     public bool canCrouch = true;
 
-    // Add more systems here as you create them:
-    // [Header("Inventory")]
-    // public InventoryData inventory;
+    [Header("Inventory")]
+    public InventorySaveData inventoryData;
 
+    // Add more systems here as you create them:
     // [Header("Equipment")]
     // public EquipmentData equipment;
 
@@ -27,6 +27,7 @@ public class PlayerPersistentData
     public PlayerPersistentData()
     {
         // Default values
+        inventoryData = new InventorySaveData();
     }
 
     public PlayerPersistentData(PlayerPersistentData other)
@@ -36,5 +37,24 @@ public class PlayerPersistentData
         this.canJump = other.canJump;
         this.canSprint = other.canSprint;
         this.canCrouch = other.canCrouch;
+
+        // Deep copy inventory data
+        if (other.inventoryData != null)
+        {
+            this.inventoryData = new InventorySaveData(other.inventoryData.gridWidth, other.inventoryData.gridHeight);
+            this.inventoryData.nextItemId = other.inventoryData.nextItemId;
+
+            // Copy all items
+            foreach (var item in other.inventoryData.items)
+            {
+                var itemCopy = new InventoryItemSaveData(item.itemID, item.itemDataName, item.gridPosition, item.currentRotation);
+                itemCopy.stackCount = item.stackCount;
+                this.inventoryData.AddItem(itemCopy);
+            }
+        }
+        else
+        {
+            this.inventoryData = new InventorySaveData();
+        }
     }
 }

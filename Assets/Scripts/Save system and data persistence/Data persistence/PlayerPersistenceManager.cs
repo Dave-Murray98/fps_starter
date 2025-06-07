@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Manages player data that should persist between scenes (via doorways)
 /// This is separate from save files - it's for doorway transitions
+/// Now includes inventory support
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
@@ -44,6 +45,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         var playerManager = FindFirstObjectByType<PlayerManager>();
         var playerController = FindFirstObjectByType<PlayerController>();
+        var inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
 
         if (playerManager != null && playerController != null)
         {
@@ -52,8 +54,19 @@ public class PlayerPersistenceManager : MonoBehaviour
             persistentData.canSprint = playerController.canSprint;
             persistentData.canCrouch = playerController.canCrouch;
 
+            // Save inventory data
+            if (inventorySaveComponent != null)
+            {
+                persistentData.inventoryData = inventorySaveComponent.GetInventorySaveData();
+                DebugLog($"Saved inventory data: {persistentData.inventoryData.ItemCount} items");
+            }
+            else
+            {
+                DebugLog("No InventoryManager found - inventory not saved");
+            }
+
             hasPersistentData = true;
-            DebugLog($"Player data saved for doorway transition: Health={persistentData.currentHealth}");
+            DebugLog($"Player data saved for doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData.ItemCount} items");
         }
     }
 
@@ -66,6 +79,7 @@ public class PlayerPersistenceManager : MonoBehaviour
 
         var playerManager = FindFirstObjectByType<PlayerManager>();
         var playerController = FindFirstObjectByType<PlayerController>();
+        var inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
 
         if (playerManager != null && playerController != null)
         {
@@ -74,13 +88,20 @@ public class PlayerPersistenceManager : MonoBehaviour
             playerController.canSprint = persistentData.canSprint;
             playerController.canCrouch = persistentData.canCrouch;
 
+            // Restore inventory data
+            if (inventorySaveComponent != null && persistentData.inventoryData != null)
+            {
+                inventorySaveComponent.LoadInventoryFromSaveData(persistentData.inventoryData);
+                DebugLog($"Restored inventory data: {persistentData.inventoryData.ItemCount} items");
+            }
+
             // Trigger UI updates
             if (GameManager.Instance?.playerData != null)
             {
                 GameEvents.TriggerPlayerHealthChanged(persistentData.currentHealth, GameManager.Instance.playerData.maxHealth);
             }
 
-            DebugLog($"Player data restored after doorway transition: Health={persistentData.currentHealth}");
+            DebugLog($"Player data restored after doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData?.ItemCount ?? 0} items");
         }
     }
 
@@ -92,12 +113,15 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         if (hasPersistentData && !saveManagerIsHandlingRestore)
         {
+            Debug.Log("PlayerPersistenceManager.OnSceneLoaded() called, triggering StartCoroutine(RestorePlayerDataCoroutine())");
             StartCoroutine(RestorePlayerDataCoroutine());
         }
     }
 
     private System.Collections.IEnumerator RestorePlayerDataCoroutine()
     {
+        DebugLog("PlayerPersistenceManager.RestorePlayerDataCoroutine() called");
+
         yield return new WaitForEndOfFrame();
         yield return new WaitForSeconds(0.1f);
 
@@ -135,21 +159,12 @@ public class PlayerPersistenceManager : MonoBehaviour
             hasPersistentData = false;
             saveManagerIsHandlingRestore = true;
 
-            DebugLog("Player persistent data loaded from save - doorway data cleared");
+            DebugLog($"Player persistent data loaded from save - doorway data cleared. Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
         }
     }
 
     /// <summary>
-    /// FIX: Reset save manager flag after restoration is complete
-    /// </summary>
-    public void SaveManagerRestorationComplete()
-    {
-        saveManagerIsHandlingRestore = false;
-        DebugLog("SaveManager restoration complete - doorway system re-enabled");
-    }
-
-    /// <summary>
-    /// Clear persistent data (for new game)
+    /// Clear persistent data (useful for new game)
     /// </summary>
     public void ClearPersistentData()
     {
@@ -159,11 +174,34 @@ public class PlayerPersistenceManager : MonoBehaviour
         DebugLog("Player persistent data cleared");
     }
 
+    /// <summary>
+    /// FIX: Call this when SaveManager finishes loading to re-enable doorway transitions
+    /// </summary>
+    public void OnSaveLoadComplete()
+    {
+        saveManagerIsHandlingRestore = false;
+        DebugLog("Save load complete - doorway transitions re-enabled");
+    }
+
+    /// <summary>
+    /// Check if we have persistent data waiting to be restored
+    /// </summary>
+    public bool HasPersistentData => hasPersistentData && !saveManagerIsHandlingRestore;
+
+    /// <summary>
+    /// Get current player data snapshot (useful for debugging)
+    /// </summary>
+    public PlayerPersistentData GetCurrentSnapshot()
+    {
+        SavePlayerDataForTransition(); // Update with current values
+        return persistentData;
+    }
+
     private void DebugLog(string message)
     {
         if (showDebugLogs)
         {
-            Debug.Log($"[PlayerPersistenceManager] {message}");
+            Debug.Log($"[PlayerPersistence] {message}");
         }
     }
 

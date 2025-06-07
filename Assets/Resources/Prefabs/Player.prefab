@@ -730,8 +730,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 665b624bb332587459859a1525ca4612, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  saveID: PlayerSaveComponent_12_(0.00, 0.52, 0.00)
-  autoGenerateID: 1
+  saveID: Player_Main
+  autoGenerateID: 0
   enableDebugLogs: 1
   playerController: {fileID: 5026250899846009166}
   playerManager: {fileID: 0}

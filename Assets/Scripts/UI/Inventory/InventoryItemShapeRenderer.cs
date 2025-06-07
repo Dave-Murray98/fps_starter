@@ -11,7 +11,7 @@ public class InventoryItemShapeRenderer : MonoBehaviour
     [SerializeField] private float cellSize = 50f;
     [SerializeField] private float cellSpacing = 2f;
     [SerializeField] private Color borderColor = Color.black;
-    [SerializeField] private float borderWidth = 2f;
+    [SerializeField] private float borderWidth = 0f;
 
     [Header("Image Overlay Settings")]
     [SerializeField] private float imagePadding = 4f; // Padding around the image within the shape bounds
