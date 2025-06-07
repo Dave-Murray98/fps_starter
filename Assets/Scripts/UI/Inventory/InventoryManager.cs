@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class InventoryManager : MonoBehaviour
+public class InventoryManager : MonoBehaviour, IManager
 {
     [Header("Grid Reference")]
     [SerializeField] private GridVisual gridVisual;
@@ -31,7 +31,7 @@ public class InventoryManager : MonoBehaviour
         [Range(1, 5)] public int quantity = 1;
     }
 
-    private void Start()
+    public void Initialize()
     {
         activeItems = new Dictionary<string, DraggableGridItem>();
 
@@ -39,8 +39,27 @@ public class InventoryManager : MonoBehaviour
         {
             gridVisual = FindFirstObjectByType<GridVisual>();
         }
-
     }
+
+    public void RefreshReferences()
+    {
+        Debug.Log("Refreshing references in InventoryManager...");
+        if (gridVisual == null)
+        {
+            gridVisual = FindFirstObjectByType<GridVisual>();
+            if (gridVisual == null)
+            {
+                Debug.LogError("GridVisual not found! Please assign it in the inspector.");
+                return;
+            }
+        }
+    }
+
+    public void Cleanup()
+    {
+        //Debug.Log("Cleaning up InventoryManager...");
+    }
+
 
     private void CreateItemDataItems()
     {
@@ -265,4 +284,6 @@ public class InventoryManager : MonoBehaviour
         itemData.isRotatable = true;
         return itemData;
     }
+
+
 }

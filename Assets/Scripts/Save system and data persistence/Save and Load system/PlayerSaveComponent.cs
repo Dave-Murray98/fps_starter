@@ -13,6 +13,8 @@ public class PlayerSaveComponent : SaveComponentBase
     [SerializeField] private PlayerManager playerManager;
     [SerializeField] private PlayerData playerData;
 
+    public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
+
     protected override void Awake()
     {
         base.Awake();

@@ -263,7 +263,7 @@ public class InputManager : MonoBehaviour, IManager
         // CRITICAL: Ensure action maps are valid before enabling
         if (locomotionActionMap == null || uiActionMap == null)
         {
-            Debug.LogWarning("Action maps are null, attempting to re-setup input actions");
+            //            Debug.LogWarning("Action maps are null, attempting to re-setup input actions");
             SetupInputActions();
         }
 

@@ -1,3 +1,4 @@
+using Sirenix.OdinInspector;
 using UnityEngine;
 
 /// <summary>
@@ -23,6 +24,8 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
             return saveID;
         }
     }
+
+    [ShowInInspector] public virtual SaveDataCategory SaveCategory => SaveDataCategory.SceneDependent;
 
     public abstract object GetSaveData();
     public abstract void LoadSaveData(object data);

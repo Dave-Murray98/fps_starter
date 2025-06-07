@@ -12,6 +12,11 @@ public interface ISaveable
     string SaveID { get; }
 
     /// <summary>
+    /// Category determines whether this object's data is scene-dependent or player-dependent
+    /// </summary>
+    SaveDataCategory SaveCategory { get; }
+
+    /// <summary>
     /// Returns the data that should be saved for this object
     /// </summary>
     object GetSaveData();
@@ -32,4 +37,22 @@ public interface ISaveable
     /// Use for any setup needed after loading
     /// </summary>
     void OnAfterLoad() { }
+}
+
+/// <summary>
+/// Defines whether save data is scene-dependent or player-dependent 
+/// </summary>
+public enum SaveDataCategory
+{
+    /// <summary>
+    /// Scene-dependent data - this data contains information about the current scene and when the player leaves the scene, it should be saved so that it can be restored when the player returns to that scene.
+    /// Examples: Enemy states, pickup collections, door locks, environmental changes
+    /// </summary>
+    SceneDependent,
+
+    /// <summary>
+    /// Player-dependent data - this data should persist across scenes unless the player loads into a previous save, wherein it should be restored to that save's state.
+    /// Examples: Player health, inventory, stats, quest progress
+    /// </summary>
+    PlayerDependent
 }

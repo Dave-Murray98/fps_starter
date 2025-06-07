@@ -95,7 +95,7 @@ public class SceneDataManager : MonoBehaviour
         // Save all saveable objects EXCEPT player-related components
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
-            .Where(s => !IsPlayerRelatedComponent(s))
+            .Where(s => s.SaveCategory == SaveDataCategory.SceneDependent)
             .ToArray();
 
         foreach (var saveable in saveableObjects)
@@ -120,17 +120,6 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Check if a saveable component is player-related
-    /// </summary>
-    private bool IsPlayerRelatedComponent(ISaveable saveable)
-    {
-        // Add more player-related components here as needed
-        return saveable is PlayerSaveComponent ||
-               saveable.SaveID.Contains("Player") ||
-               saveable.SaveID.Contains("player");
-    }
-
-    /// <summary>
     /// Restore scene data (EXCLUDING player data)
     /// </summary>
     private void RestoreSceneData(string sceneName)
@@ -147,7 +136,7 @@ public class SceneDataManager : MonoBehaviour
         // Restore all objects EXCEPT player-related
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
-            .Where(s => !IsPlayerRelatedComponent(s))
+            .Where(s => s.SaveCategory == SaveDataCategory.SceneDependent)
             .ToArray();
 
         foreach (var saveable in saveableObjects)
