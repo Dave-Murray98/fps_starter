@@ -108,14 +108,14 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// </summary>
     public PlayerPersistentData GetPersistentDataForSave()
     {
-        SavePlayerDataForTransition(); // Update with current values
+        UpdatePersistentPlayerDataForTransition(); // Update with current values
         return new PlayerPersistentData(persistentData); // Return copy
     }
 
     /// <summary>
-    /// Save current player data before scene transition (called by doorway)
+    /// update current player data before scene transition (called by doorway)
     /// </summary>
-    public void SavePlayerDataForTransition()
+    public void UpdatePersistentPlayerDataForTransition()
     {
         var playerManager = FindFirstObjectByType<PlayerManager>();
         var playerController = FindFirstObjectByType<PlayerController>();
@@ -158,7 +158,7 @@ public class PlayerPersistenceManager : MonoBehaviour
             hasPersistentData = false;
             saveManagerIsHandlingRestore = true; //disables doorway transition data restoration, so it won't conflict with SaveManager's loading process
 
-            DebugLog($"Player persistent data loaded from save - doorway data cleared. Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
+            //DebugLog($"Player persistent data loaded from save - doorway data cleared. Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
         }
     }
 
@@ -192,7 +192,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// </summary>
     public PlayerPersistentData GetCurrentSnapshot()
     {
-        SavePlayerDataForTransition(); // Update with current values
+        UpdatePersistentPlayerDataForTransition(); // Update with current values
         return persistentData;
     }
 

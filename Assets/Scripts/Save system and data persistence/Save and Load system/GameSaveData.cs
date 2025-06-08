@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Main container for all save data
+/// Main container for all save data for the save/load system.
+/// This includes both player-specific data (ie player data that persists between scenes, such as player health) and scene specific save data (ie data that is scene-dependent such as whether a scene's door is locked/unlocked).
 /// </summary>
 [System.Serializable]
 public class GameSaveData
@@ -36,7 +37,7 @@ public class GameSaveData
         playersaveData.currentScene = currentScene;
 
         playersaveData.inventoryData = playerPersistentData.inventoryData;
-        Debug.Log($"Set playersavedata.inventorydata, itemcount: {playersaveData.inventoryData.ItemCount} items");
+        //Debug.Log($"Set playersavedata.inventorydata, itemcount: {playersaveData.inventoryData.ItemCount} items");
     }
 }
 

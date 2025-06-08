@@ -65,9 +65,10 @@ public class SaveManager : MonoBehaviour
         {
             currentSaveData.playerPersistentData = PlayerPersistenceManager.Instance.GetPersistentDataForSave();
 
-            // Save player position data
+            // Save player position data as well as it is not part of PlayerPersistentData (because it's only used for saving/loading, not for scene trasitions)
             SavePlayerPositionData();
 
+            //update the currentSaveData's PlayerSaveData with the current player persistent data
             currentSaveData.SetPlayerSaveDataToPlayerPersistentData();
         }
 
@@ -135,6 +136,7 @@ public class SaveManager : MonoBehaviour
         string targetScene = currentSaveData.currentScene;
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
+        //if we're loading into a different scene, wait for the scene to finish loading before restoring save data
         if (targetScene != currentScene)
         {
             // Different scene - let SceneTransitionManager handle loading screen
@@ -145,9 +147,9 @@ public class SaveManager : MonoBehaviour
             yield return new WaitForEndOfFrame();
             yield return new WaitForSeconds(0.2f);
 
-            RestoreAllDataAfterSceneLoad();
+            RestoreAllDataInScene();
         }
-        else
+        else // if we're loading into the same scene, we can restore data immediately
         {
             // Same scene - show our own loading screen
             LoadingScreenManager.Instance?.ShowLoadingScreenForSaveLoad(currentScene);
@@ -156,7 +158,8 @@ public class SaveManager : MonoBehaviour
             LoadingScreenManager.Instance?.SetProgress(0.3f);
 
             yield return new WaitForEndOfFrame();
-            RestoreAllDataInSameScene();
+            RestoreAllDataInScene();
+
 
             LoadingScreenManager.Instance?.SetProgress(1f);
             yield return new WaitForSecondsRealtime(0.5f);
@@ -187,71 +190,17 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    private void RestoreAllDataAfterSceneLoad()
+    /// <summary>
+    /// Restores all data in the current scene after loading a save file.
+    /// </summary>
+    private void RestoreAllDataInScene()
     {
         DebugLog("Restoring all data after scene load...");
-        RestorePlayerDataNew();
-        RestoreSceneData();
-    }
-
-    private void RestoreAllDataInSameScene()
-    {
-        DebugLog("Restoring all data in same scene...");
-        RestorePlayerDataNew();
+        RestorePlayerData();
         RestoreSceneData();
     }
 
     private void RestorePlayerData()
-    {
-        if (currentSaveData?.playerPersistentData == null) return;
-
-        var playerManager = FindFirstObjectByType<PlayerManager>();
-        var playerController = FindFirstObjectByType<PlayerController>();
-        var inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
-
-        if (playerManager != null)
-        {
-            playerManager.currentHealth = currentSaveData.playerPersistentData.currentHealth;
-
-            if (GameManager.Instance?.playerData != null)
-            {
-                GameEvents.TriggerPlayerHealthChanged(playerManager.currentHealth, GameManager.Instance.playerData.maxHealth);
-            }
-
-            DebugLog($"Restored player health after scene load: {playerManager.currentHealth}");
-        }
-
-        if (playerController != null)
-        {
-            playerController.canJump = currentSaveData.playerPersistentData.canJump;
-            playerController.canSprint = currentSaveData.playerPersistentData.canSprint;
-            playerController.canCrouch = currentSaveData.playerPersistentData.canCrouch;
-        }
-
-        //Restore inventory data
-        if (inventorySaveComponent != null && currentSaveData.playerPersistentData.inventoryData != null)
-        {
-            try
-            {
-                // Ensure inventory panel is active so we can access it's data
-                if (GameManager.Instance.uiManager.inventoryPanel != null)
-                {
-                    GameManager.Instance.uiManager.inventoryPanel.SetActive(true);
-                }
-
-                inventorySaveComponent.LoadInventoryFromSaveData(currentSaveData.playerPersistentData.inventoryData);
-                DebugLog($"Restored inventory after scene load: {currentSaveData.playerPersistentData.inventoryData.ItemCount} items");
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"Failed to restore inventory after scene load: {e.Message}");
-            }
-        }
-
-        RestorePlayerPositionData();
-    }
-
-    private void RestorePlayerDataNew()
     {
         if (currentSaveData?.playerPersistentData == null) return;
 
@@ -266,11 +215,12 @@ public class SaveManager : MonoBehaviour
         {
             try
             {
-                //from the currentsaveData, extract the relevant data for this saveable
+                //from the currentsaveData's playersaveData, extract the relevant data for this saveable - for playersavecomponent, this will return the playerSaveData (which is a PlayerSaveData class), for other saveables, it will return the relevant data for that saveable
+                //ie for the inventorysavecomponent, it will extract the playerSaveData.inventoryData (which is an InventorySaveData class)
                 var data = saveable.ExtractRelevantData(currentSaveData.playersaveData);
                 if (data != null)
                 {
-                    //pass the relevant extracted data to the saveable
+                    //pass the relevant extracted data to the saveable (each saveable's LoadSaveData method will know how to handle it) and will check that it's the correct type
                     saveable.LoadSaveData(data);
                     saveable.OnAfterLoad();
                 }

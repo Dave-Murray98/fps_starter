@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.Collections.Generic;
-using System.Linq;
 
 /// <summary>
 /// Save component for inventory system - handles saving/loading inventory state
@@ -140,107 +139,6 @@ public class InventorySaveComponent : SaveComponentBase
         {
             Debug.LogError($"Failed to restore inventory after scene load: {e.Message}");
         }
-
-        // // Clear current inventory completely
-        // inventoryManager.ClearInventory();
-        // Debug.Log("InventorySaveComponent.LoadSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
-        // inventoryManager.activeItems = new Dictionary<string, DraggableGridItem>();
-
-
-        // // Verify grid dimensions match (or resize if needed)
-        // var currentGrid = gridVisual.GridData;
-        // if (currentGrid.Width != inventorySaveData.gridWidth || currentGrid.Height != inventorySaveData.gridHeight)
-        // {
-        //     DebugLog($"Grid size mismatch - Current: {currentGrid.Width}x{currentGrid.Height}, Save: {inventorySaveData.gridWidth}x{inventorySaveData.gridHeight}");
-        //     // For now, continue with current grid - in the future you might want to resize
-        // }
-
-        // // Restore next item ID
-        // SetNextItemIdInManager(inventorySaveData.nextItemId);
-
-        // // Load each item in the exact position it was saved
-        // int successCount = 0;
-        // int failCount = 0;
-
-        // foreach (var itemSaveData in inventorySaveData.items)
-        // {
-        //     if (RestoreItem(itemSaveData))
-        //     {
-        //         successCount++;
-        //     }
-        //     else
-        //     {
-        //         failCount++;
-        //     }
-        // }
-
-        // DebugLog($"Inventory load complete: {successCount} items loaded, {failCount} failed");
-
-        // // Refresh visual representation
-        // gridVisual.RefreshVisual();
-    }
-
-    /// <summary>
-    /// Restore a single item from save data
-    /// </summary>
-    private bool RestoreItem(InventoryItemSaveData itemSaveData)
-    {
-        if (!itemSaveData.IsValid())
-        {
-            DebugLog($"Invalid item save data: {itemSaveData}");
-            return false;
-        }
-
-        // Convert save data back to GridItem
-        GridItem gridItem = itemSaveData.ToGridItem();
-        if (gridItem == null)
-        {
-            DebugLog($"Failed to create GridItem from save data: {itemSaveData}");
-            return false;
-        }
-
-        // Verify the position is valid for this item's current rotation
-        var gridData = gridVisual.GridData;
-        if (!gridData.IsValidPosition(gridItem.GridPosition, gridItem))
-        {
-            DebugLog($"Cannot place item {gridItem.ID} at saved position {gridItem.GridPosition} - position invalid");
-            // Try to find alternative position
-            Vector2Int? alternativePos = FindAlternativePosition(gridItem);
-            if (alternativePos.HasValue)
-            {
-                gridItem.SetGridPosition(alternativePos.Value);
-                DebugLog($"Placed item {gridItem.ID} at alternative position {alternativePos.Value}");
-            }
-            else
-            {
-                DebugLog($"No alternative position found for item {gridItem.ID}");
-                return false;
-            }
-        }
-
-        // Place the item in grid data
-        if (!gridData.PlaceItem(gridItem))
-        {
-            DebugLog($"Failed to place item {gridItem.ID} in grid data");
-            return false;
-        }
-
-        // Create visual representation
-        var activeItems = inventoryManager.GetActiveItems();
-        var itemObj = CreateItemVisual(gridItem);
-
-        if (itemObj != null)
-        {
-            var draggableItem = itemObj.GetComponent<DraggableGridItem>();
-            if (draggableItem != null)
-            {
-                activeItems[gridItem.ID] = draggableItem;
-            }
-        }
-
-        //DONT call RefreshVisual here - it causes duplicates!
-
-        return true;
     }
 
     /// <summary>
@@ -285,29 +183,6 @@ public class InventorySaveComponent : SaveComponentBase
     }
 
     /// <summary>
-    /// Try to find an alternative position for an item that can't be placed at its saved location
-    /// </summary>
-    private Vector2Int? FindAlternativePosition(GridItem gridItem)
-    {
-        var gridData = gridVisual.GridData;
-
-        // Search from top-left, row by row
-        for (int y = 0; y < gridData.Height; y++)
-        {
-            for (int x = 0; x < gridData.Width; x++)
-            {
-                Vector2Int testPos = new Vector2Int(x, y);
-                if (gridData.IsValidPosition(testPos, gridItem))
-                {
-                    return testPos;
-                }
-            }
-        }
-
-        return null; // No valid position found
-    }
-
-    /// <summary>
     /// Get the next item ID from the inventory manager
     /// </summary>
     private int GetNextItemIdFromManager()
@@ -315,15 +190,6 @@ public class InventorySaveComponent : SaveComponentBase
         // Access the private field through reflection or add a public property
         // For now, return a default value - you might want to add a public property to InventoryManager
         return 1;
-    }
-
-    /// <summary>
-    /// Set the next item ID in the inventory manager
-    /// </summary>
-    private void SetNextItemIdInManager(int nextId)
-    {
-        // Access the private field through reflection or add a public method
-        // For now, do nothing - you might want to add a public method to InventoryManager
     }
 
     public override void OnBeforeSave()
@@ -439,10 +305,6 @@ public class InventorySaveComponent : SaveComponentBase
         {
             RestoreItemFromSaveData(itemSaveData);
         }
-
-
-        // Refresh visual
-        //gridVisual?.RefreshVisual();
     }
 
     /// <summary>

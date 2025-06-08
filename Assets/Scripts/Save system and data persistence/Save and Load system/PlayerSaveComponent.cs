@@ -1,6 +1,4 @@
 using UnityEngine;
-using System.Collections.Generic;
-using System.Linq;
 
 /// <summary>
 /// SIMPLIFIED Player Save Component
@@ -12,7 +10,6 @@ public class PlayerSaveComponent : SaveComponentBase
     [SerializeField] private PlayerController playerController;
     [SerializeField] private PlayerManager playerManager;
     [SerializeField] private PlayerData playerData;
-
 
 
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;

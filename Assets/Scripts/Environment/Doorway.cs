@@ -45,7 +45,7 @@ public class Doorway : MonoBehaviour
 
 
         // Save player persistent data before transition
-        PlayerPersistenceManager.Instance?.SavePlayerDataForTransition();
+        PlayerPersistenceManager.Instance?.UpdatePersistentPlayerDataForTransition();
 
         // Then do the scene transition
         if (SceneTransitionManager.Instance != null)
