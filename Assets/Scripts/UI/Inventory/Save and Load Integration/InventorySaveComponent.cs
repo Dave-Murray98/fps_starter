@@ -98,6 +98,9 @@ public class InventorySaveComponent : SaveComponentBase
 
         // Clear current inventory completely
         inventoryManager.ClearInventory();
+        Debug.Log("InventorySaveComponent.LoadSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
+        inventoryManager.activeItems = new Dictionary<string, DraggableGridItem>();
+
 
         // Verify grid dimensions match (or resize if needed)
         var currentGrid = gridVisual.GridData;
@@ -361,6 +364,8 @@ public class InventorySaveComponent : SaveComponentBase
 
         // Clear current inventory
         inventoryManager.ClearInventory();
+        Debug.Log("InventorySaveComponent.LoadInventoryFromSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
+        inventoryManager.activeItems = new Dictionary<string, DraggableGridItem>();
 
         // Set next item ID
         inventoryManager.nextItemId = saveData.nextItemId;
@@ -370,6 +375,7 @@ public class InventorySaveComponent : SaveComponentBase
         {
             RestoreItemFromSaveData(itemSaveData);
         }
+
 
         // Refresh visual
         //gridVisual?.RefreshVisual();
@@ -440,6 +446,18 @@ public class InventorySaveComponent : SaveComponentBase
         if (draggableItem != null && inventoryManager.activeItems != null)
         {
             inventoryManager.activeItems[gridItem.ID] = draggableItem;
+            Debug.Log($"Added {gridItem.ID} item to active items");
+        }
+        else
+        {
+            if (draggableItem == null)
+            {
+                Debug.LogWarning($"DraggableGridItem component is missing on item visual for {gridItem.ID}");
+            }
+            if (inventoryManager.activeItems == null)
+            {
+                Debug.LogWarning($"Active items dictionary is null - cannot add {gridItem.ID}");
+            }
         }
 
         return true;
