@@ -115,12 +115,13 @@ public class SaveManager : MonoBehaviour
             yield break;
         }
 
-        // Tell PlayerPersistenceManager that we're handling restoration
+        // Tell PlayerPersistenceManager that we're handling restoration of playerpersistent data
         if (PlayerPersistenceManager.Instance != null && currentSaveData.playerPersistentData != null)
         {
             PlayerPersistenceManager.Instance.LoadPersistentDataFromSave(currentSaveData.playerPersistentData);
         }
 
+        //load the scene dependent data for the scene were loading into
         if (SceneDataManager.Instance != null && currentSaveData.sceneData != null)
         {
             SceneDataManager.Instance.LoadSceneDataFromSave(currentSaveData.sceneData);
