@@ -165,6 +165,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &343386848 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6324325311282069975, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
+  m_PrefabInstance: {fileID: 418749875408110830}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -1195,6 +1200,8 @@ MonoBehaviour:
   pauseMenu: {fileID: 1461171986}
   healthBar: {fileID: 481999819}
   healthText: {fileID: 1552350263}
+  inventoryPanel: {fileID: 343386848}
+  isInventoryOpen: 0
 --- !u!4 &1481020783
 Transform:
   m_ObjectHideFlags: 0

@@ -10,6 +10,10 @@ public class UIManager : MonoBehaviour, IManager
     public Slider healthBar;
     public TextMeshProUGUI healthText;
 
+    [Header("Inventory UI References")]
+    public GameObject inventoryPanel;
+    public bool isInventoryOpen = false;
+
     public void Initialize()
     {
         //   Debug.Log("UIManager Initialized");
@@ -29,9 +33,17 @@ public class UIManager : MonoBehaviour, IManager
         GameEvents.OnGamePaused += ShowPauseMenu;
         GameEvents.OnGameResumed += HidePauseMenu;
 
+        GameEvents.OnInventoryOpened += ShowInventoryPanel;
+        GameEvents.OnInventoryClosed += HideInventoryPanel;
+
         if (pauseMenu != null)
         {
             pauseMenu.SetActive(false);
+        }
+
+        if (inventoryPanel != null)
+        {
+            inventoryPanel.SetActive(false);
         }
 
         // Update UI with current values
@@ -60,6 +72,24 @@ public class UIManager : MonoBehaviour, IManager
         if (pauseMenu != null)
         {
             pauseMenu.SetActive(false);
+        }
+    }
+
+    private void ShowInventoryPanel()
+    {
+        if (inventoryPanel != null)
+        {
+            inventoryPanel.SetActive(true);
+            isInventoryOpen = true;
+        }
+    }
+
+    public void HideInventoryPanel()
+    {
+        if (inventoryPanel != null)
+        {
+            inventoryPanel.SetActive(false);
+            isInventoryOpen = false;
         }
     }
 

@@ -197,6 +197,8 @@ MonoBehaviour:
   pauseMenu: {fileID: 1461171986}
   healthBar: {fileID: 481999819}
   healthText: {fileID: 1552350263}
+  inventoryPanel: {fileID: 160636848}
+  isInventoryOpen: 0
 --- !u!4 &15981062
 Transform:
   m_ObjectHideFlags: 0
@@ -314,6 +316,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
+--- !u!1 &160636848 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6324325311282069975, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
+  m_PrefabInstance: {fileID: 160636847}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &317039846
 GameObject:
   m_ObjectHideFlags: 0

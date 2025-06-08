@@ -18,6 +18,11 @@ public static class GameEvents
 
     #endregion
 
+    #region UI Events
+    public static event Action OnInventoryOpened;
+    public static event Action OnInventoryClosed;
+    #endregion
+
 
     #region Trigger Methods
     public static void TriggerPlayerHealthChanged(float currentHealth, float maxHealth) =>
@@ -28,6 +33,9 @@ public static class GameEvents
     public static void TriggerGamePaused() => OnGamePaused?.Invoke();
 
     public static void TriggerGameResumed() => OnGameResumed?.Invoke();
+
+    public static void TriggerInventoryOpened() => OnInventoryOpened?.Invoke();
+    public static void TriggerInventoryClosed() => OnInventoryClosed?.Invoke();
 
     #endregion
 

@@ -165,6 +165,13 @@ public class SaveManager : MonoBehaviour
             //DebugLog("Game unpaused after load");
         }
 
+        //close the inventory panel (we had to open it to restore inventory)
+        if (GameManager.Instance?.uiManager?.inventoryPanel != null)
+        {
+            GameManager.Instance.uiManager.inventoryPanel.SetActive(false);
+            GameManager.Instance.uiManager.isInventoryOpen = false;
+        }
+
         DebugLog("Game loaded successfully");
         OnLoadComplete?.Invoke(true);
 
@@ -221,6 +228,12 @@ public class SaveManager : MonoBehaviour
         {
             try
             {
+                // Ensure inventory panel is active so we can access it's data
+                if (GameManager.Instance.uiManager.inventoryPanel != null)
+                {
+                    GameManager.Instance.uiManager.inventoryPanel.SetActive(true);
+                }
+
                 inventorySaveComponent.LoadInventoryFromSaveData(currentSaveData.playerPersistentData.inventoryData);
                 DebugLog($"Restored inventory after scene load: {currentSaveData.playerPersistentData.inventoryData.ItemCount} items");
             }

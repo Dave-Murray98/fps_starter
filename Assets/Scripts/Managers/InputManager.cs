@@ -30,14 +30,15 @@ public class InputManager : MonoBehaviour, IManager
     public event Action OnJumpReleased;
     public event Action OnCrouchPressed;
     public event Action OnCrouchReleased;
-    public event Action OnPausePressed;
-    public event Action OnToggleInventoryPressed;
+    // public event Action OnPausePressed;
+    // public event Action OnToggleInventoryPressed;
 
     // Event for when InputManager is ready
     public static event Action<InputManager> OnInputManagerReady;
 
     private InputActionMap locomotionActionMap;
     private InputActionMap uiActionMap;
+    private InputActionMap gameplayActionMap; //for player actions (ie interacting, attacking, using items, etc)
 
     // Track if we're cleaned up to prevent calling events on destroyed objects
     private bool isCleanedUp = false;
@@ -68,11 +69,11 @@ public class InputManager : MonoBehaviour, IManager
         SetupInputActions();
 
         // CRITICAL: Always enable input actions after setup
-        EnableLocomotionInput();
+        EnableAllInputActions();
 
         // Subscribe to game events
-        GameEvents.OnGamePaused += DisableLocomotionInput;
-        GameEvents.OnGameResumed += EnableLocomotionInput;
+        GameEvents.OnGamePaused += DisableLocomotionAndGameplayInput;
+        GameEvents.OnGameResumed += ReenableAllInput;
 
         // Notify that InputManager is ready
         OnInputManagerReady?.Invoke(this);
@@ -85,7 +86,7 @@ public class InputManager : MonoBehaviour, IManager
         // CRITICAL: Ensure input actions are enabled when refreshing
         if (!isCleanedUp)
         {
-            EnableLocomotionInput();
+            ReenableAllInput();
             OnInputManagerReady?.Invoke(this);
         }
     }
@@ -102,11 +103,11 @@ public class InputManager : MonoBehaviour, IManager
         OnJumpReleased = null;
         OnCrouchPressed = null;
         OnCrouchReleased = null;
-        OnPausePressed = null;
+        //OnPausePressed = null;
 
         // Unsubscribe from game events
-        GameEvents.OnGamePaused -= DisableLocomotionInput;
-        GameEvents.OnGameResumed -= EnableLocomotionInput;
+        GameEvents.OnGamePaused -= DisableLocomotionAndGameplayInput;
+        GameEvents.OnGameResumed -= ReenableAllInput;
 
         // Disable and clean up input actions
         DisableAllInputActions();
@@ -231,7 +232,7 @@ public class InputManager : MonoBehaviour, IManager
     private void OnPausePerformed(InputAction.CallbackContext context)
     {
         if (isCleanedUp) return;
-        OnPausePressed?.Invoke();
+        // OnPausePressed?.Invoke();
 
         if (GameManager.Instance != null)
         {
@@ -245,9 +246,16 @@ public class InputManager : MonoBehaviour, IManager
     private void OnToggleInventoryPerformed(InputAction.CallbackContext context)
     {
         if (isCleanedUp) return;
-        OnToggleInventoryPressed?.Invoke();
+        //OnToggleInventoryPressed?.Invoke();
+        if (GameManager.Instance.uiManager.isInventoryOpen)
+        {
+            GameEvents.TriggerInventoryClosed();
+        }
+        else
+        {
+            GameEvents.TriggerInventoryOpened();
+        }
 
-        //ui manager or inventory manager? toggle inventory
     }
 
     private void Update()
@@ -272,44 +280,64 @@ public class InputManager : MonoBehaviour, IManager
         if (CrouchPressed) CrouchPressed = false;
     }
 
-    public void EnableLocomotionInput()
+    public void ReenableAllInput()
     {
         if (isCleanedUp)
         {
-            Debug.Log("InputManager is cleaned up, cannot enable LOCOMOTION input.");
+            Debug.Log("InputManager is cleaned up, cannot enable All input.");
             return;
         }
 
-        //  Debug.Log("Enabling LOCOMOTION input actions");
+        //  Debug.Log("Enabling all input action maps");
 
         // CRITICAL: Ensure action maps are valid before enabling
         if (locomotionActionMap == null || uiActionMap == null)
         {
-            //            Debug.LogWarning("Action maps are null, attempting to re-setup input actions");
+            //Debug.LogWarning("Action maps are null, attempting to re-setup input actions");
             SetupInputActions();
         }
 
-        locomotionActionMap?.Enable();
-        uiActionMap?.Enable();
-
-        // Verify that actions are actually enabled
-        bool locomotionEnabled = locomotionActionMap?.enabled ?? false;
-        bool uiEnabled = uiActionMap?.enabled ?? false;
-
+        EnableAllInputActions();
     }
 
-    public void DisableLocomotionInput()
+    public void DisableLocomotionAndGameplayInput()
     {
         if (isCleanedUp) return;
 
         //    Debug.Log("Disabling LOCOMOTION input actions");
         locomotionActionMap?.Disable();
+        gameplayActionMap?.Disable();
     }
 
     private void DisableAllInputActions()
     {
         //        Debug.Log("Disabling all input actions");
         locomotionActionMap?.Disable();
+        uiActionMap?.Disable();
+        gameplayActionMap?.Disable();
+    }
+
+    private void EnableAllInputActions()
+    {
+        //        Debug.Log("Enabling all input actions");
+        locomotionActionMap?.Enable();
+        uiActionMap?.Enable();
+        gameplayActionMap?.Enable();
+    }
+
+    public void EnableUIInput()
+    {
+        if (isCleanedUp) return;
+
+        // Debug.Log("Enabling UI input actions");
+        uiActionMap?.Enable();
+    }
+
+    public void DisableUIInput()
+    {
+        if (isCleanedUp) return;
+
+        // Debug.Log("Disabling UI input actions");
         uiActionMap?.Disable();
     }
 
