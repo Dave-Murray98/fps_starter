@@ -1735,7 +1735,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveID: Inventory_Main
   autoGenerateID: 0
-  enableDebugLogs: 0
+  enableDebugLogs: 1
   inventoryManager: {fileID: 1848890813}
   gridVisual: {fileID: 2041368708}
 --- !u!114 &2041368708 stripped

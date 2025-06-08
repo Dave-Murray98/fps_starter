@@ -103,7 +103,7 @@ public class SceneDataManager : MonoBehaviour
             try
             {
                 saveable.OnBeforeSave();
-                var data = saveable.GetSaveData();
+                var data = saveable.GetDataToSave();
                 if (data != null)
                 {
                     sceneData.SetObjectData(saveable.SaveID, data);

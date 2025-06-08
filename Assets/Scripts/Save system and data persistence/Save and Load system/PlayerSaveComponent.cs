@@ -13,6 +13,8 @@ public class PlayerSaveComponent : SaveComponentBase
     [SerializeField] private PlayerManager playerManager;
     [SerializeField] private PlayerData playerData;
 
+
+
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
     protected override void Awake()
@@ -32,7 +34,7 @@ public class PlayerSaveComponent : SaveComponentBase
 
     }
 
-    public override object GetSaveData()
+    public override object GetDataToSave()
     {
         if (playerController == null) return null;
 
@@ -46,7 +48,7 @@ public class PlayerSaveComponent : SaveComponentBase
         // Save stats
         if (playerManager != null && playerData != null)
         {
-            saveData.health = playerManager.currentHealth;
+            saveData.currentHealth = playerManager.currentHealth;
             saveData.maxHealth = playerData.maxHealth;
         }
 
@@ -58,12 +60,31 @@ public class PlayerSaveComponent : SaveComponentBase
             saveData.canCrouch = playerController.canCrouch;
         }
 
-        DebugLog($"Saved player data: Pos={saveData.position}, Health={saveData.health}");
+        DebugLog($"Saved player data: Pos={saveData.position}, Health={saveData.currentHealth}");
         return saveData;
+    }
+
+    public override object ExtractRelevantData(object saveContainer)
+    {
+        DebugLog("PlayerSaveComponent: Extracting player save data");
+        if (saveContainer is PlayerSaveData playerSaveData)
+        {
+            // Return only player data
+            DebugLog($"Extracted player save data: Pos={playerSaveData.position}, Health={playerSaveData.currentHealth}");
+            return playerSaveData;
+        }
+        else
+        {
+            DebugLog("Invalid save data type - expected PlayerSaveData");
+            return null;
+        }
     }
 
     public override void LoadSaveData(object data)
     {
+        var playerManager = FindFirstObjectByType<PlayerManager>();
+        var playerController = FindFirstObjectByType<PlayerController>();
+
         if (!(data is PlayerSaveData playerSaveData) || playerController == null)
         {
             DebugLog("Invalid player save data or PlayerController not found - cannot load");
@@ -83,8 +104,8 @@ public class PlayerSaveComponent : SaveComponentBase
         // Load stats
         if (playerManager != null)
         {
-            playerManager.currentHealth = playerSaveData.health;
-            DebugLog($"Loaded player health: {playerSaveData.health}");
+            playerManager.currentHealth = playerSaveData.currentHealth;
+            DebugLog($"Loaded player health: {playerSaveData.currentHealth}");
             if (playerData != null)
                 playerData.maxHealth = playerSaveData.maxHealth;
         }
@@ -98,6 +119,6 @@ public class PlayerSaveComponent : SaveComponentBase
         playerController.canSprint = playerSaveData.canSprint;
         playerController.canCrouch = playerSaveData.canCrouch;
 
-        DebugLog($"Loaded player data: Pos={playerSaveData.position}, Health={playerSaveData.health}");
+        DebugLog($"Loaded player data: Pos={playerSaveData.position}, Health={playerSaveData.currentHealth}");
     }
 }

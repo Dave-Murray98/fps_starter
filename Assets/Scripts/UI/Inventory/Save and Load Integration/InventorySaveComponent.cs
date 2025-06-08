@@ -30,7 +30,7 @@ public class InventorySaveComponent : SaveComponentBase
         autoGenerateID = false;
     }
 
-    public override object GetSaveData()
+    public override object GetDataToSave()
     {
         if (inventoryManager == null || gridVisual == null)
         {
@@ -74,15 +74,45 @@ public class InventorySaveComponent : SaveComponentBase
         return saveData;
     }
 
+    public override object ExtractRelevantData(object saveContainer)
+    {
+        DebugLog("InventorySaveComponent: Extracting inventory save data");
+        if (saveContainer == null)
+        {
+            DebugLog("InventorySaveComponent.ExtractRelevantData(): saveContainer is null");
+            return null;
+        }
+
+        if (saveContainer is PlayerSaveData playerSaveData)
+        {
+            // Extract inventory data from player save
+            if (playerSaveData.inventoryData != null && playerSaveData.inventoryData.ItemCount > 0)
+            {
+                DebugLog($"Extracting inventory data from PlayerSaveData: {playerSaveData.inventoryData.ItemCount} items");
+                return playerSaveData.inventoryData;
+            }
+            else
+            {
+                DebugLog("No valid inventory data found in PlayerSaveData");
+                return null;
+            }
+        }
+        else
+        {
+            DebugLog("Invalid save data type - expected PlayerSaveData");
+            return null;
+        }
+    }
+
     public override void LoadSaveData(object data)
     {
-        if (!(data is InventorySaveData inventorySaveData))
+        if (!(data is InventorySaveData inventoryData))
         {
-            DebugLog("Invalid save data type for inventory");
+            DebugLog($"Invalid save data type for inventory. Data type: {data?.GetType()}");
             return;
         }
 
-        if (!inventorySaveData.IsValid())
+        if (!inventoryData.IsValid())
         {
             DebugLog("Invalid inventory save data");
             return;
@@ -94,45 +124,60 @@ public class InventorySaveComponent : SaveComponentBase
             return;
         }
 
-        DebugLog($"Loading inventory: {inventorySaveData.ItemCount} items in {inventorySaveData.gridWidth}x{inventorySaveData.gridHeight} grid");
+        DebugLog($"Loading inventory: {inventoryData.ItemCount} items in {inventoryData.gridWidth}x{inventoryData.gridHeight} grid");
 
-        // Clear current inventory completely
-        inventoryManager.ClearInventory();
-        Debug.Log("InventorySaveComponent.LoadSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
-        inventoryManager.activeItems = new Dictionary<string, DraggableGridItem>();
-
-
-        // Verify grid dimensions match (or resize if needed)
-        var currentGrid = gridVisual.GridData;
-        if (currentGrid.Width != inventorySaveData.gridWidth || currentGrid.Height != inventorySaveData.gridHeight)
+        try
         {
-            DebugLog($"Grid size mismatch - Current: {currentGrid.Width}x{currentGrid.Height}, Save: {inventorySaveData.gridWidth}x{inventorySaveData.gridHeight}");
-            // For now, continue with current grid - in the future you might want to resize
+            // Ensure inventory panel is active so we can access it's data
+            if (GameManager.Instance.uiManager.inventoryPanel != null)
+            {
+                GameManager.Instance.uiManager.inventoryPanel.SetActive(true);
+            }
+
+            LoadInventoryFromSaveData(data as InventorySaveData);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to restore inventory after scene load: {e.Message}");
         }
 
-        // Restore next item ID
-        SetNextItemIdInManager(inventorySaveData.nextItemId);
+        // // Clear current inventory completely
+        // inventoryManager.ClearInventory();
+        // Debug.Log("InventorySaveComponent.LoadSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
+        // inventoryManager.activeItems = new Dictionary<string, DraggableGridItem>();
 
-        // Load each item in the exact position it was saved
-        int successCount = 0;
-        int failCount = 0;
 
-        foreach (var itemSaveData in inventorySaveData.items)
-        {
-            if (RestoreItem(itemSaveData))
-            {
-                successCount++;
-            }
-            else
-            {
-                failCount++;
-            }
-        }
+        // // Verify grid dimensions match (or resize if needed)
+        // var currentGrid = gridVisual.GridData;
+        // if (currentGrid.Width != inventorySaveData.gridWidth || currentGrid.Height != inventorySaveData.gridHeight)
+        // {
+        //     DebugLog($"Grid size mismatch - Current: {currentGrid.Width}x{currentGrid.Height}, Save: {inventorySaveData.gridWidth}x{inventorySaveData.gridHeight}");
+        //     // For now, continue with current grid - in the future you might want to resize
+        // }
 
-        DebugLog($"Inventory load complete: {successCount} items loaded, {failCount} failed");
+        // // Restore next item ID
+        // SetNextItemIdInManager(inventorySaveData.nextItemId);
 
-        // Refresh visual representation
-        gridVisual.RefreshVisual();
+        // // Load each item in the exact position it was saved
+        // int successCount = 0;
+        // int failCount = 0;
+
+        // foreach (var itemSaveData in inventorySaveData.items)
+        // {
+        //     if (RestoreItem(itemSaveData))
+        //     {
+        //         successCount++;
+        //     }
+        //     else
+        //     {
+        //         failCount++;
+        //     }
+        // }
+
+        // DebugLog($"Inventory load complete: {successCount} items loaded, {failCount} failed");
+
+        // // Refresh visual representation
+        // gridVisual.RefreshVisual();
     }
 
     /// <summary>
@@ -298,7 +343,7 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     public InventorySaveData GetCurrentSaveData()
     {
-        return GetSaveData() as InventorySaveData;
+        return GetDataToSave() as InventorySaveData;
     }
 
     /// <summary>
@@ -373,6 +418,7 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     public void LoadInventoryFromSaveData(InventorySaveData saveData)
     {
+        DebugLog("Loading inventory from save data...");
         // Debug.Log("Loading inventory from save data...");
         if (saveData == null || !saveData.IsValid())
         {

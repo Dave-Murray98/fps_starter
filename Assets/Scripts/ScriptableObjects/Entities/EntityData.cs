@@ -16,7 +16,9 @@ public class EntityData : ScriptableObject
     public float gravity = -9.81f;
     public float stopForce = 10f; // Force applied to stop the character when not moving
 
-
+    [Header("position")]
+    public Vector3 currentPosition;
+    public Vector3 currentRotation;
 
     [Header("Audio")]
     public float footstepRate = 0.5f; // Time between footsteps

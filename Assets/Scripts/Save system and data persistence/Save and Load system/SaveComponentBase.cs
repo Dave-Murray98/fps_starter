@@ -27,7 +27,7 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
 
     [ShowInInspector] public virtual SaveDataCategory SaveCategory => SaveDataCategory.SceneDependent;
 
-    public abstract object GetSaveData();
+    public abstract object GetDataToSave();
     public abstract void LoadSaveData(object data);
 
     public virtual void OnBeforeSave()
@@ -74,5 +74,12 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
         {
             saveID = GenerateUniqueID();
         }
+    }
+
+    public virtual object ExtractRelevantData(object saveContainer)
+    {
+        // Default implementation returns the entire save container
+        // Override in derived classes to filter data as needed
+        return saveContainer;
     }
 }

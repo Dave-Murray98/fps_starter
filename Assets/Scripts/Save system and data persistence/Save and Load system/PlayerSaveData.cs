@@ -13,7 +13,7 @@ public class PlayerSaveData
     public string currentScene = "";
 
     [Header("Stats")]
-    public float health = 100f;
+    public float currentHealth = 100f;
     public float maxHealth = 100f;
     public int level = 1;
     public float experience = 0f;

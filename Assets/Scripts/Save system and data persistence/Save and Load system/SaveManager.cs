@@ -60,10 +60,15 @@ public class SaveManager : MonoBehaviour
 
         LoadingScreenManager.Instance?.SetProgress(0.3f);
 
-        // Save player persistent data
+        // Save player persistent data to the main save file
         if (PlayerPersistenceManager.Instance != null)
         {
             currentSaveData.playerPersistentData = PlayerPersistenceManager.Instance.GetPersistentDataForSave();
+
+            // Save player position data
+            SavePlayerPositionData();
+
+            currentSaveData.SetPlayerSaveDataToPlayerPersistentData();
         }
 
         LoadingScreenManager.Instance?.SetProgress(0.5f);
@@ -76,8 +81,6 @@ public class SaveManager : MonoBehaviour
 
         LoadingScreenManager.Instance?.SetProgress(0.7f);
 
-        // Save player position data
-        SavePlayerPositionData();
 
         LoadingScreenManager.Instance?.SetProgress(0.9f);
 
@@ -115,7 +118,8 @@ public class SaveManager : MonoBehaviour
             yield break;
         }
 
-        // Tell PlayerPersistenceManager that we're handling restoration of playerpersistent data
+        // Tell PlayerPersistenceManager that the savemanager is handling restoration of playerpersistent data
+        // this prevents PlayerPersistenceManager from restoring data when SaveManager is already doing it
         if (PlayerPersistenceManager.Instance != null && currentSaveData.playerPersistentData != null)
         {
             PlayerPersistenceManager.Instance.LoadPersistentDataFromSave(currentSaveData.playerPersistentData);
@@ -186,14 +190,14 @@ public class SaveManager : MonoBehaviour
     private void RestoreAllDataAfterSceneLoad()
     {
         DebugLog("Restoring all data after scene load...");
-        RestorePlayerData();
+        RestorePlayerDataNew();
         RestoreSceneData();
     }
 
     private void RestoreAllDataInSameScene()
     {
         DebugLog("Restoring all data in same scene...");
-        RestorePlayerData();
+        RestorePlayerDataNew();
         RestoreSceneData();
     }
 
@@ -245,6 +249,43 @@ public class SaveManager : MonoBehaviour
         }
 
         RestorePlayerPositionData();
+    }
+
+    private void RestorePlayerDataNew()
+    {
+        if (currentSaveData?.playerPersistentData == null) return;
+
+        ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
+           .OfType<ISaveable>()
+           .Where(s => s.SaveCategory == SaveDataCategory.PlayerDependent)
+           .ToArray();
+
+        //Debug.Log($"Restoring {saveableObjects.Length} player-dependent saveables after scene load");
+
+        foreach (var saveable in saveableObjects)
+        {
+            try
+            {
+                //from the currentsaveData, extract the relevant data for this saveable
+                var data = saveable.ExtractRelevantData(currentSaveData.playersaveData);
+                if (data != null)
+                {
+                    //pass the relevant extracted data to the saveable
+                    saveable.LoadSaveData(data);
+                    saveable.OnAfterLoad();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to restore {saveable.SaveID} after scene load: {e.Message}");
+            }
+        }
+
+        //UPDATE UI
+        if (GameManager.Instance?.uiManager != null)
+        {
+            GameManager.Instance.uiManager.RefreshReferences();
+        }
     }
 
 

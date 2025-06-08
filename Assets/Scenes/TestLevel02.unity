@@ -445,7 +445,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveID: Inventory_Main
   autoGenerateID: 0
-  enableDebugLogs: 0
+  enableDebugLogs: 1
   inventoryManager: {fileID: 319108599}
   gridVisual: {fileID: 2135508041}
 --- !u!1 &410087039

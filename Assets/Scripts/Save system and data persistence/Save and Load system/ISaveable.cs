@@ -19,7 +19,13 @@ public interface ISaveable
     /// <summary>
     /// Returns the data that should be saved for this object
     /// </summary>
-    object GetSaveData();
+    object GetDataToSave();
+
+    /// <summary>
+    /// Extracts relevant data from the provided save container
+    /// This is used to filter out only the data that this object cares about
+    /// </summary>
+    object ExtractRelevantData(object saveContainer);
 
     /// <summary>
     /// Loads the provided data into this object
