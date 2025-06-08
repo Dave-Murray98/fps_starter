@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using DG.Tweening;
 using UnityEngine.InputSystem;
+using BehaviorDesigner.Runtime.Tasks.Unity.UnityGameObject;
 
 public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
@@ -23,8 +24,7 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
     private bool isDragging = false;
     private bool wasValidPlacement = false;
 
-    // Input System
-    private InputAction rotateAction;
+    InputManager inputManager;
 
     public GridItem GridItem => gridItem;
 
@@ -33,6 +33,7 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
         rectTransform = GetComponent<RectTransform>();
         shapeRenderer = GetComponent<InventoryItemShapeRenderer>();
         canvasGroup = GetComponent<CanvasGroup>();
+        inputManager = FindFirstObjectByType<InputManager>();
 
         if (canvasGroup == null)
         {
@@ -40,44 +41,6 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
         }
 
         canvas = GetComponentInParent<Canvas>();
-
-        // Setup input action for rotation
-        SetupRotationInput();
-    }
-
-    private void SetupRotationInput()
-    {
-        // Find the InputManager and get the UI action map
-        var inputManager = FindFirstObjectByType<InputManager>();
-        if (inputManager?.inputActions != null)
-        {
-            var uiActionMap = inputManager.inputActions.FindActionMap("UI");
-            if (uiActionMap != null)
-            {
-                rotateAction = uiActionMap.FindAction("RotateInventoryItem");
-                if (rotateAction != null)
-                {
-                    rotateAction.performed += OnRotateInput;
-                }
-            }
-        }
-    }
-
-    private void OnDestroy()
-    {
-        if (rotateAction != null)
-        {
-            rotateAction.performed -= OnRotateInput;
-        }
-    }
-
-    private void OnRotateInput(InputAction.CallbackContext context)
-    {
-        // Only rotate if this item is being dragged
-        if (isDragging && canRotate)
-        {
-            RotateItem();
-        }
     }
 
     public void Initialize(GridItem item, GridVisual visual)
@@ -101,7 +64,37 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
 
         shapeRenderer.Initialize(gridItem);
         UpdatePosition();
+        inputManager = FindFirstObjectByType<InputManager>();
+
+        // Setup input action for rotation
+        SetupRotationInput();
     }
+
+    private void SetupRotationInput()
+    {
+        // Find the InputManager and get the UI action map
+        if (inputManager != null)
+        {
+            inputManager.OnRotateInventoryItemPressed += OnRotateInput;
+        }
+
+    }
+
+
+    private void OnDestroy()
+    {
+        CleanUp();
+    }
+
+    private void OnRotateInput()
+    {
+        // Only rotate if this item is being dragged
+        if (isDragging && canRotate)
+        {
+            RotateItem();
+        }
+    }
+
 
     private void UpdatePosition()
     {
@@ -260,4 +253,15 @@ public class DraggableGridItem : MonoBehaviour, IBeginDragHandler, IDragHandler,
     {
         rectTransform.DOLocalMove(originalPosition, snapAnimationDuration).SetEase(Ease.OutQuad);
     }
+
+    private void CleanUp()
+    {
+        // Cleanup any references or listeners if needed
+        if (inputManager != null)
+        {
+            inputManager.OnRotateInventoryItemPressed -= OnRotateInput;
+        }
+    }
+
+
 }

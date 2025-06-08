@@ -1,4 +1,5 @@
 using System;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -15,6 +16,7 @@ public class InputManager : MonoBehaviour, IManager
     private InputAction crouchAction;
     private InputAction pauseAction;
     private InputAction toggleInventoryAction;
+    private InputAction rotateInventoryItemAction; // For rotating items in the inventory
 
     //Input State - other systems will read these 
     public Vector2 MovementInput { get; private set; }
@@ -25,13 +27,14 @@ public class InputManager : MonoBehaviour, IManager
     public bool CrouchPressed { get; private set; }
     public bool CrouchHeld { get; private set; }
 
+
     //input events
     public event Action OnJumpPressed;
     public event Action OnJumpReleased;
     public event Action OnCrouchPressed;
     public event Action OnCrouchReleased;
-    // public event Action OnPausePressed;
-    // public event Action OnToggleInventoryPressed;
+
+    public event Action OnRotateInventoryItemPressed; // For rotating items in the inventory (will be used by the DraggableGridItem script to rotate items)
 
     // Event for when InputManager is ready
     public static event Action<InputManager> OnInputManagerReady;
@@ -138,6 +141,7 @@ public class InputManager : MonoBehaviour, IManager
         crouchAction = locomotionActionMap.FindAction("Crouch");
         pauseAction = uiActionMap.FindAction("Pause");
         toggleInventoryAction = uiActionMap.FindAction("ToggleInventory");
+        rotateInventoryItemAction = uiActionMap.FindAction("RotateInventoryItem");
 
         SubscribeToInputActions();
 
@@ -167,6 +171,11 @@ public class InputManager : MonoBehaviour, IManager
         {
             toggleInventoryAction.performed += OnToggleInventoryPerformed;
         }
+
+        if (rotateInventoryItemAction != null)
+        {
+            rotateInventoryItemAction.performed += OnRotateInventoryItemPerformed;
+        }
     }
 
     private void UnsubscribeFromInputActions()
@@ -191,6 +200,11 @@ public class InputManager : MonoBehaviour, IManager
         if (toggleInventoryAction != null)
         {
             toggleInventoryAction.performed -= OnToggleInventoryPerformed;
+        }
+
+        if (rotateInventoryItemAction != null)
+        {
+            rotateInventoryItemAction.performed -= OnRotateInventoryItemPerformed;
         }
 
     }
@@ -258,6 +272,13 @@ public class InputManager : MonoBehaviour, IManager
 
     }
 
+    private void OnRotateInventoryItemPerformed(InputAction.CallbackContext context)
+    {
+        if (isCleanedUp) return;
+
+        OnRotateInventoryItemPressed?.Invoke();
+    }
+
     private void Update()
     {
         if (isCleanedUp) return;
@@ -279,6 +300,7 @@ public class InputManager : MonoBehaviour, IManager
         if (JumpPressed) JumpPressed = false;
         if (CrouchPressed) CrouchPressed = false;
     }
+
 
     public void ReenableAllInput()
     {
