@@ -14,6 +14,7 @@ public class InputManager : MonoBehaviour, IManager
     private InputAction sprintAction;
     private InputAction crouchAction;
     private InputAction pauseAction;
+    private InputAction toggleInventoryAction;
 
     //Input State - other systems will read these 
     public Vector2 MovementInput { get; private set; }
@@ -30,6 +31,7 @@ public class InputManager : MonoBehaviour, IManager
     public event Action OnCrouchPressed;
     public event Action OnCrouchReleased;
     public event Action OnPausePressed;
+    public event Action OnToggleInventoryPressed;
 
     // Event for when InputManager is ready
     public static event Action<InputManager> OnInputManagerReady;
@@ -134,6 +136,7 @@ public class InputManager : MonoBehaviour, IManager
         sprintAction = locomotionActionMap.FindAction("Sprint");
         crouchAction = locomotionActionMap.FindAction("Crouch");
         pauseAction = uiActionMap.FindAction("Pause");
+        toggleInventoryAction = uiActionMap.FindAction("ToggleInventory");
 
         SubscribeToInputActions();
 
@@ -158,6 +161,11 @@ public class InputManager : MonoBehaviour, IManager
         {
             pauseAction.performed += OnPausePerformed;
         }
+
+        if (toggleInventoryAction != null)
+        {
+            toggleInventoryAction.performed += OnToggleInventoryPerformed;
+        }
     }
 
     private void UnsubscribeFromInputActions()
@@ -178,6 +186,12 @@ public class InputManager : MonoBehaviour, IManager
         {
             pauseAction.performed -= OnPausePerformed;
         }
+
+        if (toggleInventoryAction != null)
+        {
+            toggleInventoryAction.performed -= OnToggleInventoryPerformed;
+        }
+
     }
 
     // Safe event handlers that check if cleaned up
@@ -228,6 +242,14 @@ public class InputManager : MonoBehaviour, IManager
         }
     }
 
+    private void OnToggleInventoryPerformed(InputAction.CallbackContext context)
+    {
+        if (isCleanedUp) return;
+        OnToggleInventoryPressed?.Invoke();
+
+        //ui manager or inventory manager? toggle inventory
+    }
+
     private void Update()
     {
         if (isCleanedUp) return;
@@ -273,17 +295,7 @@ public class InputManager : MonoBehaviour, IManager
         // Verify that actions are actually enabled
         bool locomotionEnabled = locomotionActionMap?.enabled ?? false;
         bool uiEnabled = uiActionMap?.enabled ?? false;
-        //  Debug.Log($"Input actions enabled - Locomotion: {locomotionEnabled}, UI: {uiEnabled}");
 
-        // Also verify specific actions
-        // if (jumpAction != null)
-        // {
-        //     Debug.Log($"Jump action enabled: {jumpAction.enabled}");
-        // }
-        // else
-        // {
-        //     Debug.LogWarning("Jump action is null!");
-        // }
     }
 
     public void DisableLocomotionInput()

@@ -162,7 +162,7 @@ public class SaveManager : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.isPaused)
         {
             GameManager.Instance.ResumeGame();
-            DebugLog("Game unpaused after load");
+            //DebugLog("Game unpaused after load");
         }
 
         DebugLog("Game loaded successfully");

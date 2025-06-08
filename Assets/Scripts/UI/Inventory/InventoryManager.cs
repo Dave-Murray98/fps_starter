@@ -9,7 +9,7 @@ public class InventoryManager : MonoBehaviour, IManager
     [SerializeField] private GridVisual gridVisual;
 
     [Header("Item Prefab")]
-    [SerializeField] private GameObject draggableItemPrefab;
+    public GameObject draggableItemPrefab;
 
     [Header("Item Data Configuration")]
     [SerializeField] private List<ItemInstanceData> testItems = new List<ItemInstanceData>();
@@ -44,7 +44,7 @@ public class InventoryManager : MonoBehaviour, IManager
 
     public void RefreshReferences()
     {
-        Debug.Log("Refreshing references in InventoryManager...");
+        //Debug.Log("Refreshing references in InventoryManager...");
         if (gridVisual == null)
         {
             gridVisual = FindFirstObjectByType<GridVisual>();
@@ -106,7 +106,7 @@ public class InventoryManager : MonoBehaviour, IManager
 
     public Vector2Int FindValidPositionForShape(ItemData itemData, int startX = 0, int startY = 0)
     {
-        Debug.Log("Creating tempItem to find valid position for shape: " + itemData.itemName);
+        // Debug.Log("Creating tempItem to find valid position for shape: " + itemData.itemName);
         // Create a temporary item to test positioning
         var tempItem = new GridItem($"temp_{nextItemId}", itemData, Vector2Int.zero);
 

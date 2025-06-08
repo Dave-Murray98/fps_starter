@@ -203,19 +203,37 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     private GameObject CreateItemVisual(GridItem gridItem)
     {
-        DebugLog($"Creating visual for item: {gridItem.ID} at position {gridItem.GridPosition}");
+        //   DebugLog($"Creating visual for item: {gridItem.ID} at position {gridItem.GridPosition}");
         // Use the same method as InventoryManager
-        GameObject itemObj = new GameObject($"Item_{gridItem.ID}");
-        itemObj.transform.SetParent(gridVisual.transform, false);
-        itemObj.AddComponent<RectTransform>();
-        itemObj.AddComponent<InventoryItemShapeRenderer>();
-        itemObj.AddComponent<DraggableGridItem>();
+        GameObject itemObj;
+
+        if (inventoryManager == null)
+            inventoryManager = FindFirstObjectByType<InventoryManager>();
+
+        if (inventoryManager.draggableItemPrefab != null)
+        {
+            itemObj = Instantiate(inventoryManager.draggableItemPrefab, gridVisual.transform);
+            itemObj.name = $"Item_{gridItem.ID}";
+        }
+        else
+        {
+            DebugLog("InventorySaveComponent.CreateItemVisual: No draggable item prefab set - creating from scratch");
+            itemObj = new GameObject($"Item_{gridItem.ID}");
+            itemObj.transform.SetParent(gridVisual.transform, false);
+            itemObj.AddComponent<RectTransform>();
+            itemObj.AddComponent<InventoryItemShapeRenderer>();
+            itemObj.AddComponent<DraggableGridItem>();
+        }
 
         // Initialize the draggable component
         DraggableGridItem draggable = itemObj.GetComponent<DraggableGridItem>();
         if (draggable != null)
         {
             draggable.Initialize(gridItem, gridVisual);
+        }
+        else
+        {
+            DebugLog($"DraggableGridItem component is missing on item visual for {gridItem.ID}");
         }
 
         return itemObj;
@@ -302,7 +320,7 @@ public class InventorySaveComponent : SaveComponentBase
         if (gridVisual == null)
             gridVisual = FindFirstObjectByType<GridVisual>();
 
-        DebugLog($"References refreshed - InventoryManager: {inventoryManager != null}, GridVisual: {gridVisual != null}");
+        //   DebugLog($"References refreshed - InventoryManager: {inventoryManager != null}, GridVisual: {gridVisual != null}");
     }
 
     /// <summary>
@@ -355,7 +373,7 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     public void LoadInventoryFromSaveData(InventorySaveData saveData)
     {
-        Debug.Log("Loading inventory from save data...");
+        // Debug.Log("Loading inventory from save data...");
         if (saveData == null || !saveData.IsValid())
         {
             Debug.LogWarning("Invalid inventory save data");
@@ -364,7 +382,7 @@ public class InventorySaveComponent : SaveComponentBase
 
         // Clear current inventory
         inventoryManager.ClearInventory();
-        Debug.Log("InventorySaveComponent.LoadInventoryFromSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
+        //Debug.Log("InventorySaveComponent.LoadInventoryFromSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
         inventoryManager.activeItems = new Dictionary<string, DraggableGridItem>();
 
         // Set next item ID
@@ -386,7 +404,7 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     private bool RestoreItemFromSaveData(InventoryItemSaveData itemSaveData)
     {
-        Debug.Log($"Restoring item from save data: {itemSaveData.itemDataName}");
+        //     Debug.Log($"Restoring item from save data: {itemSaveData.itemDataName}");
         if (!itemSaveData.IsValid())
         {
             Debug.LogWarning($"Invalid item save data: {itemSaveData}");

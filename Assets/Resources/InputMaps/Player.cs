@@ -304,6 +304,15 @@ public partial class @Player: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ToggleInventory"",
+                    ""type"": ""Button"",
+                    ""id"": ""001208b5-681b-4823-b775-c1dd9151057f"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -339,6 +348,28 @@ public partial class @Player: IInputActionCollection2, IDisposable
                     ""action"": ""RotateInventoryItem"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""32110054-0324-4bd8-8cfb-77847b7a3024"",
+                    ""path"": ""<Keyboard>/i"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ToggleInventory"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""7529e5e7-456a-4135-a28c-9b3ef227d2d6"",
+                    ""path"": ""<Gamepad>/select"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ToggleInventory"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -356,6 +387,7 @@ public partial class @Player: IInputActionCollection2, IDisposable
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Pause = m_UI.FindAction("Pause", throwIfNotFound: true);
         m_UI_RotateInventoryItem = m_UI.FindAction("RotateInventoryItem", throwIfNotFound: true);
+        m_UI_ToggleInventory = m_UI.FindAction("ToggleInventory", throwIfNotFound: true);
     }
 
     ~@Player()
@@ -579,6 +611,7 @@ public partial class @Player: IInputActionCollection2, IDisposable
     private List<IUIActions> m_UIActionsCallbackInterfaces = new List<IUIActions>();
     private readonly InputAction m_UI_Pause;
     private readonly InputAction m_UI_RotateInventoryItem;
+    private readonly InputAction m_UI_ToggleInventory;
     /// <summary>
     /// Provides access to input actions defined in input action map "UI".
     /// </summary>
@@ -598,6 +631,10 @@ public partial class @Player: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "UI/RotateInventoryItem".
         /// </summary>
         public InputAction @RotateInventoryItem => m_Wrapper.m_UI_RotateInventoryItem;
+        /// <summary>
+        /// Provides access to the underlying input action "UI/ToggleInventory".
+        /// </summary>
+        public InputAction @ToggleInventory => m_Wrapper.m_UI_ToggleInventory;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -630,6 +667,9 @@ public partial class @Player: IInputActionCollection2, IDisposable
             @RotateInventoryItem.started += instance.OnRotateInventoryItem;
             @RotateInventoryItem.performed += instance.OnRotateInventoryItem;
             @RotateInventoryItem.canceled += instance.OnRotateInventoryItem;
+            @ToggleInventory.started += instance.OnToggleInventory;
+            @ToggleInventory.performed += instance.OnToggleInventory;
+            @ToggleInventory.canceled += instance.OnToggleInventory;
         }
 
         /// <summary>
@@ -647,6 +687,9 @@ public partial class @Player: IInputActionCollection2, IDisposable
             @RotateInventoryItem.started -= instance.OnRotateInventoryItem;
             @RotateInventoryItem.performed -= instance.OnRotateInventoryItem;
             @RotateInventoryItem.canceled -= instance.OnRotateInventoryItem;
+            @ToggleInventory.started -= instance.OnToggleInventory;
+            @ToggleInventory.performed -= instance.OnToggleInventory;
+            @ToggleInventory.canceled -= instance.OnToggleInventory;
         }
 
         /// <summary>
@@ -744,5 +787,12 @@ public partial class @Player: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnRotateInventoryItem(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ToggleInventory" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnToggleInventory(InputAction.CallbackContext context);
     }
 }

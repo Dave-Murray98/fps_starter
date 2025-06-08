@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 
 public class GridVisual : MonoBehaviour
 {
@@ -253,7 +254,7 @@ public class GridVisual : MonoBehaviour
         return new Vector2Int(gridX, gridY);
     }
 
-    [ContextMenu("Clear All Items")]
+    [Button("Clear All Items")]
     public void ClearAllItems()
     {
         gridData.Clear();

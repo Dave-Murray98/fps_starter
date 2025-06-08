@@ -218,6 +218,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "ToggleInventory",
+                    "type": "Button",
+                    "id": "001208b5-681b-4823-b775-c1dd9151057f",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -251,6 +260,28 @@
                     "processors": "",
                     "groups": "",
                     "action": "RotateInventoryItem",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "32110054-0324-4bd8-8cfb-77847b7a3024",
+                    "path": "<Keyboard>/i",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ToggleInventory",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7529e5e7-456a-4135-a28c-9b3ef227d2d6",
+                    "path": "<Gamepad>/select",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ToggleInventory",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

@@ -105,7 +105,7 @@ public class UIManager : MonoBehaviour, IManager
         // Temporarily unpause for the load operation
         if (wasPaused)
         {
-            Debug.Log("UIManager: Temporarily unpausing for load operation");
+            //            Debug.Log("UIManager: Temporarily unpausing for load operation");
             Time.timeScale = 1f; // Allow coroutines to run
         }
 

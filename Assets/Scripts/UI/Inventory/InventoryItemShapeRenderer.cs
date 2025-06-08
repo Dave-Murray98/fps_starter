@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 
 public class InventoryItemShapeRenderer : MonoBehaviour
 {
@@ -16,7 +17,7 @@ public class InventoryItemShapeRenderer : MonoBehaviour
     [Header("Image Overlay Settings")]
     [SerializeField] private float imagePadding = 4f; // Padding around the image within the shape bounds
 
-    private List<GameObject> cellObjects = new List<GameObject>();
+    [SerializeField] private List<GameObject> cellObjects = new List<GameObject>();
     private GameObject imageOverlay;
     private GridItem currentItem;
     private RectTransform rectTransform;
@@ -61,6 +62,7 @@ public class InventoryItemShapeRenderer : MonoBehaviour
         outline.effectDistance = new Vector2(borderWidth, borderWidth);
 
         cellPrefab = cell;
+        // Debug.Log($"{gameObject.name}: InventoryItemShapeRenderer: Creating a default cell prefab");
     }
 
     public void Initialize(GridItem item)
@@ -146,6 +148,7 @@ public class InventoryItemShapeRenderer : MonoBehaviour
             cellRect.anchoredPosition = position;
 
             cellObjects.Add(cell);
+            //            Debug.Log($"Creating cell at position: {cellPos.x}, {cellPos.y}, cellparent: {transform.parent.name}");
         }
     }
 
