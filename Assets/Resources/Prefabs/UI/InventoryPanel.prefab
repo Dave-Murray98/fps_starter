@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8870234576571749645}
-  - component: {fileID: 2943755082409030878}
+  - component: {fileID: 3185601622173620112}
   m_Layer: 5
   m_Name: GridVisual
   m_TagString: Untagged
@@ -36,7 +36,7 @@ RectTransform:
   m_AnchoredPosition: {x: 200, y: -200}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0, y: 1}
---- !u!114 &2943755082409030878
+--- !u!114 &3185601622173620112
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -45,17 +45,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 5077673037074630596}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 99299f695cb4e2c458af64646cc00c40, type: 3}
+  m_Script: {fileID: 11500000, guid: 4a07d9ec8b76c404585ba99474716a47, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridWidth: 10
-  gridHeight: 8
   cellSize: 50
   cellSpacing: 2
-  gridLineColor: {r: 0, g: 0, b: 0, a: 0.8235294}
+  gridLineColor: {r: 0, g: 0, b: 0, a: 0.7}
   validPreviewColor: {r: 0, g: 1, b: 0, a: 0.5}
   invalidPreviewColor: {r: 1, g: 0, b: 0, a: 0.5}
-  itemPrefab: {fileID: 8720481152623599973, guid: acfca489b943bf14487f98b9b45114ea, type: 3}
+  itemVisualPrefab: {fileID: 8720481152623599973, guid: acfca489b943bf14487f98b9b45114ea, type: 3}
   previewCellPrefab: {fileID: 1609398255486087772, guid: 120b278ee3d2e11459c113a4e738922b, type: 3}
 --- !u!1 &6324325311282069975
 GameObject:

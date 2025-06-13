@@ -1,15 +1,12 @@
 using UnityEngine;
-using System.Collections.Generic;
 
 /// <summary>
-/// Save component for inventory system - handles saving/loading inventory state
-/// Follows the same pattern as PlayerSaveComponent
+/// Updated save component that works with the new data-driven inventory system
+/// No longer depends on UI being active - works directly with PersistentInventoryManager
 /// </summary>
 public class InventorySaveComponent : SaveComponentBase
 {
-    [Header("Inventory References")]
-    [SerializeField] private InventoryManager inventoryManager;
-    [SerializeField] private GridVisual gridVisual;
+    private PersistentInventoryManager persistentInventory;
 
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
@@ -17,65 +14,45 @@ public class InventorySaveComponent : SaveComponentBase
     {
         base.Awake();
 
-        // Auto-find references
-        if (inventoryManager == null)
-            inventoryManager = FindFirstObjectByType<InventoryManager>();
-
-        if (gridVisual == null)
-            gridVisual = FindFirstObjectByType<GridVisual>();
-
         // Fixed ID for inventory
         saveID = "Inventory_Main";
         autoGenerateID = false;
+
+        // Get reference to persistent inventory
+        persistentInventory = PersistentInventoryManager.Instance;
+        if (persistentInventory == null)
+        {
+            // Try to find it in the scene
+            persistentInventory = FindFirstObjectByType<PersistentInventoryManager>();
+        }
+    }
+
+    private void Start()
+    {
+        // Ensure we have the persistent inventory reference
+        if (persistentInventory == null)
+        {
+            persistentInventory = PersistentInventoryManager.Instance;
+        }
     }
 
     public override object GetDataToSave()
     {
-        if (inventoryManager == null || gridVisual == null)
+        if (persistentInventory == null)
         {
-            DebugLog("Cannot save inventory - missing references");
+            DebugLog("Cannot save inventory - PersistentInventoryManager not found");
             return null;
         }
 
-        var gridData = gridVisual.GridData;
-        if (gridData == null)
-        {
-            DebugLog("Cannot save inventory - GridData is null");
-            return null;
-        }
-
-        // Create save data
-        var saveData = new InventorySaveData(gridData.Width, gridData.Height);
-
-        // Store next item ID from inventory manager
-        saveData.nextItemId = GetNextItemIdFromManager();
-
-        // Get all items from grid
-        var allItems = gridData.GetAllItems();
-
-        foreach (var gridItem in allItems)
-        {
-            if (gridItem?.itemData != null)
-            {
-                var itemSaveData = InventoryItemSaveData.FromGridItem(gridItem);
-                if (itemSaveData != null && itemSaveData.IsValid())
-                {
-                    saveData.AddItem(itemSaveData);
-                }
-                else
-                {
-                    DebugLog($"Failed to create save data for item: {gridItem.ID}");
-                }
-            }
-        }
-
-        DebugLog($"Saved inventory: {saveData.ItemCount} items in {gridData.Width}x{gridData.Height} grid");
+        var saveData = persistentInventory.GetSaveData();
+        DebugLog($"Saved inventory: {saveData.ItemCount} items in {saveData.gridWidth}x{saveData.gridHeight} grid");
         return saveData;
     }
 
     public override object ExtractRelevantData(object saveContainer)
     {
         DebugLog("InventorySaveComponent: Extracting inventory save data");
+
         if (saveContainer == null)
         {
             DebugLog("InventorySaveComponent.ExtractRelevantData(): saveContainer is null");
@@ -92,13 +69,19 @@ public class InventorySaveComponent : SaveComponentBase
             }
             else
             {
-                DebugLog("No valid inventory data found in PlayerSaveData");
-                return null;
+                DebugLog("No valid inventory data found in PlayerSaveData - creating empty inventory");
+                return new InventorySaveData(); // Return empty but valid data
             }
+        }
+        else if (saveContainer is InventorySaveData inventorySaveData)
+        {
+            // Direct inventory save data
+            DebugLog($"Extracting direct InventorySaveData: {inventorySaveData.ItemCount} items");
+            return inventorySaveData;
         }
         else
         {
-            DebugLog("Invalid save data type - expected PlayerSaveData");
+            DebugLog($"Invalid save data type - expected PlayerSaveData or InventorySaveData, got {saveContainer.GetType()}");
             return null;
         }
     }
@@ -111,85 +94,28 @@ public class InventorySaveComponent : SaveComponentBase
             return;
         }
 
-        if (!inventoryData.IsValid())
+        if (persistentInventory == null)
         {
-            DebugLog("Invalid inventory save data");
-            return;
-        }
-
-        if (inventoryManager == null || gridVisual == null)
-        {
-            DebugLog("Cannot load inventory - missing references");
-            return;
+            persistentInventory = PersistentInventoryManager.Instance;
+            if (persistentInventory == null)
+            {
+                DebugLog("Cannot load inventory - PersistentInventoryManager not found");
+                return;
+            }
         }
 
         DebugLog($"Loading inventory: {inventoryData.ItemCount} items in {inventoryData.gridWidth}x{inventoryData.gridHeight} grid");
 
         try
         {
-            // Ensure inventory panel is active so we can access it's data
-            if (GameManager.Instance.uiManager.inventoryPanel != null)
-            {
-                GameManager.Instance.uiManager.inventoryPanel.SetActive(true);
-            }
-
-            LoadInventoryFromSaveData(data as InventorySaveData);
+            // Load directly into persistent inventory - no UI dependencies!
+            persistentInventory.LoadFromSaveData(inventoryData);
+            DebugLog("Inventory loaded successfully");
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Failed to restore inventory after scene load: {e.Message}");
+            Debug.LogError($"Failed to load inventory: {e.Message}");
         }
-    }
-
-    /// <summary>
-    /// Create visual representation for a restored item
-    /// </summary>
-    private GameObject CreateItemVisual(GridItem gridItem)
-    {
-        //   DebugLog($"Creating visual for item: {gridItem.ID} at position {gridItem.GridPosition}");
-        // Use the same method as InventoryManager
-        GameObject itemObj;
-
-        if (inventoryManager == null)
-            inventoryManager = FindFirstObjectByType<InventoryManager>();
-
-        if (inventoryManager.draggableItemPrefab != null)
-        {
-            itemObj = Instantiate(inventoryManager.draggableItemPrefab, gridVisual.transform);
-            itemObj.name = $"Item_{gridItem.ID}";
-        }
-        else
-        {
-            DebugLog("InventorySaveComponent.CreateItemVisual: No draggable item prefab set - creating from scratch");
-            itemObj = new GameObject($"Item_{gridItem.ID}");
-            itemObj.transform.SetParent(gridVisual.transform, false);
-            itemObj.AddComponent<RectTransform>();
-            itemObj.AddComponent<InventoryItemShapeRenderer>();
-            itemObj.AddComponent<DraggableGridItem>();
-        }
-
-        // Initialize the draggable component
-        DraggableGridItem draggable = itemObj.GetComponent<DraggableGridItem>();
-        if (draggable != null)
-        {
-            draggable.Initialize(gridItem, gridVisual);
-        }
-        else
-        {
-            DebugLog($"DraggableGridItem component is missing on item visual for {gridItem.ID}");
-        }
-
-        return itemObj;
-    }
-
-    /// <summary>
-    /// Get the next item ID from the inventory manager
-    /// </summary>
-    private int GetNextItemIdFromManager()
-    {
-        // Access the private field through reflection or add a public property
-        // For now, return a default value - you might want to add a public property to InventoryManager
-        return 1;
     }
 
     public override void OnBeforeSave()
@@ -221,171 +147,45 @@ public class InventorySaveComponent : SaveComponentBase
     }
 
     /// <summary>
-    /// Refresh component references (called during setup)
-    /// </summary>
-    public void RefreshReferences()
-    {
-        if (inventoryManager == null)
-            inventoryManager = FindFirstObjectByType<InventoryManager>();
-
-        if (gridVisual == null)
-            gridVisual = FindFirstObjectByType<GridVisual>();
-
-        //   DebugLog($"References refreshed - InventoryManager: {inventoryManager != null}, GridVisual: {gridVisual != null}");
-    }
-
-    /// <summary>
-    /// Get the next item ID for save system
-    /// </summary>
-    public int GetNextItemId()
-    {
-        return inventoryManager.nextItemId;
-    }
-
-    /// <summary>
-    /// Set the next item ID (used when loading from save)
-    /// </summary>
-    public void SetNextItemId(int id)
-    {
-        inventoryManager.nextItemId = id;
-    }
-
-    /// <summary>
-    /// Get current inventory save data
+    /// Public method to get inventory save data for PlayerPersistenceManager
     /// </summary>
     public InventorySaveData GetInventorySaveData()
     {
-        if (gridVisual?.GridData == null)
-            return new InventorySaveData();
-
-        var gridData = gridVisual.GridData;
-        var saveData = new InventorySaveData(gridData.Width, gridData.Height);
-        saveData.nextItemId = inventoryManager.nextItemId;
-
-        // Get all items from grid
-        var allItems = gridData.GetAllItems();
-        foreach (var gridItem in allItems)
+        if (persistentInventory == null)
         {
-            if (gridItem?.itemData != null)
-            {
-                var itemSaveData = InventoryItemSaveData.FromGridItem(gridItem);
-                if (itemSaveData != null && itemSaveData.IsValid())
-                {
-                    saveData.AddItem(itemSaveData);
-                }
-            }
+            DebugLog("PersistentInventoryManager not found - returning empty inventory data");
+            return new InventorySaveData();
         }
 
-        return saveData;
+        return persistentInventory.GetSaveData();
     }
 
     /// <summary>
-    /// Load inventory from save data
+    /// Public method to load inventory from save data
     /// </summary>
     public void LoadInventoryFromSaveData(InventorySaveData saveData)
     {
-        DebugLog("Loading inventory from save data...");
-        // Debug.Log("Loading inventory from save data...");
-        if (saveData == null || !saveData.IsValid())
-        {
-            Debug.LogWarning("Invalid inventory save data");
-            return;
-        }
-
-        // Clear current inventory
-        inventoryManager.ClearInventory();
-        //Debug.Log("InventorySaveComponent.LoadInventoryFromSaveData: Cleared current inventory and recreated inventoryManager.activeItems dictionary");
-        inventoryManager.activeItems = new Dictionary<string, DraggableGridItem>();
-
-        // Set next item ID
-        inventoryManager.nextItemId = saveData.nextItemId;
-
-        // Restore each item
-        foreach (var itemSaveData in saveData.items)
-        {
-            RestoreItemFromSaveData(itemSaveData);
-        }
+        LoadSaveData(saveData);
     }
 
     /// <summary>
-    /// Restore a single item from save data
+    /// Check if persistent inventory manager is available
     /// </summary>
-    private bool RestoreItemFromSaveData(InventoryItemSaveData itemSaveData)
+    public bool IsPersistentInventoryAvailable()
     {
-        //     Debug.Log($"Restoring item from save data: {itemSaveData.itemDataName}");
-        if (!itemSaveData.IsValid())
-        {
-            Debug.LogWarning($"Invalid item save data: {itemSaveData}");
-            return false;
-        }
+        return persistentInventory != null;
+    }
 
-        // Convert to GridItem
-        GridItem gridItem = itemSaveData.ToGridItem();
-        if (gridItem == null)
+    /// <summary>
+    /// Force refresh the persistent inventory reference
+    /// </summary>
+    public void RefreshPersistentInventoryReference()
+    {
+        persistentInventory = PersistentInventoryManager.Instance;
+        if (persistentInventory == null)
         {
-            Debug.LogWarning($"Failed to create GridItem from save data: {itemSaveData}");
-            return false;
+            persistentInventory = FindFirstObjectByType<PersistentInventoryManager>();
         }
-
-        // Ensure we have valid references
-        if (gridVisual?.GridData == null)
-        {
-            Debug.LogError("GridVisual or GridData is null - cannot restore item");
-            return false;
-        }
-
-        // Verify the position is valid for this item's current rotation
-        var gridData = gridVisual.GridData;
-        if (!gridData.IsValidPosition(gridItem.GridPosition, gridItem))
-        {
-            Debug.LogWarning($"Cannot place item {gridItem.ID} at saved position {gridItem.GridPosition} - position invalid");
-            // Try to find alternative position
-            Vector2Int? altPos = inventoryManager.FindValidPositionForShape(gridItem.itemData);
-            if (altPos.HasValue && altPos.Value.x != -1)
-            {
-                gridItem.SetGridPosition(altPos.Value);
-                Debug.Log($"Placed item {gridItem.ID} at alternative position {altPos.Value}");
-            }
-            else
-            {
-                Debug.LogWarning($"No alternative position found for item {gridItem.ID}");
-                return false;
-            }
-        }
-
-        // Place in grid
-        if (!gridData.PlaceItem(gridItem))
-        {
-            Debug.LogError($"Failed to place item {gridItem.ID} in grid data");
-            return false;
-        }
-
-        // Create visual
-        GameObject itemObj = CreateItemVisual(gridItem);
-        if (itemObj == null)
-        {
-            Debug.LogError($"Failed to create visual for item {gridItem.ID}");
-            return false;
-        }
-
-        DraggableGridItem draggableItem = itemObj.GetComponent<DraggableGridItem>();
-        if (draggableItem != null && inventoryManager.activeItems != null)
-        {
-            inventoryManager.activeItems[gridItem.ID] = draggableItem;
-            Debug.Log($"Added {gridItem.ID} item to active items");
-        }
-        else
-        {
-            if (draggableItem == null)
-            {
-                Debug.LogWarning($"DraggableGridItem component is missing on item visual for {gridItem.ID}");
-            }
-            if (inventoryManager.activeItems == null)
-            {
-                Debug.LogWarning($"Active items dictionary is null - cannot add {gridItem.ID}");
-            }
-        }
-
-        return true;
+        DebugLog($"Persistent inventory reference refreshed: {persistentInventory != null}");
     }
 }

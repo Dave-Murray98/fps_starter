@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 6098956829196612377}
   - component: {fileID: 8906271851341392976}
-  - component: {fileID: 4728663345720689421}
-  - component: {fileID: 4924369327961948407}
+  - component: {fileID: 1434414735703386840}
+  - component: {fileID: 5453356992767736658}
   - component: {fileID: 9068931910606259627}
   m_Layer: 5
   m_Name: DraggableItem
@@ -47,7 +47,7 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8720481152623599973}
   m_CullTransparentMesh: 1
---- !u!114 &4728663345720689421
+--- !u!114 &1434414735703386840
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -56,12 +56,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 8720481152623599973}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4c3ffd4b9f44e5840a58d037fa12c4de, type: 3}
+  m_Script: {fileID: 11500000, guid: ed304e7376bf8ac4d8df05f905fc3b0a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canDrag: 1
   canRotate: 1
   snapAnimationDuration: 0.2
---- !u!114 &4924369327961948407
+--- !u!114 &5453356992767736658
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -70,14 +71,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 8720481152623599973}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f1578aa97f70f6c42b710a7b6c5a5e41, type: 3}
+  m_Script: {fileID: 11500000, guid: 18a4cd2a9c7a3a2479b0777320414c52, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cellPrefab: {fileID: 3593697759460975583, guid: dc9bfa814d37c4a45bc70f86eba51bff, type: 3}
-  cellSize: 50
-  cellSpacing: 2
+  imagePadding: 4
   borderColor: {r: 0, g: 0, b: 0, a: 1}
-  borderWidth: 2
+  borderWidth: 0
 --- !u!225 &9068931910606259627
 CanvasGroup:
   m_ObjectHideFlags: 0

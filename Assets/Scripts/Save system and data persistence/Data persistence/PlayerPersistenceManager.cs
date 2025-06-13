@@ -1,9 +1,9 @@
 using UnityEngine;
+using System.Collections.Generic;
+
 
 /// <summary>
-/// Manages player data that should persist between scenes (via doorways)
-/// This is separate from save files - it's for doorway transitions
-/// Now includes inventory support
+/// Updated PlayerPersistenceManager that works with the new data-driven inventory system
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
@@ -16,8 +16,12 @@ public class PlayerPersistenceManager : MonoBehaviour
     // Flag to track if we have persistent data to restore
     private bool hasPersistentData = false;
 
-    // FIX: Flag to prevent restoration when SaveManager is handling it
+    // Flag to prevent restoration when SaveManager is handling it
     private bool saveManagerIsHandlingRestore = false;
+
+    // Reference to persistent inventory
+    private PersistentInventoryManager persistentInventory;
+    private InventorySaveComponent inventorySaveComponent;
 
     private void Awake()
     {
@@ -36,16 +40,29 @@ public class PlayerPersistenceManager : MonoBehaviour
     private void Start()
     {
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+
+        // Get references to inventory systems
+        RefreshInventoryReferences();
     }
 
-    /// <summary>
-    /// called on scene load, but TRIGGERED ONLY BY DOORWAYS - Restore player data after transitioning to a new scene via doorway
-    /// </summary>
+    private void RefreshInventoryReferences()
+    {
+        persistentInventory = PersistentInventoryManager.Instance;
+        if (persistentInventory == null)
+        {
+            persistentInventory = FindFirstObjectByType<PersistentInventoryManager>();
+        }
+
+        inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
+
+        DebugLog($"Inventory references refreshed - PersistentInventory: {persistentInventory != null}, SaveComponent: {inventorySaveComponent != null}");
+    }
+
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
         if (hasPersistentData && !saveManagerIsHandlingRestore)
         {
-            Debug.Log("PlayerPersistenceManager.OnSceneLoaded() called, triggering StartCoroutine(RestorePlayerDataCoroutine())");
+            DebugLog("PlayerPersistenceManager.OnSceneLoaded() called, triggering restoration");
             StartCoroutine(RestorePlayerDataCoroutine());
         }
     }
@@ -77,21 +94,17 @@ public class PlayerPersistenceManager : MonoBehaviour
 
         var playerManager = FindFirstObjectByType<PlayerManager>();
         var playerController = FindFirstObjectByType<PlayerController>();
-        var inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
 
         if (playerManager != null && playerController != null)
         {
+            // Restore basic player data
             playerManager.currentHealth = persistentData.currentHealth;
             playerController.canJump = persistentData.canJump;
             playerController.canSprint = persistentData.canSprint;
             playerController.canCrouch = persistentData.canCrouch;
 
-            // Restore inventory data
-            if (inventorySaveComponent != null && persistentData.inventoryData != null)
-            {
-                inventorySaveComponent.LoadInventoryFromSaveData(persistentData.inventoryData);
-                DebugLog($"Restored inventory data: {persistentData.inventoryData.ItemCount} items");
-            }
+            // Restore inventory data using the new system
+            RestoreInventoryData();
 
             // Trigger UI updates
             if (GameManager.Instance?.playerData != null)
@@ -100,6 +113,32 @@ public class PlayerPersistenceManager : MonoBehaviour
             }
 
             DebugLog($"Player data restored after doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData?.ItemCount ?? 0} items");
+        }
+    }
+
+    /// <summary>
+    /// Restore inventory data using the new persistent inventory system
+    /// </summary>
+    private void RestoreInventoryData()
+    {
+        if (persistentData.inventoryData == null || persistentData.inventoryData.ItemCount == 0)
+        {
+            DebugLog("No inventory data to restore");
+            return;
+        }
+
+        // Ensure we have inventory system references
+        RefreshInventoryReferences();
+
+        if (persistentInventory != null)
+        {
+            // Load inventory data directly into persistent inventory - no UI required!
+            persistentInventory.LoadFromSaveData(persistentData.inventoryData);
+            DebugLog($"Restored inventory data via PersistentInventoryManager: {persistentData.inventoryData.ItemCount} items");
+        }
+        else
+        {
+            DebugLog("PersistentInventoryManager not found - cannot restore inventory");
         }
     }
 
@@ -113,34 +152,53 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// update current player data before scene transition (called by doorway)
+    /// Update current player data before scene transition (called by doorway)
     /// </summary>
     public void UpdatePersistentPlayerDataForTransition()
     {
         var playerManager = FindFirstObjectByType<PlayerManager>();
         var playerController = FindFirstObjectByType<PlayerController>();
-        var inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
 
         if (playerManager != null && playerController != null)
         {
+            // Save basic player data
             persistentData.currentHealth = playerManager.currentHealth;
             persistentData.canJump = playerController.canJump;
             persistentData.canSprint = playerController.canSprint;
             persistentData.canCrouch = playerController.canCrouch;
 
-            // Save inventory data
-            if (inventorySaveComponent != null)
-            {
-                persistentData.inventoryData = inventorySaveComponent.GetInventorySaveData();
-                DebugLog($"Saved inventory data: {persistentData.inventoryData.ItemCount} items");
-            }
-            else
-            {
-                DebugLog("No InventoryManager found - inventory not saved");
-            }
+            // Save inventory data using the new system
+            SaveInventoryData();
 
             hasPersistentData = true;
-            DebugLog($"Player data saved for doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData.ItemCount} items");
+            DebugLog($"Player data saved for doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData?.ItemCount ?? 0} items");
+        }
+    }
+
+    /// <summary>
+    /// Save inventory data using the new persistent inventory system
+    /// </summary>
+    private void SaveInventoryData()
+    {
+        // Ensure we have inventory system references
+        RefreshInventoryReferences();
+
+        if (persistentInventory != null)
+        {
+            // Get inventory data directly from persistent inventory - no UI required!
+            persistentData.inventoryData = persistentInventory.GetSaveData();
+            DebugLog($"Saved inventory data via PersistentInventoryManager: {persistentData.inventoryData.ItemCount} items");
+        }
+        else if (inventorySaveComponent != null)
+        {
+            // Fallback to save component
+            persistentData.inventoryData = inventorySaveComponent.GetInventorySaveData();
+            DebugLog($"Saved inventory data via InventorySaveComponent: {persistentData.inventoryData.ItemCount} items");
+        }
+        else
+        {
+            DebugLog("No inventory system found - inventory not saved");
+            persistentData.inventoryData = new InventorySaveData(); // Empty but valid
         }
     }
 
@@ -154,11 +212,11 @@ public class PlayerPersistenceManager : MonoBehaviour
             // Clear existing data before loading new
             persistentData = new PlayerPersistentData(saveData);
 
-            //Clear doorway transition data since we're loading from save
+            // Clear doorway transition data since we're loading from save
             hasPersistentData = false;
-            saveManagerIsHandlingRestore = true; //disables doorway transition data restoration, so it won't conflict with SaveManager's loading process
+            saveManagerIsHandlingRestore = true; // Disables doorway transition data restoration
 
-            //DebugLog($"Player persistent data loaded from save - doorway data cleared. Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
+            DebugLog($"Player persistent data loaded from save - doorway data cleared. Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
         }
     }
 
@@ -196,6 +254,62 @@ public class PlayerPersistenceManager : MonoBehaviour
         return persistentData;
     }
 
+    /// <summary>
+    /// Manually add an item to persistent inventory (useful for pickup systems)
+    /// </summary>
+    public bool AddItemToPersistentInventory(ItemData itemData, Vector2Int? preferredPosition = null)
+    {
+        RefreshInventoryReferences();
+
+        if (persistentInventory != null)
+        {
+            bool success = persistentInventory.AddItem(itemData, preferredPosition);
+            if (success)
+            {
+                DebugLog($"Added item {itemData.itemName} to persistent inventory");
+                // Update persistent data immediately
+                UpdatePersistentPlayerDataForTransition();
+            }
+            return success;
+        }
+        else
+        {
+            DebugLog("Cannot add item - PersistentInventoryManager not found");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Check if persistent inventory has space for an item
+    /// </summary>
+    public bool HasInventorySpaceForItem(ItemData itemData)
+    {
+        RefreshInventoryReferences();
+
+        if (persistentInventory != null)
+        {
+            return persistentInventory.HasSpaceForItem(itemData);
+        }
+
+        DebugLog("Cannot check inventory space - PersistentInventoryManager not found");
+        return false;
+    }
+
+    /// <summary>
+    /// Get inventory statistics
+    /// </summary>
+    public (int itemCount, int occupiedCells, int totalCells) GetInventoryStats()
+    {
+        RefreshInventoryReferences();
+
+        if (persistentInventory != null)
+        {
+            return persistentInventory.GetInventoryStats();
+        }
+
+        return (0, 0, 0);
+    }
+
     private void DebugLog(string message)
     {
         if (showDebugLogs)
@@ -209,3 +323,4 @@ public class PlayerPersistenceManager : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 }
+

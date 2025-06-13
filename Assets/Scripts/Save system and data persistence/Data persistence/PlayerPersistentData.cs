@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Data that persists between scenes when using doorways
+/// Updated PlayerPersistentData that works with the new inventory system
 /// </summary>
 [System.Serializable]
 public class PlayerPersistentData
@@ -16,13 +16,6 @@ public class PlayerPersistentData
 
     [Header("Inventory")]
     public InventorySaveData inventoryData;
-
-    // Add more systems here as you create them:
-    // [Header("Equipment")]
-    // public EquipmentData equipment;
-
-    // [Header("Quests")]
-    // public QuestData quests;
 
     public PlayerPersistentData()
     {

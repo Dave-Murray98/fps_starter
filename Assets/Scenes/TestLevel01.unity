@@ -646,7 +646,6 @@ MonoBehaviour:
   inputManager: {fileID: 1253748455}
   uiManager: {fileID: 1481020782}
   audioManager: {fileID: 1023597443}
-  inventoryManager: {fileID: 1848890813}
   isPaused: 0
 --- !u!1 &748011754
 GameObject:
@@ -1671,7 +1670,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1848890814}
-  - component: {fileID: 1848890813}
+  - component: {fileID: 1848890816}
   - component: {fileID: 1848890815}
   m_Layer: 0
   m_Name: InventoryManager
@@ -1680,32 +1679,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1848890813
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1848890812}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4a2623b24a9fe85469ff01158c82ff04, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gridVisual: {fileID: 2041368708}
-  draggableItemPrefab: {fileID: 8720481152623599973, guid: acfca489b943bf14487f98b9b45114ea, type: 3}
-  testItems:
-  - itemData: {fileID: 11400000, guid: ee366c60de47d95449568180ed39efee, type: 2}
-    quantity: 1
-  - itemData: {fileID: 11400000, guid: c79afedd95b75064292edd612654db95, type: 2}
-    quantity: 1
-  - itemData: {fileID: 11400000, guid: 01fb8c59fdbfbe24082c3017173f5c1a, type: 2}
-    quantity: 1
-  - itemData: {fileID: 11400000, guid: 703253395b96603498acdbdcd3150161, type: 2}
-    quantity: 1
-  - itemData: {fileID: 11400000, guid: 2041c0863791b3e4f8aa840a46cbcd1c, type: 2}
-    quantity: 1
-  nextItemId: 1
 --- !u!4 &1848890814
 Transform:
   m_ObjectHideFlags: 0
@@ -1736,19 +1709,26 @@ MonoBehaviour:
   saveID: Inventory_Main
   autoGenerateID: 0
   enableDebugLogs: 1
-  inventoryManager: {fileID: 1848890813}
-  gridVisual: {fileID: 2041368708}
---- !u!114 &2041368708 stripped
+--- !u!114 &1848890816
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 2943755082409030878, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
-  m_PrefabInstance: {fileID: 418749875408110830}
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1848890812}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 99299f695cb4e2c458af64646cc00c40, type: 3}
+  m_Script: {fileID: 11500000, guid: 8489769800e3c974b94ed77af0eb2bb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  gridWidth: 10
+  gridHeight: 8
+  testItems:
+  - {fileID: 11400000, guid: 01fb8c59fdbfbe24082c3017173f5c1a, type: 2}
+  - {fileID: 11400000, guid: 703253395b96603498acdbdcd3150161, type: 2}
+  - {fileID: 11400000, guid: ee366c60de47d95449568180ed39efee, type: 2}
+  - {fileID: 11400000, guid: 2041c0863791b3e4f8aa840a46cbcd1c, type: 2}
+  - {fileID: 11400000, guid: c79afedd95b75064292edd612654db95, type: 2}
 --- !u!1 &2133065632
 GameObject:
   m_ObjectHideFlags: 0

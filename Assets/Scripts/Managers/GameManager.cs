@@ -39,7 +39,6 @@ public class GameManager : MonoBehaviour
     public InputManager inputManager;
     public UIManager uiManager;
     public AudioManager audioManager;
-    public InventoryManager inventoryManager;
 
     [Header("Game State")]
     public bool isPaused = false;
@@ -103,7 +102,6 @@ public class GameManager : MonoBehaviour
         inputManager = FindFirstObjectByType<InputManager>();
         uiManager = FindFirstObjectByType<UIManager>();
         audioManager = FindFirstObjectByType<AudioManager>();
-        inventoryManager = FindFirstObjectByType<InventoryManager>();
 
         //  Debug.Log($"GameManager: Found managers - Player: {playerManager != null}, Input: {inputManager != null}, UI: {uiManager != null}, Audio: {audioManager != null}");
 
@@ -112,7 +110,6 @@ public class GameManager : MonoBehaviour
         if (inputManager != null) allManagers.Add(inputManager);
         if (uiManager != null) allManagers.Add(uiManager);
         if (audioManager != null) allManagers.Add(audioManager);
-        if (inventoryManager != null) allManagers.Add(inventoryManager);
 
         //  Debug.Log($"GameManager: Registered {allManagers.Count} managers in scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
     }
