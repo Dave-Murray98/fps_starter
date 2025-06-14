@@ -177,24 +177,27 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     private void RevertToOriginalState()
     {
-        // Revert rotation if changed
+        // IMPORTANT: This method reverts BOTH position AND rotation to the state before dragging started
+        Debug.Log($"[DragHandler] Reverting item {itemData.ID} to original state - Position: {originalGridPosition}, Rotation: {originalRotation}");
+
+        // Revert rotation if changed (this happens BEFORE placing the item back)
         if (itemData.currentRotation != originalRotation)
         {
             itemData.SetRotation(originalRotation);
             visualRenderer?.RefreshVisual();
-            Debug.Log($"[DragHandler] Reverted rotation for item {itemData.ID} to {originalRotation}");
+            Debug.Log($"[DragHandler] Reverted rotation for item {itemData.ID} from {itemData.currentRotation} to {originalRotation}");
         }
 
         // Restore original position
         itemData.SetGridPosition(originalGridPosition);
 
-        // Place item back in grid at original position
+        // Place item back in grid at original position with original rotation
         if (itemRemovedFromGrid)
         {
             if (gridVisual.GridData.PlaceItem(itemData))
             {
                 itemRemovedFromGrid = false;
-                Debug.Log($"[DragHandler] Restored item {itemData.ID} to original position {originalGridPosition}");
+                Debug.Log($"[DragHandler] Restored item {itemData.ID} to original position {originalGridPosition} with rotation {originalRotation}");
             }
             else
             {
@@ -217,7 +220,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         Debug.Log($"[DragHandler] Attempting to rotate item {itemData.ID} from rotation {itemData.currentRotation}");
 
-        // Store current state for rollback
+        // Store current state
         var currentRotation = itemData.currentRotation;
         var currentCenter = GetVisualCenter();
 
@@ -225,36 +228,24 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         int maxRotations = TetrominoDefinitions.GetRotationCount(itemData.shapeType);
         int newRotation = (currentRotation + 1) % maxRotations;
 
-        // Apply the rotation directly to the item data
+        // ALWAYS apply the rotation - player should be able to rotate freely during drag
         itemData.SetRotation(newRotation);
 
-        // Test if the new rotation is valid at current mouse position
+        // Update visual immediately
+        visualRenderer?.RefreshVisual();
+
+        // Adjust position to keep center in same place
+        Vector2 newCenter = GetVisualCenter();
+        Vector2 offset = currentCenter - newCenter;
+        rectTransform.localPosition += (Vector3)offset;
+
+        // Update preview with new rotation and adjusted position
         Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
+        bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos, itemData);
+        gridVisual.ShowPlacementPreview(gridPos, itemData, isValidPlacement);
+        wasValidPlacement = isValidPlacement;
 
-        if (gridVisual.GridData.IsValidPosition(gridPos, itemData))
-        {
-            // Rotation is valid - update visual and preview
-            visualRenderer?.RefreshVisual();
-
-            // Adjust position to keep center in same place
-            Vector2 newCenter = GetVisualCenter();
-            Vector2 offset = currentCenter - newCenter;
-            rectTransform.localPosition += (Vector3)offset;
-
-            // Update preview with new rotation and adjusted position
-            gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
-            bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos, itemData);
-            gridVisual.ShowPlacementPreview(gridPos, itemData, isValidPlacement);
-            wasValidPlacement = isValidPlacement;
-
-            Debug.Log($"[DragHandler] Successfully rotated item {itemData.ID} to rotation {newRotation}");
-        }
-        else
-        {
-            // Rotation is invalid - revert
-            itemData.SetRotation(currentRotation);
-            Debug.Log($"[DragHandler] Rotation blocked for item {itemData.ID} - reverted to {currentRotation}");
-        }
+        Debug.Log($"[DragHandler] Rotated item {itemData.ID} to rotation {newRotation} (placement valid: {isValidPlacement})");
     }
 
     private Vector2 GetVisualCenter()
