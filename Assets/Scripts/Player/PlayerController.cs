@@ -45,6 +45,10 @@ public class PlayerController : MonoBehaviour
     public bool canCrouch = true;
     public bool canLook = true;
 
+    [Header("Interaction System")]
+    public PlayerInteractionController interactionController;
+    public bool canInteract = true;
+
     private InputManager inputManager;
     private PlayerData playerData;
 
@@ -57,6 +61,8 @@ public class PlayerController : MonoBehaviour
         if (movement == null) movement = GetComponent<PlayerMovement>();
         if (playerCamera == null) playerCamera = GetComponent<PlayerCamera>();
         if (playerAudio == null) playerAudio = GetComponent<PlayerAudio>();
+        if (interactionController == null) interactionController = GetComponent<PlayerInteractionController>();
+
     }
 
     private void Start()
@@ -66,6 +72,17 @@ public class PlayerController : MonoBehaviour
         // Subscribe to manager events
         GameManager.OnManagersRefreshed += RefreshComponentReferences;
         InputManager.OnInputManagerReady += OnInputManagerReady;
+
+        if (interactionController == null)
+        {
+            interactionController = gameObject.AddComponent<PlayerInteractionController>();
+        }
+
+        PlayerInteractionDetector interactionDetector = GetComponent<PlayerInteractionDetector>();
+        if (interactionDetector == null)
+        {
+            interactionDetector = gameObject.AddComponent<PlayerInteractionDetector>();
+        }
     }
 
     private void Initialize()

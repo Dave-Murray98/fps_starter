@@ -27,13 +27,13 @@ public class Doorway : MonoBehaviour
         }
     }
 
-    private void Update()
-    {
-        if (playerInRange && requiresInteraction && Input.GetKeyDown(KeyCode.E))
-        {
-            UseDoorway();
-        }
-    }
+    // private void Update()
+    // {
+    //     if (playerInRange && requiresInteraction && Input.GetKeyDown(KeyCode.E))
+    //     {
+    //         UseDoorway();
+    //     }
+    // }
 
     public void UseDoorway()
     {

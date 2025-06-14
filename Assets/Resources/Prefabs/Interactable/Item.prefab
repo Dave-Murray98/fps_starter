@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &3907947149056778887
+--- !u!1 &2273072809719146425
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,48 +8,48 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 6967045993894095026}
-  - component: {fileID: 8576850894845190031}
-  - component: {fileID: 4744071067570334512}
-  - component: {fileID: 8950800620944656595}
-  - component: {fileID: 4177520042743173436}
-  m_Layer: 7
-  m_Name: Doorway
+  - component: {fileID: 3988658958037972660}
+  - component: {fileID: 5178448405358590286}
+  - component: {fileID: 4228591209218872699}
+  - component: {fileID: 6267215392466075881}
+  - component: {fileID: 8351057881185044143}
+  m_Layer: 0
+  m_Name: Item
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &6967045993894095026
+--- !u!4 &3988658958037972660
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3907947149056778887}
+  m_GameObject: {fileID: 2273072809719146425}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -4.59, y: 0, z: 42.03}
-  m_LocalScale: {x: 2, y: 2, z: 2}
-  m_ConstrainProportionsScale: 1
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3.4091234, y: 1.41, z: 46.644234}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8576850894845190031
+--- !u!33 &5178448405358590286
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3907947149056778887}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &4744071067570334512
+  m_GameObject: {fileID: 2273072809719146425}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &4228591209218872699
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3907947149056778887}
+  m_GameObject: {fileID: 2273072809719146425}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -66,7 +66,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: ab27c4a4c283cac489ef589c67077626, type: 2}
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -88,30 +88,13 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &8950800620944656595
-MonoBehaviour:
+--- !u!135 &6267215392466075881
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3907947149056778887}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 66311bbc83904264cbd6e042c934f6f0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  doorwayID: 
-  targetScene: 
-  targetDoorwayID: 
-  requiresInteraction: 1
-  interactionPrompt: Press E to enter
---- !u!65 &4177520042743173436
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3907947149056778887}
+  m_GameObject: {fileID: 2273072809719146425}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -120,9 +103,36 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &8351057881185044143
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2273072809719146425}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e01c33d8238f07240895bd9525c6907c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactableID: Apple01
+  autoGenerateID: 0
+  interactionRange: 2
+  interactionPrompt: Press E to interact
+  canInteract: 1
+  hasBeenUsed: 0
+  showInteractionRange: 0
+  rangeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  interactionSound: {fileID: 0}
+  failureSound: {fileID: 0}
+  enableDebugLogs: 0
+  itemData: {fileID: 11400000, guid: 01fb8c59fdbfbe24082c3017173f5c1a, type: 2}
+  quantity: 1
+  pickupEffect: {fileID: 0}
+  pickupMessage: 

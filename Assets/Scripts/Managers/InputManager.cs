@@ -15,6 +15,7 @@ public class InputManager : MonoBehaviour, IManager
     private InputAction sprintAction;
     private InputAction crouchAction;
     private InputAction pauseAction;
+    private InputAction interactAction;
     private InputAction toggleInventoryAction;
     private InputAction rotateInventoryItemAction; // For rotating items in the inventory
 
@@ -33,6 +34,8 @@ public class InputManager : MonoBehaviour, IManager
     public event Action OnJumpReleased;
     public event Action OnCrouchPressed;
     public event Action OnCrouchReleased;
+    public event Action OnInteractPressed;
+
 
     public event Action OnRotateInventoryItemPressed; // For rotating items in the inventory (will be used by the DraggableGridItem script to rotate items)
 
@@ -127,10 +130,11 @@ public class InputManager : MonoBehaviour, IManager
 
         locomotionActionMap = inputActions.FindActionMap("Locomotion");
         uiActionMap = inputActions.FindActionMap("UI");
+        gameplayActionMap = inputActions.FindActionMap("Gameplay");
 
-        if (locomotionActionMap == null || uiActionMap == null)
+        if (locomotionActionMap == null || uiActionMap == null || gameplayActionMap == null)
         {
-            Debug.LogError("Locomotion or UI action map not found in InputActionAsset.");
+            Debug.LogError("Locomotion, UI or Gameplay action map not found in InputActionAsset.");
             return;
         }
 
@@ -139,6 +143,7 @@ public class InputManager : MonoBehaviour, IManager
         jumpAction = locomotionActionMap.FindAction("Jump");
         sprintAction = locomotionActionMap.FindAction("Sprint");
         crouchAction = locomotionActionMap.FindAction("Crouch");
+        interactAction = gameplayActionMap?.FindAction("Interact");
         pauseAction = uiActionMap.FindAction("Pause");
         toggleInventoryAction = uiActionMap.FindAction("ToggleInventory");
         rotateInventoryItemAction = uiActionMap.FindAction("RotateInventoryItem");
@@ -165,6 +170,11 @@ public class InputManager : MonoBehaviour, IManager
         if (pauseAction != null)
         {
             pauseAction.performed += OnPausePerformed;
+        }
+
+        if (interactAction != null)
+        {
+            interactAction.performed += OnInteractPerformed;
         }
 
         if (toggleInventoryAction != null)
@@ -196,6 +206,12 @@ public class InputManager : MonoBehaviour, IManager
         {
             pauseAction.performed -= OnPausePerformed;
         }
+
+        if (interactAction != null)
+        {
+            interactAction.performed -= OnInteractPerformed;
+        }
+
 
         if (toggleInventoryAction != null)
         {
@@ -255,6 +271,12 @@ public class InputManager : MonoBehaviour, IManager
             else
                 GameManager.Instance.PauseGame();
         }
+    }
+
+    private void OnInteractPerformed(InputAction.CallbackContext context)
+    {
+        if (isCleanedUp) return;
+        OnInteractPressed?.Invoke();
     }
 
     private void OnToggleInventoryPerformed(InputAction.CallbackContext context)

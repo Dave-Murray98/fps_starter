@@ -14,6 +14,9 @@ public class UIManager : MonoBehaviour, IManager
     public GameObject inventoryPanel;
     public bool isInventoryOpen = false;
 
+    [Header("Interaction UI")]
+    public InteractionUIManager interactionUIManager;
+
     public void Initialize()
     {
         //   Debug.Log("UIManager Initialized");
@@ -46,6 +49,19 @@ public class UIManager : MonoBehaviour, IManager
             inventoryPanel.SetActive(false);
         }
 
+        if (interactionUIManager == null)
+        {
+            interactionUIManager = FindFirstObjectByType<InteractionUIManager>();
+
+            // Create interaction UI manager if it doesn't exist
+            if (interactionUIManager == null)
+            {
+                GameObject interactionUIObj = new GameObject("InteractionUIManager");
+                interactionUIObj.transform.SetParent(transform, false);
+                interactionUIManager = interactionUIObj.AddComponent<InteractionUIManager>();
+            }
+        }
+
         // Update UI with current values
         UpdateUIAfterSceneLoad();
     }
@@ -57,6 +73,23 @@ public class UIManager : MonoBehaviour, IManager
         GameEvents.OnPlayerHealthChanged -= UpdateHealthBar;
         GameEvents.OnGamePaused -= ShowPauseMenu;
         GameEvents.OnGameResumed -= HidePauseMenu;
+    }
+
+    /// <summary>
+    /// Show a temporary message to the player
+    /// </summary>
+    public void ShowMessage(string message, float duration = 3f)
+    {
+        // This is a placeholder - you can implement a proper message system
+        Debug.Log($"[UI Message] {message}");
+
+        // Example implementation:
+        // if (messageText != null)
+        // {
+        //     messageText.text = message;
+        //     messageText.gameObject.SetActive(true);
+        //     StartCoroutine(HideMessageAfterDelay(duration));
+        // }
     }
 
     private void ShowPauseMenu()

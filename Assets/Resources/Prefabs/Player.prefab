@@ -228,7 +228,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.1
-  far clip plane: 5000
+  far clip plane: 500
   field of view: 40
   orthographic: 0
   orthographic size: 10
@@ -479,6 +479,8 @@ GameObject:
   - component: {fileID: 3165935447440300241}
   - component: {fileID: 5255883665865847148}
   - component: {fileID: 3657837451461529809}
+  - component: {fileID: 9014781814499418554}
+  - component: {fileID: 8571626392060770434}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -628,6 +630,8 @@ MonoBehaviour:
   canSprint: 1
   canCrouch: 1
   canLook: 1
+  interactionController: {fileID: 8571626392060770434}
+  canInteract: 1
 --- !u!114 &5584297369560187998
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -736,6 +740,46 @@ MonoBehaviour:
   playerController: {fileID: 5026250899846009166}
   playerManager: {fileID: 0}
   playerData: {fileID: 11400000, guid: fb46b840e8974a14fb0e0f5059c27420, type: 2}
+--- !u!114 &9014781814499418554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8847058725108387975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88fb538ee490859498881d8b93863ee1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  detectionRadius: 3
+  interactableLayers:
+    serializedVersion: 2
+    m_Bits: 255
+  updateInterval: 0.1
+  useLineOfSight: 1
+  obstacleLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  preferClosestInteractable: 1
+  preferFacingDirection: 1
+  facingAngleThreshold: 45
+  showDebugVisuals: 1
+  enableDebugLogs: 1
+--- !u!114 &8571626392060770434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8847058725108387975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d565eab7de0214488ad49de6ed09685, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  canInteract: 1
+  enableDebugLogs: 1
 --- !u!1 &8863942212892959195
 GameObject:
   m_ObjectHideFlags: 0
