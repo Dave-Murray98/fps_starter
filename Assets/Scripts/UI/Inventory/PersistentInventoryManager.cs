@@ -73,6 +73,7 @@ public class PersistentInventoryManager : MonoBehaviour
 
         if (position == null)
         {
+            InventoryDebugSystem.LogItemPlacementAttempt(itemId, preferredPosition ?? Vector2Int.zero, false, "No valid position found");
             Debug.LogWarning($"Cannot add item {itemData.itemName} - no valid position found");
             return false;
         }
@@ -82,12 +83,14 @@ public class PersistentInventoryManager : MonoBehaviour
         if (inventoryData.PlaceItem(inventoryItem))
         {
             nextItemId++;
+            InventoryDebugSystem.LogItemPlacementAttempt(itemId, position.Value, true, "Item added successfully");
             OnItemAdded?.Invoke(inventoryItem);
             OnInventoryDataChanged?.Invoke(inventoryData);
             Debug.Log($"Added item {itemData.itemName} at position {position.Value}");
             return true;
         }
 
+        InventoryDebugSystem.LogItemPlacementAttempt(itemId, position.Value, false, "Failed to place in inventory data");
         Debug.LogError($"Failed to place item {itemData.itemName} in inventory data");
         return false;
     }
@@ -115,9 +118,11 @@ public class PersistentInventoryManager : MonoBehaviour
         var item = inventoryData.GetItem(itemId);
         if (item == null)
         {
-            Debug.LogWarning($"Cannot move item {itemId} - item not found");
+            InventoryDebugSystem.LogItemPlacementAttempt(itemId, newPosition, false, "Item not found");
             return false;
         }
+
+        var originalPosition = item.GridPosition;
 
         // Temporarily remove item to test new position
         inventoryData.RemoveItem(itemId);
@@ -126,13 +131,16 @@ public class PersistentInventoryManager : MonoBehaviour
         if (inventoryData.IsValidPosition(newPosition, item))
         {
             inventoryData.PlaceItem(item);
+            InventoryDebugSystem.LogItemPlacementAttempt(itemId, newPosition, true);
             OnInventoryDataChanged?.Invoke(inventoryData);
             return true;
         }
         else
         {
             // Restore item to original position
+            item.SetGridPosition(originalPosition);
             inventoryData.PlaceItem(item);
+            InventoryDebugSystem.LogItemPlacementAttempt(itemId, newPosition, false, "Position invalid or occupied");
             return false;
         }
     }
@@ -143,16 +151,29 @@ public class PersistentInventoryManager : MonoBehaviour
     public bool RotateItem(string itemId)
     {
         var item = inventoryData.GetItem(itemId);
-        if (item == null || !item.CanRotate)
+        if (item == null)
+        {
+            InventoryDebugSystem.LogItemRotationAttempt(itemId, -1, -1, false, "Item not found");
             return false;
+        }
+
+        if (!item.CanRotate)
+        {
+            InventoryDebugSystem.LogItemRotationAttempt(itemId, item.currentRotation, -1, false, "Item cannot rotate");
+            return false;
+        }
+
+        // Store original rotation
+        var originalRotation = item.currentRotation;
 
         // Test rotation
-        var originalRotation = item.currentRotation;
         item.RotateItem();
+        var newRotation = item.currentRotation;
 
         // Check if new rotation is valid at current position
         if (inventoryData.IsValidPosition(item.GridPosition, item))
         {
+            InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, true);
             OnInventoryDataChanged?.Invoke(inventoryData);
             return true;
         }
@@ -160,6 +181,7 @@ public class PersistentInventoryManager : MonoBehaviour
         {
             // Revert rotation
             item.SetRotation(originalRotation);
+            InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, false, "New rotation invalid at current position");
             return false;
         }
     }
