@@ -6,6 +6,7 @@ using Sirenix.OdinInspector;
 /// <summary>
 /// Core inventory system that manages data independently of visuals
 /// This is a singleton that persists across scenes
+/// FIXED: Improved rotation handling to prevent cell occupation issues
 /// </summary>
 public class PersistentInventoryManager : MonoBehaviour
 {
@@ -146,7 +147,7 @@ public class PersistentInventoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Rotate an item
+    /// Rotate an item - FIXED version that properly handles grid state
     /// </summary>
     public bool RotateItem(string itemId)
     {
@@ -163,24 +164,51 @@ public class PersistentInventoryManager : MonoBehaviour
             return false;
         }
 
-        // Store original rotation
+        // Store original state
         var originalRotation = item.currentRotation;
+        var originalPosition = item.GridPosition;
 
-        // Test rotation
-        item.RotateItem();
-        var newRotation = item.currentRotation;
+        // Calculate next rotation
+        int maxRotations = TetrominoDefinitions.GetRotationCount(item.shapeType);
+        int newRotation = (originalRotation + 1) % maxRotations;
 
-        // Check if new rotation is valid at current position
-        if (inventoryData.IsValidPosition(item.GridPosition, item))
+        // IMPORTANT: Remove item from grid before testing rotation
+        bool wasInGrid = inventoryData.GetItem(itemId) != null;
+        if (wasInGrid)
         {
-            InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, true);
-            OnInventoryDataChanged?.Invoke(inventoryData);
-            return true;
+            inventoryData.RemoveItem(itemId);
+        }
+
+        // Apply new rotation
+        item.SetRotation(newRotation);
+
+        // Test if new rotation is valid at current position
+        if (inventoryData.IsValidPosition(originalPosition, item))
+        {
+            // Place item back with new rotation
+            if (inventoryData.PlaceItem(item))
+            {
+                InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, true);
+                OnInventoryDataChanged?.Invoke(inventoryData);
+                return true;
+            }
+            else
+            {
+                // Failed to place back - revert rotation and restore
+                item.SetRotation(originalRotation);
+                inventoryData.PlaceItem(item);
+                InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, false, "Failed to place after rotation");
+                return false;
+            }
         }
         else
         {
-            // Revert rotation
+            // New rotation invalid - revert rotation and restore item
             item.SetRotation(originalRotation);
+            if (wasInGrid)
+            {
+                inventoryData.PlaceItem(item);
+            }
             InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, false, "New rotation invalid at current position");
             return false;
         }
@@ -298,6 +326,28 @@ public class PersistentInventoryManager : MonoBehaviour
         ClearInventory();
     }
 
+    [Button("Debug Grid State")]
+    private void DebugGridState()
+    {
+        Debug.Log("=== GRID DEBUG INFO ===");
+        for (int y = 0; y < gridHeight; y++)
+        {
+            string row = $"Row {y}: ";
+            for (int x = 0; x < gridWidth; x++)
+            {
+                var item = inventoryData.GetItemAt(x, y);
+                row += (item != null ? "X" : ".") + " ";
+            }
+            Debug.Log(row);
+        }
+
+        Debug.Log($"Total items: {inventoryData.ItemCount}");
+        foreach (var item in inventoryData.GetAllItems())
+        {
+            Debug.Log($"Item {item.ID}: {item.ItemData?.itemName} at {item.GridPosition} rotation {item.currentRotation}");
+        }
+    }
+
     private void Update()
     {
         // Debug controls
@@ -306,10 +356,14 @@ public class PersistentInventoryManager : MonoBehaviour
             ClearInventory();
         }
 
-        // Add some complex shapes directly
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
             AddTestItem();
+        }
+
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            DebugGridState();
         }
     }
 }

@@ -5,6 +5,7 @@ using DG.Tweening;
 
 /// <summary>
 /// Handles dragging of inventory items - works with data layer
+/// FIXED: Proper handling of rotation during drag to prevent cell occupation issues
 /// </summary>
 public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
@@ -25,6 +26,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     private int originalRotation;
     private bool isDragging = false;
     private bool wasValidPlacement = false;
+    private bool itemRemovedFromGrid = false; // Track if item is temporarily removed
 
     private InputManager inputManager;
     private PersistentInventoryManager persistentInventory;
@@ -102,9 +104,15 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         originalPosition = rectTransform.localPosition;
         originalGridPosition = itemData.GridPosition;
         originalRotation = itemData.currentRotation;
+        itemRemovedFromGrid = false;
 
-        // DON'T remove the item yet - just mark it as being dragged
-        // The visual feedback and collision detection will handle the rest
+        // Remove the item from grid to prevent self-collision during drag
+        if (gridVisual.GridData.GetItem(itemData.ID) != null)
+        {
+            gridVisual.GridData.RemoveItem(itemData.ID);
+            itemRemovedFromGrid = true;
+            Debug.Log($"[DragHandler] Removed item {itemData.ID} from grid for dragging");
+        }
 
         // Visual feedback
         canvasGroup.alpha = 0.8f;
@@ -121,25 +129,11 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         // Get grid position under mouse
         Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
 
-        // Check if placement is valid by temporarily removing the item from grid
-        // This prevents the item from colliding with itself
-        bool wasItemInGrid = gridVisual.GridData.GetItem(itemData.ID) != null;
-        if (wasItemInGrid)
-        {
-            gridVisual.GridData.RemoveItem(itemData.ID);
-        }
-
-        // Create temporary item for testing position
+        // Create temporary item for testing position (use current rotation state)
         var tempItem = new InventoryItemData(itemData.ID + "_temp", itemData.ItemData, gridPos);
         tempItem.SetRotation(itemData.currentRotation);
 
         bool isValid = gridVisual.GridData.IsValidPosition(gridPos, tempItem);
-
-        // Restore the item to grid if it was there
-        if (wasItemInGrid)
-        {
-            gridVisual.GridData.PlaceItem(itemData);
-        }
 
         // Show placement preview
         gridVisual.ShowPlacementPreview(gridPos, tempItem, isValid);
@@ -157,21 +151,24 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         if (wasValidPlacement)
         {
-            // Try to move the item using the persistent inventory manager
-            if (persistentInventory.MoveItem(itemData.ID, targetGridPos))
+            // Update item position and place it back in grid
+            itemData.SetGridPosition(targetGridPos);
+
+            if (gridVisual.GridData.PlaceItem(itemData))
             {
-                // Successful placement
+                itemRemovedFromGrid = false;
                 AnimateToGridPosition();
+                Debug.Log($"[DragHandler] Successfully placed item {itemData.ID} at {targetGridPos}");
             }
             else
             {
-                // Failed to place - revert
+                Debug.LogError($"[DragHandler] Failed to place item {itemData.ID} at {targetGridPos} - reverting");
                 RevertToOriginalState();
             }
         }
         else
         {
-            // Invalid placement - revert
+            Debug.Log($"[DragHandler] Invalid placement for item {itemData.ID} - reverting");
             RevertToOriginalState();
         }
 
@@ -185,10 +182,25 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         {
             itemData.SetRotation(originalRotation);
             visualRenderer?.RefreshVisual();
+            Debug.Log($"[DragHandler] Reverted rotation for item {itemData.ID} to {originalRotation}");
         }
 
-        // Restore original position using the persistent inventory manager
-        persistentInventory.MoveItem(itemData.ID, originalGridPosition);
+        // Restore original position
+        itemData.SetGridPosition(originalGridPosition);
+
+        // Place item back in grid at original position
+        if (itemRemovedFromGrid)
+        {
+            if (gridVisual.GridData.PlaceItem(itemData))
+            {
+                itemRemovedFromGrid = false;
+                Debug.Log($"[DragHandler] Restored item {itemData.ID} to original position {originalGridPosition}");
+            }
+            else
+            {
+                Debug.LogError($"[DragHandler] Failed to restore item {itemData.ID} to original position!");
+            }
+        }
 
         // Animate back to original position
         AnimateToOriginalPosition();
@@ -203,13 +215,25 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     {
         if (!canRotate || !isDragging || itemData?.CanRotate != true) return;
 
-        // Store current center for rotation pivot
-        Vector2 currentCenter = GetVisualCenter();
+        Debug.Log($"[DragHandler] Attempting to rotate item {itemData.ID} from rotation {itemData.currentRotation}");
 
-        // Try to rotate the item using the persistent inventory manager
-        if (persistentInventory.RotateItem(itemData.ID))
+        // Store current state for rollback
+        var currentRotation = itemData.currentRotation;
+        var currentCenter = GetVisualCenter();
+
+        // Calculate next rotation
+        int maxRotations = TetrominoDefinitions.GetRotationCount(itemData.shapeType);
+        int newRotation = (currentRotation + 1) % maxRotations;
+
+        // Apply the rotation directly to the item data
+        itemData.SetRotation(newRotation);
+
+        // Test if the new rotation is valid at current mouse position
+        Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
+
+        if (gridVisual.GridData.IsValidPosition(gridPos, itemData))
         {
-            // Rotation successful - update visual
+            // Rotation is valid - update visual and preview
             visualRenderer?.RefreshVisual();
 
             // Adjust position to keep center in same place
@@ -217,16 +241,20 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             Vector2 offset = currentCenter - newCenter;
             rectTransform.localPosition += (Vector3)offset;
 
-            // Update drag preview
-            Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
-            var tempItem = new InventoryItemData(itemData.ID, itemData.ItemData, gridPos);
-            tempItem.SetRotation(itemData.currentRotation);
-
-            bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos, tempItem);
-            gridVisual.ShowPlacementPreview(gridPos, tempItem, isValidPlacement);
+            // Update preview with new rotation and adjusted position
+            gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
+            bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos, itemData);
+            gridVisual.ShowPlacementPreview(gridPos, itemData, isValidPlacement);
             wasValidPlacement = isValidPlacement;
+
+            Debug.Log($"[DragHandler] Successfully rotated item {itemData.ID} to rotation {newRotation}");
         }
-        // If rotation failed, the persistent inventory manager handles reverting the state
+        else
+        {
+            // Rotation is invalid - revert
+            itemData.SetRotation(currentRotation);
+            Debug.Log($"[DragHandler] Rotation blocked for item {itemData.ID} - reverted to {currentRotation}");
+        }
     }
 
     private Vector2 GetVisualCenter()
