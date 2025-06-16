@@ -2277,9 +2277,21 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8274155013995483879, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
+      propertyPath: minWidth
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 8274155013995483879, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
       propertyPath: dropdownParent
       value: 
       objectReference: {fileID: 782033134}
+    - target: {fileID: 8274155013995483879, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
+      propertyPath: positionOffset.x
+      value: 120
+      objectReference: {fileID: 0}
+    - target: {fileID: 8274155013995483879, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
+      propertyPath: positionOffset.y
+      value: -80
+      objectReference: {fileID: 0}
     - target: {fileID: 8274155013995483879, guid: 67c321f8f0b6853439d709e6afaa857a, type: 3}
       propertyPath: dropdownMenuPrefab
       value: 

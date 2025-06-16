@@ -176,6 +176,12 @@ MonoBehaviour:
   normalButtonColor: {r: 1, g: 1, b: 1, a: 1}
   hoverButtonColor: {r: 0.8, g: 0.8, b: 1, a: 1}
   disabledButtonColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  buttonHeight: 50
+  buttonSpacing: 10
+  containerPadding: 15
+  minWidth: 150
+  detectClicksOutside: 1
+  positionOffset: {x: 80, y: -60}
 --- !u!225 &48205729665362130
 CanvasGroup:
   m_ObjectHideFlags: 0
