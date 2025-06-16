@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: M16
   description: Great Gun
+  itemType: 1
   shapeType: 5
   itemSprite: {fileID: 21300000, guid: ccea8b9868e42d3499e205e91a486ac1, type: 3}
   spriteScale: 2
@@ -21,4 +22,31 @@ MonoBehaviour:
   cellColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   stackSize: 1
   isRotatable: 1
+  degradationType: 0
+  maxDurability: 100
+  degradationRate: 1
+  degradationInterval: 1
+  consumableData:
+    healthRestore: 0
+    hungerRestore: 0
+    thirstRestore: 0
+    consumeTime: 2
+    multiUse: 0
+    maxUses: 1
+  weaponData:
+    damage: 10
+    range: 5
+    fireRate: 1
+    requiredAmmoType: {fileID: 11400000, guid: 1a04c77690863bc4ea332b663d9fbe97, type: 2}
+    maxAmmo: 30
+    currentAmmo: 0
+  equipmentData:
+    compatibleInteractionTags: []
+    useRange: 2
+    useTime: 1
+    hasLimitedUses: 0
+    maxUses: 10
+  ammoData:
+    compatibleWeapons: []
+    damageModifier: 1
   showDebugInfo: 0

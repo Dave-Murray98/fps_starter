@@ -4,8 +4,8 @@ using UnityEngine.EventSystems;
 using DG.Tweening;
 
 /// <summary>
-/// Handles dragging of inventory items - works with data layer
-/// FIXED: Proper handling of rotation during drag to prevent cell occupation issues
+/// Handles dragging of inventory items and dropdown menu interactions
+/// UPDATED: Now shows dropdown menu on right-click instead of immediate drop
 /// </summary>
 public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
@@ -13,6 +13,9 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     [SerializeField] private bool canDrag = true;
     [SerializeField] private bool canRotate = true;
     [SerializeField] private float snapAnimationDuration = 0.2f;
+
+    [Header("Dropdown Menu")]
+    [SerializeField] private InventoryDropdownMenu dropdownMenu;
 
     private InventoryItemData itemData;
     private InventoryGridVisual gridVisual;
@@ -48,7 +51,34 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     {
         inputManager = FindFirstObjectByType<InputManager>();
         persistentInventory = PersistentInventoryManager.Instance;
+
+        // Get dropdown menu from the InventoryDropdownManager instead of trying to find the inactive menu
+        GetDropdownMenuFromManager();
+
         SetupRotationInput();
+        SetupDropdownEvents();
+    }
+
+    /// <summary>
+    /// Get the dropdown menu from the InventoryDropdownManager
+    /// This works even when the dropdown menu is initially inactive
+    /// </summary>
+    private void GetDropdownMenuFromManager()
+    {
+        if (dropdownMenu == null)
+        {
+            var dropdownManager = FindFirstObjectByType<InventoryDropdownManager>();
+            if (dropdownManager != null)
+            {
+                // Use the public property which ensures the dropdown menu is created
+                dropdownMenu = dropdownManager.DropdownMenu;
+                Debug.Log($"[DragHandler] Got dropdown menu from manager: {dropdownMenu != null}");
+            }
+            else
+            {
+                Debug.LogWarning("[DragHandler] InventoryDropdownManager not found! Make sure it's added to your inventory UI.");
+            }
+        }
     }
 
     public void Initialize(InventoryItemData item, InventoryGridVisual visual)
@@ -66,9 +96,18 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         }
     }
 
+    private void SetupDropdownEvents()
+    {
+        if (dropdownMenu != null)
+        {
+            dropdownMenu.OnActionSelected += OnDropdownActionSelected;
+        }
+    }
+
     private void OnDestroy()
     {
         CleanupInput();
+        CleanupDropdownEvents();
     }
 
     private void CleanupInput()
@@ -76,6 +115,14 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         if (inputManager != null)
         {
             inputManager.OnRotateInventoryItemPressed -= OnRotateInput;
+        }
+    }
+
+    private void CleanupDropdownEvents()
+    {
+        if (dropdownMenu != null)
+        {
+            dropdownMenu.OnActionSelected -= OnDropdownActionSelected;
         }
     }
 
@@ -223,12 +270,214 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        // Handle right-click for dropping items
+        // Handle right-click for dropdown menu
         if (eventData.button == PointerEventData.InputButton.Right)
         {
-            DropItem();
+            // Use the actual mouse position from the event data
+            ShowDropdownMenu(eventData.position);
         }
     }
+
+    private void ShowDropdownMenu(Vector2 screenPosition)
+    {
+        // Try to get dropdown menu if we don't have it
+        if (dropdownMenu == null)
+        {
+            GetDropdownMenuFromManager();
+        }
+
+        if (dropdownMenu == null)
+        {
+            Debug.LogWarning("No dropdown menu available - falling back to direct drop");
+            Debug.LogWarning("Make sure InventoryDropdownManager is added to your inventory UI!");
+            DropItem();
+            return;
+        }
+
+        if (itemData?.ItemData == null)
+        {
+            Debug.LogWarning("Cannot show dropdown - no item data");
+            return;
+        }
+
+        Debug.Log($"Showing dropdown menu for {itemData.ItemData.itemName} at screen position {screenPosition}");
+        dropdownMenu.ShowMenu(itemData, screenPosition);
+    }
+
+    private void OnDropdownActionSelected(InventoryItemData selectedItem, string actionId)
+    {
+        if (selectedItem != itemData)
+        {
+            Debug.LogWarning("Dropdown action for different item - ignoring");
+            return;
+        }
+
+        Debug.Log($"Processing dropdown action: {actionId} for item {itemData.ItemData.itemName}");
+
+        switch (actionId)
+        {
+            case "consume":
+                ConsumeItem();
+                break;
+            case "equip":
+                EquipItem();
+                break;
+            case "assign_hotkey":
+                AssignHotkey();
+                break;
+            case "unload":
+                UnloadWeapon();
+                break;
+            case "drop":
+                DropItem();
+                break;
+            default:
+                Debug.LogWarning($"Unknown dropdown action: {actionId}");
+                break;
+        }
+    }
+
+    #region Dropdown Action Handlers
+
+    private void ConsumeItem()
+    {
+        if (itemData?.ItemData?.itemType != ItemType.Consumable)
+        {
+            Debug.LogWarning("Cannot consume non-consumable item");
+            return;
+        }
+
+        Debug.Log($"Consuming {itemData.ItemData.itemName}");
+
+        // TODO: Implement consumption logic when you add player stats
+        // For now, just remove the item from inventory
+
+        var consumableData = itemData.ItemData.ConsumableData;
+        if (consumableData != null)
+        {
+            Debug.Log($"Would restore: Health +{consumableData.healthRestore}, Hunger +{consumableData.hungerRestore}, Thirst +{consumableData.thirstRestore}");
+
+            // Placeholder for actual consumption effects:
+            // PlayerStatsManager.Instance.ModifyHealth(consumableData.healthRestore);
+            // PlayerStatsManager.Instance.ModifyHunger(consumableData.hungerRestore);
+            // PlayerStatsManager.Instance.ModifyThirst(consumableData.thirstRestore);
+        }
+
+        // Remove item from inventory after consumption
+        if (persistentInventory != null)
+        {
+            persistentInventory.RemoveItem(itemData.ID);
+        }
+    }
+
+    private void EquipItem()
+    {
+        Debug.Log($"Equipping {itemData.ItemData.itemName}");
+
+        // TODO: Implement equipment logic when you add equipped item system
+        // For now, just log what would happen
+
+        switch (itemData.ItemData.itemType)
+        {
+            case ItemType.Weapon:
+                Debug.Log($"Would equip weapon: {itemData.ItemData.itemName}");
+                // EquippedItemManager.Instance.EquipWeapon(itemData);
+                break;
+            case ItemType.Equipment:
+                Debug.Log($"Would equip equipment: {itemData.ItemData.itemName}");
+                // EquippedItemManager.Instance.EquipTool(itemData);
+                break;
+            case ItemType.Consumable:
+            case ItemType.Ammo:
+            case ItemType.KeyItem:
+                Debug.Log($"Would equip for quick use: {itemData.ItemData.itemName}");
+                // EquippedItemManager.Instance.EquipQuickUse(itemData);
+                break;
+        }
+    }
+
+    private void AssignHotkey()
+    {
+        Debug.Log($"Assigning hotkey for {itemData.ItemData.itemName}");
+
+        // TODO: Implement hotkey assignment when you add the hotkey system
+        // For now, just log what would happen
+
+        // This could open a hotkey selection UI or auto-assign to next available slot
+        // HotkeyManager.Instance.ShowAssignmentUI(itemData);
+        // or
+        // HotkeyManager.Instance.AutoAssignHotkey(itemData);
+
+        Debug.Log("Hotkey assignment system not yet implemented");
+    }
+
+    private void UnloadWeapon()
+    {
+        if (itemData?.ItemData?.itemType != ItemType.Weapon)
+        {
+            Debug.LogWarning("Cannot unload non-weapon item");
+            return;
+        }
+
+        var weaponData = itemData.ItemData.WeaponData;
+        if (weaponData == null || weaponData.currentAmmo <= 0)
+        {
+            Debug.LogWarning("No ammo to unload");
+            return;
+        }
+
+        Debug.Log($"Unloading {weaponData.currentAmmo} rounds from {itemData.ItemData.itemName}");
+
+        // TODO: Implement ammo unloading when you add the weapon system
+        // This should:
+        // 1. Get the ammo type from weaponData.requiredAmmoType
+        // 2. Try to add the ammo to existing stacks in inventory
+        // 3. Create new ammo items if needed
+        // 4. Set weaponData.currentAmmo to 0
+
+        // Placeholder logic:
+        if (weaponData.requiredAmmoType != null)
+        {
+            Debug.Log($"Would add {weaponData.currentAmmo} {weaponData.requiredAmmoType.itemName} to inventory");
+
+            // AmmoManager.Instance.UnloadWeapon(itemData);
+            // persistentInventory.AddAmmo(weaponData.requiredAmmoType, weaponData.currentAmmo);
+            // weaponData.currentAmmo = 0;
+        }
+    }
+
+    private void DropItem()
+    {
+        // Check if item can be dropped
+        if (itemData?.ItemData?.CanDrop != true)
+        {
+            Debug.LogWarning($"Cannot drop {itemData.ItemData.itemName} - it's a key item");
+            // Could show a message to the player here
+            return;
+        }
+
+        if (itemData?.ID == null)
+        {
+            Debug.LogWarning("Cannot drop item - no item data or ID");
+            return;
+        }
+
+        Debug.Log($"Dropping item: {itemData.ItemData?.itemName}");
+
+        // Use the updated ItemDropSystem with unified state management
+        bool success = ItemDropSystem.DropItemFromInventory(itemData.ID);
+
+        if (success)
+        {
+            Debug.Log($"Successfully dropped {itemData.ItemData?.itemName} into scene");
+        }
+        else
+        {
+            Debug.LogWarning($"Failed to drop {itemData.ItemData?.itemName}");
+        }
+    }
+
+    #endregion
 
     private void RotateItemDuringDrag()
     {
@@ -303,31 +552,5 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     public void SetRotatable(bool rotatable)
     {
         canRotate = rotatable;
-    }
-
-    /// <summary>
-    /// Handle right-click to drop item back into the scene
-    /// </summary>
-    private void DropItem()
-    {
-        if (itemData?.ID == null)
-        {
-            Debug.LogWarning("Cannot drop item - no item data or ID");
-            return;
-        }
-
-        Debug.Log($"Attempting to drop item: {itemData.ItemData?.itemName}");
-
-        // Use the new EfficientItemDropSystem
-        bool success = ItemDropSystem.DropItemFromInventory(itemData.ID);
-
-        if (success)
-        {
-            Debug.Log($"Successfully dropped {itemData.ItemData?.itemName} into scene");
-        }
-        else
-        {
-            Debug.LogWarning($"Failed to drop {itemData.ItemData?.itemName}");
-        }
     }
 }

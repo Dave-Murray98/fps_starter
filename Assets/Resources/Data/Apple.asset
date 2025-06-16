@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: Apple
   description: Yum
+  itemType: 0
   shapeType: 0
   itemSprite: {fileID: 21300000, guid: 201a2448dd6a108439f987ff5fd0e4c9, type: 3}
   spriteScale: 3
@@ -21,4 +22,31 @@ MonoBehaviour:
   cellColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   stackSize: 1
   isRotatable: 1
+  degradationType: 1
+  maxDurability: 100
+  degradationRate: 1
+  degradationInterval: 1
+  consumableData:
+    healthRestore: 5
+    hungerRestore: 10
+    thirstRestore: 0
+    consumeTime: 2
+    multiUse: 0
+    maxUses: 1
+  weaponData:
+    damage: 10
+    range: 5
+    fireRate: 1
+    requiredAmmoType: {fileID: 0}
+    maxAmmo: 30
+    currentAmmo: 0
+  equipmentData:
+    compatibleInteractionTags: []
+    useRange: 2
+    useTime: 1
+    hasLimitedUses: 0
+    maxUses: 10
+  ammoData:
+    compatibleWeapons: []
+    damageModifier: 1
   showDebugInfo: 0

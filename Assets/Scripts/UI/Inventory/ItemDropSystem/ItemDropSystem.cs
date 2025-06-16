@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Updated ItemDropSystem that works with ItemStateManager
+/// Updated ItemDropSystem that works with SceneItemStateManager
 /// Simplified and more reliable than the previous version
 /// </summary>
 public class ItemDropSystem : MonoBehaviour
@@ -52,7 +52,7 @@ public class ItemDropSystem : MonoBehaviour
 
         Vector3 finalDropPosition = dropPosition ?? CalculateDropPosition();
 
-        // Use the ItemStateManager to handle the drop
+        // Use the SceneItemStateManager to handle the drop
         return SceneItemStateManager.DropItemFromInventoryIntoScene(itemData, finalDropPosition);
     }
 
@@ -147,7 +147,7 @@ public class ItemDropSystem : MonoBehaviour
         // Remove from inventory first
         if (inventory.RemoveItem(itemId))
         {
-            // Then drop into scene using  system
+            // Then drop into scene using Scene system
             bool success = Instance.DropItem(itemData);
             if (success)
             {
@@ -167,7 +167,7 @@ public class ItemDropSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Get the pickup prefab (used by ItemStateManager)
+    /// Get the pickup prefab (used by SceneItemStateManager)
     /// </summary>
     public GameObject GetItemPickupPrefab()
     {

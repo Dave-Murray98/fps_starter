@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3943def95315f084d917e2efd64303a2, type: 3}
-  m_Name: Glock
+  m_Name: Pistol Ammo
   m_EditorClassIdentifier: 
-  itemName: Glock
-  description: Great Gun
-  itemType: 1
-  shapeType: 6
-  itemSprite: {fileID: 21300000, guid: a442ba673c4686a4a9b03969a6317a60, type: 3}
-  spriteScale: 1
+  itemName: Pistol Ammo
+  description: For Pistols
+  itemType: 4
+  shapeType: 1
+  itemSprite: {fileID: 21300000, guid: 524c3808dd5169c499a6bb486ef88108, type: 3}
+  spriteScale: 2
   spriteOffset: {x: 0, y: -1}
   cellColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  stackSize: 1
+  stackSize: 50
   isRotatable: 1
-  degradationType: 2
+  degradationType: 0
   maxDurability: 100
   degradationRate: 1
   degradationInterval: 1
@@ -37,7 +37,7 @@ MonoBehaviour:
     damage: 10
     range: 5
     fireRate: 1
-    requiredAmmoType: {fileID: 11400000, guid: 25f969d44188eea43899e8cf3bbff93e, type: 2}
+    requiredAmmoType: {fileID: 0}
     maxAmmo: 30
     currentAmmo: 0
   equipmentData:
@@ -47,6 +47,7 @@ MonoBehaviour:
     hasLimitedUses: 0
     maxUses: 10
   ammoData:
-    compatibleWeapons: []
+    compatibleWeapons:
+    - {fileID: 11400000, guid: ee366c60de47d95449568180ed39efee, type: 2}
     damageModifier: 1
   showDebugInfo: 0
