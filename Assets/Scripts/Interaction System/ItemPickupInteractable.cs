@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Efficient item pickup that works with SceneItemStateManager
-/// No longer needs to save individual state - much cleaner and more scalable
+/// Updated ItemPickupInteractable that works with ItemStateManager
+/// Much cleaner and more efficient than the previous version
 /// </summary>
 public class ItemPickupInteractable : MonoBehaviour, IInteractable
 {
@@ -22,8 +22,9 @@ public class ItemPickupInteractable : MonoBehaviour, IInteractable
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogs = false;
 
-    // Special flags
-    private bool isDroppedItem = false;
+    // Item type tracking
+    private bool isDroppedInventoryItem = false;
+    private bool isOriginalSceneItem = true;
 
     // IInteractable implementation
     public string InteractableID => interactableID;
@@ -47,18 +48,18 @@ public class ItemPickupInteractable : MonoBehaviour, IInteractable
 
     private void Start()
     {
-        // Check if this item was already picked up
-        if (SceneItemStateManager.Instance != null && !isDroppedItem)
+        // Check if this original scene item was already collected
+        if (isOriginalSceneItem && SceneItemStateManager.Instance != null)
         {
-            if (SceneItemStateManager.Instance.IsItemPickedUp(interactableID))
+            if (SceneItemStateManager.Instance.IsOriginalItemCollected(interactableID))
             {
-                DebugLog($"Item {interactableID} was previously picked up - destroying immediately");
+                DebugLog($"Original scene item {interactableID} was previously collected - destroying immediately");
                 Destroy(gameObject);
                 return;
             }
         }
 
-        DebugLog($"Item pickup {interactableID} initialized");
+        DebugLog($"Item pickup {interactableID} initialized (Original: {isOriginalSceneItem}, Dropped: {isDroppedInventoryItem})");
     }
 
     #region IInteractable Implementation
@@ -123,20 +124,22 @@ public class ItemPickupInteractable : MonoBehaviour, IInteractable
             Instantiate(pickupEffect, transform.position, transform.rotation);
         }
 
-        if (isDroppedItem)
+        // Handle based on item type
+        if (isDroppedInventoryItem)
         {
-            // Dropped items: notify the state manager and destroy immediately
-            SceneItemStateManager.OnDroppedItemPickedUp(interactableID);
-            DebugLog($"Dropped item {interactableID} picked up - destroying GameObject");
-            Destroy(gameObject);
+            // Dropped inventory item: notify the  manager and destroy
+            SceneItemStateManager.OnDroppedInventoryItemPickedUp(interactableID);
+            DebugLog($"Dropped inventory item {interactableID} picked up - destroying GameObject");
         }
-        else
+        else if (isOriginalSceneItem)
         {
-            // Scene items: mark as picked up in state manager (this will destroy the GameObject)
-            SceneItemStateManager.Instance?.MarkItemAsPickedUp(interactableID);
-            DebugLog($"Scene item {interactableID} marked as picked up");
-            // Note: MarkItemAsPickedUp() will destroy this GameObject, so no need to do it here
+            // Original scene item: mark as collected in  manager
+            SceneItemStateManager.OnOriginalSceneItemPickedUp(interactableID);
+            DebugLog($"Original scene item {interactableID} marked as collected - destroying GameObject");
         }
+
+        // Destroy the GameObject
+        Destroy(gameObject);
     }
 
     private void ShowInventoryFullMessage()
@@ -152,7 +155,7 @@ public class ItemPickupInteractable : MonoBehaviour, IInteractable
         interactableID = $"Item_{sceneName}_{position}";
     }
 
-    #region Public Methods for ItemDropSystem
+    #region Public Methods for Item Systems
 
     /// <summary>
     /// Set the item data for this pickup
@@ -179,12 +182,23 @@ public class ItemPickupInteractable : MonoBehaviour, IInteractable
     }
 
     /// <summary>
-    /// Mark this as a dropped item (different behavior when picked up)
+    /// Mark this as a dropped inventory item (not an original scene item)
     /// </summary>
     public void MarkAsDroppedItem()
     {
-        isDroppedItem = true;
-        DebugLog($"Item {interactableID} marked as dropped item");
+        isDroppedInventoryItem = true;
+        isOriginalSceneItem = false;
+        DebugLog($"Item {interactableID} marked as dropped inventory item");
+    }
+
+    /// <summary>
+    /// Mark this as an original scene item (default behavior)
+    /// </summary>
+    public void MarkAsOriginalSceneItem()
+    {
+        isOriginalSceneItem = true;
+        isDroppedInventoryItem = false;
+        DebugLog($"Item {interactableID} marked as original scene item");
     }
 
     /// <summary>
@@ -192,13 +206,23 @@ public class ItemPickupInteractable : MonoBehaviour, IInteractable
     /// </summary>
     public ItemData GetItemData() => itemData;
 
+    /// <summary>
+    /// Check if this is a dropped inventory item
+    /// </summary>
+    public bool IsDroppedInventoryItem => isDroppedInventoryItem;
+
+    /// <summary>
+    /// Check if this is an original scene item
+    /// </summary>
+    public bool IsOriginalSceneItem => isOriginalSceneItem;
+
     #endregion
 
     private void DebugLog(string message)
     {
         if (enableDebugLogs)
         {
-            Debug.Log($"[EfficientItemPickup:{interactableID}] {message}");
+            Debug.Log($"[ItemPickupInteractable:{interactableID}] {message}");
         }
     }
 }

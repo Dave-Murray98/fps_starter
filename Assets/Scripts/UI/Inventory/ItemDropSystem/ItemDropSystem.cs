@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Simplified item drop system that works with SceneItemStateManager
-/// Much cleaner and more efficient than the previous version
+/// Updated ItemDropSystem that works with ItemStateManager
+/// Simplified and more reliable than the previous version
 /// </summary>
 public class ItemDropSystem : MonoBehaviour
 {
@@ -52,8 +52,8 @@ public class ItemDropSystem : MonoBehaviour
 
         Vector3 finalDropPosition = dropPosition ?? CalculateDropPosition();
 
-        // Use the SceneItemStateManager to handle the drop
-        return SceneItemStateManager.DropItemIntoScene(itemData, finalDropPosition);
+        // Use the ItemStateManager to handle the drop
+        return SceneItemStateManager.DropItemFromInventoryIntoScene(itemData, finalDropPosition);
     }
 
     /// <summary>
@@ -107,7 +107,7 @@ public class ItemDropSystem : MonoBehaviour
         // Remove the primitive's collider (we have our own)
         Destroy(visual.GetComponent<Collider>());
 
-        // Add the efficient pickup component
+        // Add the pickup component
         prefab.AddComponent<ItemPickupInteractable>();
 
         itemPickupPrefab = prefab;
@@ -123,7 +123,7 @@ public class ItemDropSystem : MonoBehaviour
     {
         if (Instance == null)
         {
-            Debug.LogError("EfficientItemDropSystem instance not found");
+            Debug.LogError("ItemDropSystem instance not found");
             return false;
         }
 
@@ -147,7 +147,7 @@ public class ItemDropSystem : MonoBehaviour
         // Remove from inventory first
         if (inventory.RemoveItem(itemId))
         {
-            // Then drop into scene
+            // Then drop into scene using  system
             bool success = Instance.DropItem(itemData);
             if (success)
             {
@@ -167,7 +167,7 @@ public class ItemDropSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Get the pickup prefab (used by SceneItemStateManager)
+    /// Get the pickup prefab (used by ItemStateManager)
     /// </summary>
     public GameObject GetItemPickupPrefab()
     {
@@ -180,7 +180,7 @@ public class ItemDropSystem : MonoBehaviour
     {
         if (enableDebugLogs)
         {
-            Debug.Log($"[EfficientItemDropSystem] {message}");
+            Debug.Log($"[ItemDropSystem] {message}");
         }
     }
 }
