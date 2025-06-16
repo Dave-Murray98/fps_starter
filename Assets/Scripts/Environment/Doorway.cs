@@ -43,6 +43,20 @@ public class Doorway : MonoBehaviour
             return;
         }
 
+        Debug.Log($"[Doorway] Using doorway {doorwayID} to transition to {targetScene}");
+
+        // CRITICAL: Save current scene data BEFORE transition
+        if (SceneDataManager.Instance != null)
+        {
+            Debug.Log("[Doorway] Forcing scene data save before transition");
+            // This will save all interactables in the current scene
+            var currentSceneData = SceneDataManager.Instance.GetSceneDataForSaving();
+            Debug.Log($"[Doorway] Saved scene data for {currentSceneData.Count} scenes");
+        }
+        else
+        {
+            Debug.LogError("[Doorway] SceneDataManager not found - scene data will not be saved!");
+        }
 
         // Save player persistent data before transition
         PlayerPersistenceManager.Instance?.UpdatePersistentPlayerDataForTransition();
@@ -51,6 +65,10 @@ public class Doorway : MonoBehaviour
         if (SceneTransitionManager.Instance != null)
         {
             SceneTransitionManager.Instance.TransitionThroughDoorway(targetScene, targetDoorwayID);
+        }
+        else
+        {
+            Debug.LogError("[Doorway] SceneTransitionManager not found!");
         }
     }
 

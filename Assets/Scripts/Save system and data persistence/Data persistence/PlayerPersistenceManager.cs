@@ -55,7 +55,7 @@ public class PlayerPersistenceManager : MonoBehaviour
 
         inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
 
-        DebugLog($"Inventory references refreshed - PersistentInventory: {persistentInventory != null}, SaveComponent: {inventorySaveComponent != null}");
+        //DebugLog($"Inventory references refreshed - PersistentInventory: {persistentInventory != null}, SaveComponent: {inventorySaveComponent != null}");
     }
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
@@ -71,8 +71,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         DebugLog("PlayerPersistenceManager.RestorePlayerDataCoroutine() called");
 
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSecondsRealtime(0.1f);
 
         // Double-check that SaveManager isn't handling this
         if (!saveManagerIsHandlingRestore)

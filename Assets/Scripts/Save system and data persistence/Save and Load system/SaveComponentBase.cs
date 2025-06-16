@@ -63,7 +63,7 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
         // Auto-register with save manager if it exists
         if (SaveManager.Instance != null)
         {
-            DebugLog("Registered with SaveManager");
+            //DebugLog("Registered with SaveManager");
         }
     }
 

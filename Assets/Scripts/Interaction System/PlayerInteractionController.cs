@@ -67,7 +67,7 @@ public class PlayerInteractionController : MonoBehaviour
         if (inputManager != null)
         {
             inputManager.OnInteractPressed += HandleInteractInput;
-            DebugLog($"Connected to InputManager: {inputManager.GetInstanceID()}");
+            //DebugLog($"Connected to InputManager: {inputManager.GetInstanceID()}");
         }
     }
 
@@ -86,7 +86,7 @@ public class PlayerInteractionController : MonoBehaviour
             return;
         }
 
-        DebugLog("Interaction input received - attempting interaction");
+        //DebugLog("Interaction input received - attempting interaction");
         TryInteract();
     }
 
@@ -108,7 +108,7 @@ public class PlayerInteractionController : MonoBehaviour
             return false;
         }
 
-        DebugLog($"Attempting interaction with: {targetInteractable.InteractableID}");
+        //DebugLog($"Attempting interaction with: {targetInteractable.InteractableID}");
 
         // Start interaction
         isInteracting = true;
@@ -121,7 +121,7 @@ public class PlayerInteractionController : MonoBehaviour
         isInteracting = false;
         OnInteractionCompleted?.Invoke(targetInteractable, success);
 
-        DebugLog($"Interaction {(success ? "succeeded" : "failed")} with: {targetInteractable.InteractableID}");
+        // DebugLog($"Interaction {(success ? "succeeded" : "failed")} with: {targetInteractable.InteractableID}");
         return success;
     }
 

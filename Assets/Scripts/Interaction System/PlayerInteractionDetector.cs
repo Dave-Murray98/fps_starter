@@ -112,7 +112,7 @@ public class PlayerInteractionDetector : MonoBehaviour
             }
         }
 
-        DebugLog($"Found {interactablesInRange.Count} interactables in range");
+        //DebugLog($"Found {interactablesInRange.Count} interactables in range");
     }
 
     private IInteractable GetInteractableFromCollider(Collider collider)
@@ -163,7 +163,7 @@ public class PlayerInteractionDetector : MonoBehaviour
             var previousBest = currentBestInteractable;
             currentBestInteractable = newBest;
 
-            DebugLog($"Best interactable changed: {previousBest?.InteractableID} -> {newBest?.InteractableID}");
+            //DebugLog($"Best interactable changed: {previousBest?.InteractableID} -> {newBest?.InteractableID}");
             OnBestInteractableChanged?.Invoke(currentBestInteractable);
         }
     }
@@ -209,14 +209,14 @@ public class PlayerInteractionDetector : MonoBehaviour
 
     private void OnInteractableEnteredRange(IInteractable interactable)
     {
-        DebugLog($"Interactable entered range: {interactable.InteractableID}");
+        //DebugLog($"Interactable entered range: {interactable.InteractableID}");
         interactable.OnPlayerEnterRange(gameObject);
         OnInteractableEntered?.Invoke(interactable);
     }
 
     private void OnInteractableExitedRange(IInteractable interactable)
     {
-        DebugLog($"Interactable exited range: {interactable.InteractableID}");
+        //DebugLog($"Interactable exited range: {interactable.InteractableID}");
         interactable.OnPlayerExitRange(gameObject);
         OnInteractableExited?.Invoke(interactable);
 
@@ -240,7 +240,7 @@ public class PlayerInteractionDetector : MonoBehaviour
             return false;
         }
 
-        DebugLog($"Attempting interaction with: {currentBestInteractable.InteractableID}");
+        //  DebugLog($"Attempting interaction with: {currentBestInteractable.InteractableID}");
         return currentBestInteractable.Interact(gameObject);
     }
 

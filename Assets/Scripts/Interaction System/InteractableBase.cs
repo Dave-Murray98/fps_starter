@@ -63,6 +63,7 @@ public abstract class InteractableBase : MonoBehaviour, IPersistentInteractable
         string position = transform.position.ToString("F2");
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         interactableID = $"{typeName}_{sceneName}_{position}";
+        Debug.Log($"GeneratingUniqueID for {this.name}: {interactableID}");
     }
 
     protected virtual void RegisterWithSaveSystem()
@@ -172,11 +173,17 @@ public abstract class InteractableBase : MonoBehaviour, IPersistentInteractable
     {
         if (data is InteractableSaveData saveData)
         {
+            DebugLog($"Loading save data - old state: hasBeenUsed={hasBeenUsed}, canInteract={canInteract}");
+
             hasBeenUsed = saveData.hasBeenUsed;
             canInteract = saveData.canInteract;
             LoadCustomSaveData(saveData.customData);
 
-            DebugLog($"Loaded save data - HasBeenUsed: {hasBeenUsed}, CanInteract: {canInteract}");
+            DebugLog($"Loaded save data - new state: hasBeenUsed={hasBeenUsed}, canInteract={canInteract}");
+        }
+        else
+        {
+            DebugLog($"LoadSaveData called with invalid data type: {data?.GetType()}");
         }
     }
 

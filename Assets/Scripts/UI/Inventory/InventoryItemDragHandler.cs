@@ -98,6 +98,10 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        // Only allow dragging with left mouse button
+        if (eventData.button != PointerEventData.InputButton.Left)
+            return;
+
         if (!canDrag || itemData == null || persistentInventory == null) return;
 
         isDragging = true;
@@ -121,6 +125,10 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     public void OnDrag(PointerEventData eventData)
     {
+        // Only allow dragging with left mouse button
+        if (eventData.button != PointerEventData.InputButton.Left)
+            return;
+
         if (!isDragging || itemData == null || gridVisual == null) return;
 
         // Move the visual with the mouse
@@ -142,6 +150,10 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        // Only handle end drag for left mouse button
+        if (eventData.button != PointerEventData.InputButton.Left)
+            return;
+
         if (!isDragging || itemData == null) return;
 
         isDragging = false;
@@ -211,7 +223,11 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        // Handle click events if needed
+        // Handle right-click for dropping items
+        if (eventData.button == PointerEventData.InputButton.Right)
+        {
+            DropItem();
+        }
     }
 
     private void RotateItemDuringDrag()
@@ -287,5 +303,31 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     public void SetRotatable(bool rotatable)
     {
         canRotate = rotatable;
+    }
+
+    /// <summary>
+    /// Handle right-click to drop item back into the scene
+    /// </summary>
+    private void DropItem()
+    {
+        if (itemData?.ID == null)
+        {
+            Debug.LogWarning("Cannot drop item - no item data or ID");
+            return;
+        }
+
+        Debug.Log($"Attempting to drop item: {itemData.ItemData?.itemName}");
+
+        // Use the new EfficientItemDropSystem
+        bool success = ItemDropSystem.DropItemFromInventory(itemData.ID);
+
+        if (success)
+        {
+            Debug.Log($"Successfully dropped {itemData.ItemData?.itemName} into scene");
+        }
+        else
+        {
+            Debug.LogWarning($"Failed to drop {itemData.ItemData?.itemName}");
+        }
     }
 }

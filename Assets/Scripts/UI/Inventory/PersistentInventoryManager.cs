@@ -49,7 +49,7 @@ public class PersistentInventoryManager : MonoBehaviour
     private void Initialize()
     {
         inventoryData = new InventoryGridData(gridWidth, gridHeight);
-        Debug.Log($"PersistentInventoryManager initialized with {gridWidth}x{gridHeight} grid");
+        //Debug.Log($"PersistentInventoryManager initialized with {gridWidth}x{gridHeight} grid");
     }
 
     /// <summary>

@@ -49,7 +49,31 @@ public class SaveManager : MonoBehaviour
     {
         DebugLog("Starting save operation...");
 
-        // Show loading screen for saving
+        // FORCE IMMEDIATE SCENE DATA COLLECTION FIRST (before any UI updates)
+        if (SceneDataManager.Instance != null)
+        {
+            DebugLog("IMMEDIATE: Forcing current scene data save");
+            SceneDataManager.Instance.SaveCurrentSceneData(); // This calls the private method directly
+            DebugLog("IMMEDIATE: Current scene data forced - checking container...");
+
+            // Debug: Check if data is immediately available
+            string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            var immediateCheck = SceneDataManager.Instance.GetSceneDataForSaving();
+            if (immediateCheck.ContainsKey(currentScene))
+            {
+                DebugLog($"IMMEDIATE: Scene data confirmed in container - {immediateCheck[currentScene].objectData.Count} objects");
+            }
+            else
+            {
+                DebugLog("IMMEDIATE: WARNING - Scene data not found in container!");
+            }
+        }
+        else
+        {
+            DebugLog("SceneDataManager not found - scene data will not be saved!");
+        }
+
+        // NOW start the UI and timing stuff
         LoadingScreenManager.Instance?.ShowLoadingScreen("Saving Game...", "Please wait");
         LoadingScreenManager.Instance?.SetProgress(0.1f);
         yield return new WaitForSecondsRealtime(0.1f);
@@ -64,28 +88,23 @@ public class SaveManager : MonoBehaviour
         if (PlayerPersistenceManager.Instance != null)
         {
             currentSaveData.playerPersistentData = PlayerPersistenceManager.Instance.GetPersistentDataForSave();
-
-            // Save player position data as well as it is not part of PlayerPersistentData (because it's only used for saving/loading, not for scene trasitions)
             SavePlayerPositionData();
-
-            //update the currentSaveData's PlayerSaveData with the current player persistent data
             currentSaveData.SetPlayerSaveDataToPlayerPersistentData();
         }
 
         LoadingScreenManager.Instance?.SetProgress(0.5f);
 
-        // Save scene data
+        // Get scene data (should already be collected above)
         if (SceneDataManager.Instance != null)
         {
             currentSaveData.sceneData = SceneDataManager.Instance.GetSceneDataForSaving();
+            DebugLog($"Final scene data collection: {currentSaveData.sceneData.Count} scenes");
         }
 
         LoadingScreenManager.Instance?.SetProgress(0.7f);
-
-
         LoadingScreenManager.Instance?.SetProgress(0.9f);
 
-        // Save to file (moved try-catch outside of coroutine logic)
+        // Save to file
         bool saveSuccess = false;
         try
         {
@@ -102,10 +121,7 @@ public class SaveManager : MonoBehaviour
         LoadingScreenManager.Instance?.SetProgress(1f);
         yield return new WaitForSecondsRealtime(0.3f);
 
-        // Invoke completion event based on save result
         OnSaveComplete?.Invoke(saveSuccess);
-
-        // Hide loading screen
         LoadingScreenManager.Instance?.HideLoadingScreen();
     }
 
@@ -144,8 +160,8 @@ public class SaveManager : MonoBehaviour
 
             // Wait for scene to load
             yield return new WaitUntil(() => UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == targetScene);
-            yield return new WaitForEndOfFrame();
-            yield return new WaitForSeconds(0.2f);
+
+            yield return new WaitForSecondsRealtime(0.2f);
 
             RestoreAllDataInScene();
         }
@@ -157,7 +173,7 @@ public class SaveManager : MonoBehaviour
             yield return new WaitForSecondsRealtime(0.2f);
             LoadingScreenManager.Instance?.SetProgress(0.3f);
 
-            yield return new WaitForEndOfFrame();
+            yield return new WaitForSecondsRealtime(0.01f);
             RestoreAllDataInScene();
 
 

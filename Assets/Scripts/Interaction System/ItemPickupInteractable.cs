@@ -1,67 +1,79 @@
 using UnityEngine;
-using DG.Tweening;
 
 /// <summary>
-/// Interactable for picking up items and adding them to inventory
-/// Integrates with the PersistentInventoryManager system
+/// Efficient item pickup that works with SceneItemStateManager
+/// No longer needs to save individual state - much cleaner and more scalable
 /// </summary>
-public class ItemPickupInteractable : InteractableBase
+public class ItemPickupInteractable : MonoBehaviour, IInteractable
 {
     [Header("Item Settings")]
     [SerializeField] private ItemData itemData;
     [SerializeField] private int quantity = 1;
+    [SerializeField] private string interactableID;
+    [SerializeField] private bool autoGenerateID = true;
+
+    [Header("Interaction Settings")]
+    [SerializeField] private float interactionRange = 2f;
+    [SerializeField] private string interactionPrompt = "";
 
     [Header("Feedback")]
     [SerializeField] private GameObject pickupEffect;
-    [SerializeField] private string pickupMessage = "";
 
-    // State
-    private bool isPickedUp = false;
+    [Header("Debug")]
+    [SerializeField] private bool enableDebugLogs = false;
 
-    protected override void Awake()
+    // Special flags
+    private bool isDroppedItem = false;
+
+    // IInteractable implementation
+    public string InteractableID => interactableID;
+    public Transform Transform => transform;
+    public bool CanInteract => enabled && gameObject.activeInHierarchy && itemData != null;
+    public float InteractionRange => interactionRange;
+
+    private void Awake()
     {
-        base.Awake();
+        if (autoGenerateID && string.IsNullOrEmpty(interactableID))
+        {
+            GenerateUniqueID();
+        }
 
-        // Set default interaction prompt based on item
         if (string.IsNullOrEmpty(interactionPrompt) && itemData != null)
         {
-            interactionPrompt = $"pick up {itemData.itemName}";
+            string quantityText = quantity > 1 ? $" ({quantity})" : "";
+            interactionPrompt = $"pick up {itemData.itemName}{quantityText}";
         }
     }
 
-    protected override void Start()
+    private void Start()
     {
-        base.Start();
-    }
+        // Check if this item was already picked up
+        if (SceneItemStateManager.Instance != null && !isDroppedItem)
+        {
+            if (SceneItemStateManager.Instance.IsItemPickedUp(interactableID))
+            {
+                DebugLog($"Item {interactableID} was previously picked up - destroying immediately");
+                Destroy(gameObject);
+                return;
+            }
+        }
 
+        DebugLog($"Item pickup {interactableID} initialized");
+    }
 
     #region IInteractable Implementation
 
-    public override bool CanInteract
+    public string GetInteractionPrompt()
     {
-        get
-        {
-            return base.CanInteract && !isPickedUp && itemData != null;
-        }
+        if (!CanInteract) return "";
+        return interactionPrompt;
     }
 
-    public override string GetInteractionPrompt()
+    public bool Interact(GameObject player)
     {
-        if (isPickedUp || itemData == null)
-            return "";
-
-        if (!string.IsNullOrEmpty(pickupMessage))
-            return pickupMessage;
-
-        string quantityText = quantity > 1 ? $" ({quantity})" : "";
-        return $"pick up {itemData.itemName}{quantityText}";
-    }
-
-    protected override bool PerformInteraction(GameObject player)
-    {
-        if (isPickedUp || itemData == null)
+        if (!CanInteract)
         {
-            DebugLog("Cannot pick up - item already picked up or no item data");
+            DebugLog("Cannot interact - item disabled or no data");
             return false;
         }
 
@@ -73,94 +85,83 @@ public class ItemPickupInteractable : InteractableBase
             return false;
         }
 
-        // Check if inventory has space
         if (!inventory.HasSpaceForItem(itemData))
         {
-            DebugLog("Inventory is full - cannot pick up item");
+            DebugLog("Inventory is full");
             ShowInventoryFullMessage();
             return false;
         }
 
-        // Add to inventory
-        bool success = inventory.AddItem(itemData);
-        if (success)
+        if (inventory.AddItem(itemData))
         {
             DebugLog($"Successfully added {itemData.itemName} to inventory");
             HandleSuccessfulPickup();
             return true;
         }
-        else
-        {
-            DebugLog($"Failed to add {itemData.itemName} to inventory");
-            return false;
-        }
+
+        DebugLog($"Failed to add {itemData.itemName} to inventory");
+        return false;
+    }
+
+    public void OnPlayerEnterRange(GameObject player)
+    {
+        DebugLog($"Player entered range of {interactableID}");
+    }
+
+    public void OnPlayerExitRange(GameObject player)
+    {
+        DebugLog($"Player exited range of {interactableID}");
     }
 
     #endregion
 
     private void HandleSuccessfulPickup()
     {
-        isPickedUp = true;
-
-        // Spawn pickup effect if configured
+        // Spawn pickup effect
         if (pickupEffect != null)
         {
             Instantiate(pickupEffect, transform.position, transform.rotation);
         }
 
-        // Simply destroy the pickup object
-        Destroy(gameObject);
+        if (isDroppedItem)
+        {
+            // Dropped items: notify the state manager and destroy immediately
+            SceneItemStateManager.OnDroppedItemPickedUp(interactableID);
+            DebugLog($"Dropped item {interactableID} picked up - destroying GameObject");
+            Destroy(gameObject);
+        }
+        else
+        {
+            // Scene items: mark as picked up in state manager (this will destroy the GameObject)
+            SceneItemStateManager.Instance?.MarkItemAsPickedUp(interactableID);
+            DebugLog($"Scene item {interactableID} marked as picked up");
+            // Note: MarkItemAsPickedUp() will destroy this GameObject, so no need to do it here
+        }
     }
 
     private void ShowInventoryFullMessage()
     {
-        // You can integrate this with your UI system to show a message
         Debug.Log("Inventory is full!");
-
-        // Example: Show UI message (you'd integrate this with your UIManager)
-        // UIManager.Instance?.ShowMessage("Inventory is full!");
+        // TODO: Integrate with UI system
     }
 
-    #region Save/Load Implementation
-
-    protected override object GetCustomSaveData()
+    private void GenerateUniqueID()
     {
-        return new ItemPickupSaveData
-        {
-            isPickedUp = this.isPickedUp
-        };
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        string position = transform.position.ToString("F2");
+        interactableID = $"Item_{sceneName}_{position}";
     }
 
-    protected override void LoadCustomSaveData(object customData)
-    {
-        if (customData is ItemPickupSaveData pickupData)
-        {
-            isPickedUp = pickupData.isPickedUp;
-        }
-    }
-
-    protected override void RefreshVisualState()
-    {
-        if (isPickedUp)
-        {
-            // Item was picked up - destroy it
-            Destroy(gameObject);
-        }
-    }
-
-    #endregion
-
-    #region Public Methods
+    #region Public Methods for ItemDropSystem
 
     /// <summary>
-    /// Manually set the item data for this pickup
+    /// Set the item data for this pickup
     /// </summary>
     public void SetItemData(ItemData newItemData, int newQuantity = 1)
     {
         itemData = newItemData;
         quantity = newQuantity;
 
-        // Update interaction prompt
         if (itemData != null)
         {
             string quantityText = quantity > 1 ? $" ({quantity})" : "";
@@ -169,19 +170,35 @@ public class ItemPickupInteractable : InteractableBase
     }
 
     /// <summary>
-    /// Get the item data for this pickup
+    /// Set a custom interactable ID
+    /// </summary>
+    public void SetInteractableID(string newID)
+    {
+        interactableID = newID;
+        autoGenerateID = false;
+    }
+
+    /// <summary>
+    /// Mark this as a dropped item (different behavior when picked up)
+    /// </summary>
+    public void MarkAsDroppedItem()
+    {
+        isDroppedItem = true;
+        DebugLog($"Item {interactableID} marked as dropped item");
+    }
+
+    /// <summary>
+    /// Get the item data
     /// </summary>
     public ItemData GetItemData() => itemData;
 
-    /// <summary>
-    /// Get the quantity of items in this pickup
-    /// </summary>
-    public int GetQuantity() => quantity;
-
-    /// <summary>
-    /// Check if this item has been picked up
-    /// </summary>
-    public bool IsPickedUp => isPickedUp;
-
     #endregion
+
+    private void DebugLog(string message)
+    {
+        if (enableDebugLogs)
+        {
+            Debug.Log($"[EfficientItemPickup:{interactableID}] {message}");
+        }
+    }
 }

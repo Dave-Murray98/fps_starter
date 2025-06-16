@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using Sirenix.OdinInspector;
 
 /// <summary>
 /// SINGLE RESPONSIBILITY: Manages scene data persistence
@@ -11,7 +12,7 @@ public class SceneDataManager : MonoBehaviour
     public static SceneDataManager Instance { get; private set; }
 
     [Header("Data Storage")]
-    [SerializeField] private SceneDataContainer sceneDataContainer;
+    [ShowInInspector][SerializeField] private SceneDataContainer sceneDataContainer;
     [SerializeField] private bool showDebugLogs = true;
 
     // Transition state
@@ -60,8 +61,7 @@ public class SceneDataManager : MonoBehaviour
 
     private System.Collections.IEnumerator HandleSceneLoaded(string sceneName)
     {
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSecondsRealtime(0.1f);
 
         if (pendingTransitionType == TransitionType.Doorway)
         {
@@ -83,7 +83,7 @@ public class SceneDataManager : MonoBehaviour
     /// <summary>
     /// Save current scene's data (EXCLUDING player data)
     /// </summary>
-    private void SaveCurrentSceneData()
+    public void SaveCurrentSceneData()
     {
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         DebugLog($"Saving scene data for: {currentScene}");
@@ -188,11 +188,39 @@ public class SceneDataManager : MonoBehaviour
     /// </summary>
     public Dictionary<string, SceneSaveData> GetSceneDataForSaving()
     {
+        DebugLog("GetSceneDataForSaving called - forcing current scene save...");
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         // Save current scene first
         SaveCurrentSceneData();
+
+        stopwatch.Stop();
+        DebugLog($"SaveCurrentSceneData completed in {stopwatch.ElapsedMilliseconds}ms");
+
+        // Immediate check
+        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (sceneDataContainer.sceneData.ContainsKey(currentScene))
+        {
+            var sceneData = sceneDataContainer.sceneData[currentScene];
+            DebugLog($"IMMEDIATE: Current scene '{currentScene}' found with {sceneData.objectData.Count} objects");
+
+            if (sceneData.objectData.ContainsKey("SceneItemStateManager"))
+            {
+                DebugLog("IMMEDIATE: SceneItemStateManager data confirmed in scene data");
+            }
+            else
+            {
+                DebugLog("IMMEDIATE: WARNING - SceneItemStateManager data missing!");
+            }
+        }
+        else
+        {
+            DebugLog($"IMMEDIATE: WARNING - Current scene '{currentScene}' not found in container!");
+        }
+
         return new Dictionary<string, SceneSaveData>(sceneDataContainer.sceneData);
     }
-
     /// <summary>
     /// Load scene data from SaveManager
     /// </summary>
@@ -200,6 +228,32 @@ public class SceneDataManager : MonoBehaviour
     {
         sceneDataContainer.sceneData = new Dictionary<string, SceneSaveData>(saveData);
         DebugLog("Scene data loaded from save file");
+    }
+
+    [Button("Force Save Current Scene")]
+    public void ForceSaveCurrentSceneDebug()
+    {
+        Debug.Log("=== FORCE SAVE DEBUG ===");
+        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        Debug.Log($"Current scene: {currentScene}");
+
+        SaveCurrentSceneData();
+
+        // Immediately check what was saved
+        var savedData = sceneDataContainer.GetSceneData(currentScene);
+        if (savedData != null)
+        {
+            Debug.Log($"IMMEDIATE CHECK: Scene data contains {savedData.objectData.Count} objects");
+
+            foreach (var kvp in savedData.objectData)
+            {
+                Debug.Log($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
+            }
+        }
+        else
+        {
+            Debug.Log("IMMEDIATE CHECK: No scene data found!");
+        }
     }
 
     private void DebugLog(string message)

@@ -142,8 +142,7 @@ public class SceneTransitionManager : MonoBehaviour
 
     private System.Collections.IEnumerator RestorePlayerPositionFromSave()
     {
-        yield return new WaitForEndOfFrame();
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSecondsRealtime(0.11f);
 
         if (SaveManager.Instance != null)
         {

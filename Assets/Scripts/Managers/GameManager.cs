@@ -132,7 +132,7 @@ public class GameManager : MonoBehaviour
     private IEnumerator RefreshManagerReferencesCoroutine()
     {
         yield return null;
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSecondsRealtime(0.1f);
         RefreshManagerReferences();
     }
 
