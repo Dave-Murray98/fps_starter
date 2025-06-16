@@ -50,12 +50,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dropdownMenuPrefab: {fileID: 8075303901349003910, guid: 21a16a1bbf768354a885a3f6106f723e, type: 3}
-  dropdownParent: {fileID: 3812903969251888815}
+  dropdownMenuParent: {fileID: 2187463169068093176}
+  menuBackgroundColor: {r: 0.2, g: 0.2, b: 0.2, a: 0.95}
   normalButtonColor: {r: 0.95, g: 0.95, b: 0.95, a: 1}
   hoverButtonColor: {r: 0.8, g: 0.8, b: 1, a: 1}
   disabledButtonColor: {r: 0.6, g: 0.6, b: 0.6, a: 1}
-  menuBackgroundColor: {r: 0.2, g: 0.2, b: 0.2, a: 0.95}
-  menuBorderColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
 --- !u!225 &2713212262683284689
 CanvasGroup:
   m_ObjectHideFlags: 0

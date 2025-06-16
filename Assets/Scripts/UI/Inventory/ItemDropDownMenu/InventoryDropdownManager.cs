@@ -10,12 +10,14 @@ public class InventoryDropdownManager : MonoBehaviour
 {
     [Header("Dropdown Settings")]
     [SerializeField] private GameObject dropdownMenuPrefab;
+    [SerializeField] private Transform dropdownMenuParent;
 
     [Header("Styling")]
     [SerializeField] private Color menuBackgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.95f);
     [SerializeField] private Color normalButtonColor = new Color(0.95f, 0.95f, 0.95f);
     [SerializeField] private Color hoverButtonColor = new Color(0.8f, 0.8f, 1f);
     [SerializeField] private Color disabledButtonColor = new Color(0.6f, 0.6f, 0.6f);
+
 
     private InventoryDropdownMenu dropdownInstance;
 
@@ -33,7 +35,7 @@ public class InventoryDropdownManager : MonoBehaviour
 
         if (dropdownMenuPrefab != null)
         {
-            dropdownObj = Instantiate(dropdownMenuPrefab, transform);
+            dropdownObj = Instantiate(dropdownMenuPrefab, dropdownMenuParent);
         }
         else
         {
