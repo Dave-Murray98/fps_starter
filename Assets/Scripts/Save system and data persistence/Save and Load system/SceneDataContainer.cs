@@ -13,7 +13,7 @@ public class SceneDataContainer
         sceneData[sceneName] = data;
 
         // IMMEDIATE debug output
-        Debug.Log($"[SceneDataContainer] SetSceneData called for '{sceneName}' with {data.objectData.Count} objects");
+        //        Debug.Log($"[SceneDataContainer] SetSceneData called for '{sceneName}' with {data.objectData.Count} objects");
 
         // Log specific SceneItemStateManager data if present
         if (data.objectData.ContainsKey("SceneItemStateManager"))
@@ -31,7 +31,7 @@ public class SceneDataContainer
     {
         if (sceneData.TryGetValue(sceneName, out SceneSaveData data))
         {
-            Debug.Log($"[SceneDataContainer] Retrieved scene data for '{sceneName}' with {data.objectData.Count} objects");
+            // Debug.Log($"[SceneDataContainer] Retrieved scene data for '{sceneName}' with {data.objectData.Count} objects");
             return data;
         }
 

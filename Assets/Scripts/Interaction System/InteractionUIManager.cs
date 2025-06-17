@@ -36,7 +36,7 @@ public class InteractionUIManager : MonoBehaviour
     private IInteractable currentDisplayedInteractable;
     private Tweener currentTween;
     private Camera playerCamera;
-    private bool isVisible = false;
+    private bool isVisible = true;
 
     private void Awake()
     {

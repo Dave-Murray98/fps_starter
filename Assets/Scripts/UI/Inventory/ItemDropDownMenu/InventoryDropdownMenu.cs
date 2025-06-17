@@ -137,7 +137,7 @@ public class InventoryDropdownMenu : MonoBehaviour
         // If the click is not within our dropdown bounds, close the menu
         if (!isInDropdown || !rectTransform.rect.Contains(dropdownLocalPoint))
         {
-            Debug.Log("[DropdownMenu] Click detected outside dropdown (left or right button) - closing menu");
+            //  Debug.Log("[DropdownMenu] Click detected outside dropdown (left or right button) - closing menu");
             HideMenu();
         }
     }
@@ -161,7 +161,7 @@ public class InventoryDropdownMenu : MonoBehaviour
         currentItem = item;
 
         // Debug the position offset being applied
-        Debug.Log($"[DropdownMenu] ShowMenu called with screenPosition: {screenPosition}, offset: {positionOffset}, final position: {screenPosition + positionOffset}");
+        //        Debug.Log($"[DropdownMenu] ShowMenu called with screenPosition: {screenPosition}, offset: {positionOffset}, final position: {screenPosition + positionOffset}");
 
         // CRITICAL: Ensure the GameObject and dropdown panel are active before starting coroutine
         gameObject.SetActive(true);
@@ -261,7 +261,7 @@ public class InventoryDropdownMenu : MonoBehaviour
         Vector2 newSize = new Vector2(calculatedWidth, totalHeight);
         rectTransform.sizeDelta = newSize;
 
-        Debug.Log($"[DropdownMenu] Set size to: {newSize} for {currentButtons.Count} buttons (height: {buttonHeight}, spacing: {buttonSpacing}, padding: {containerPadding})");
+        // Debug.Log($"[DropdownMenu] Set size to: {newSize} for {currentButtons.Count} buttons (height: {buttonHeight}, spacing: {buttonSpacing}, padding: {containerPadding})");
     }
 
     /// <summary>
@@ -327,7 +327,7 @@ public class InventoryDropdownMenu : MonoBehaviour
         // Apply the position offset to the screen position
         Vector2 adjustedScreenPosition = screenPosition + positionOffset;
 
-        Debug.Log($"[DropdownMenu] PositionAtScreenPoint - Original: {screenPosition}, Offset: {positionOffset}, Adjusted: {adjustedScreenPosition}");
+        // Debug.Log($"[DropdownMenu] PositionAtScreenPoint - Original: {screenPosition}, Offset: {positionOffset}, Adjusted: {adjustedScreenPosition}");
 
         // Convert screen position to local position in the canvas
         Canvas canvas = GetComponentInParent<Canvas>();
@@ -337,7 +337,7 @@ public class InventoryDropdownMenu : MonoBehaviour
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvasRect, adjustedScreenPosition, canvas.worldCamera, out localPoint);
 
-        Debug.Log($"[DropdownMenu] Converted to local point: {localPoint}");
+        // Debug.Log($"[DropdownMenu] Converted to local point: {localPoint}");
 
         // Set position
         rectTransform.localPosition = localPoint;
@@ -345,7 +345,7 @@ public class InventoryDropdownMenu : MonoBehaviour
         // Keep dropdown on screen
         ClampToScreen(canvasRect);
 
-        Debug.Log($"[DropdownMenu] Final position after clamping: {rectTransform.localPosition}");
+        //Debug.Log($"[DropdownMenu] Final position after clamping: {rectTransform.localPosition}");
     }
 
     /// <summary>

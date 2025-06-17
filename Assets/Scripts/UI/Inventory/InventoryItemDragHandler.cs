@@ -72,7 +72,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             {
                 // Use the public property which ensures the dropdown menu is created
                 dropdownMenu = dropdownManager.DropdownMenu;
-                Debug.Log($"[DragHandler] Got dropdown menu from manager: {dropdownMenu != null}");
+                // Debug.Log($"[DragHandler] Got dropdown menu from manager: {dropdownMenu != null}");
             }
             else
             {
@@ -162,7 +162,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         {
             gridVisual.GridData.RemoveItem(itemData.ID);
             itemRemovedFromGrid = true;
-            Debug.Log($"[DragHandler] Removed item {itemData.ID} from grid for dragging");
+            //            Debug.Log($"[DragHandler] Removed item {itemData.ID} from grid for dragging");
         }
 
         // Visual feedback
@@ -217,7 +217,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             {
                 itemRemovedFromGrid = false;
                 AnimateToGridPosition();
-                Debug.Log($"[DragHandler] Successfully placed item {itemData.ID} at {targetGridPos}");
+                // Debug.Log($"[DragHandler] Successfully placed item {itemData.ID} at {targetGridPos}");
             }
             else
             {
@@ -237,14 +237,14 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     private void RevertToOriginalState()
     {
         // IMPORTANT: This method reverts BOTH position AND rotation to the state before dragging started
-        Debug.Log($"[DragHandler] Reverting item {itemData.ID} to original state - Position: {originalGridPosition}, Rotation: {originalRotation}");
+        // Debug.Log($"[DragHandler] Reverting item {itemData.ID} to original state - Position: {originalGridPosition}, Rotation: {originalRotation}");
 
         // Revert rotation if changed (this happens BEFORE placing the item back)
         if (itemData.currentRotation != originalRotation)
         {
             itemData.SetRotation(originalRotation);
             visualRenderer?.RefreshVisual();
-            Debug.Log($"[DragHandler] Reverted rotation for item {itemData.ID} from {itemData.currentRotation} to {originalRotation}");
+            // Debug.Log($"[DragHandler] Reverted rotation for item {itemData.ID} from {itemData.currentRotation} to {originalRotation}");
         }
 
         // Restore original position
@@ -256,7 +256,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             if (gridVisual.GridData.PlaceItem(itemData))
             {
                 itemRemovedFromGrid = false;
-                Debug.Log($"[DragHandler] Restored item {itemData.ID} to original position {originalGridPosition} with rotation {originalRotation}");
+                //Debug.Log($"[DragHandler] Restored item {itemData.ID} to original position {originalGridPosition} with rotation {originalRotation}");
             }
             else
             {
@@ -300,7 +300,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             return;
         }
 
-        Debug.Log($"Showing dropdown menu for {itemData.ItemData.itemName} at screen position {screenPosition}");
+        //Debug.Log($"Showing dropdown menu for {itemData.ItemData.itemName} at screen position {screenPosition}");
         dropdownMenu.ShowMenu(itemData, screenPosition);
     }
 
@@ -308,11 +308,11 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     {
         if (selectedItem != itemData)
         {
-            Debug.LogWarning("Dropdown action for different item - ignoring");
+            //            Debug.LogWarning("Dropdown action for different item - ignoring");
             return;
         }
 
-        Debug.Log($"Processing dropdown action: {actionId} for item {itemData.ItemData.itemName}");
+        //Debug.Log($"Processing dropdown action: {actionId} for item {itemData.ItemData.itemName}");
 
         switch (actionId)
         {
@@ -462,14 +462,14 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             return;
         }
 
-        Debug.Log($"Dropping item: {itemData.ItemData?.itemName}");
+        //        Debug.Log($"Dropping item: {itemData.ItemData?.itemName}");
 
         // Use the updated ItemDropSystem with unified state management
         bool success = ItemDropSystem.DropItemFromInventory(itemData.ID);
 
         if (success)
         {
-            Debug.Log($"Successfully dropped {itemData.ItemData?.itemName} into scene");
+            //            Debug.Log($"Successfully dropped {itemData.ItemData?.itemName} into scene");
         }
         else
         {
@@ -483,7 +483,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     {
         if (!canRotate || !isDragging || itemData?.CanRotate != true) return;
 
-        Debug.Log($"[DragHandler] Attempting to rotate item {itemData.ID} from rotation {itemData.currentRotation}");
+        // Debug.Log($"[DragHandler] Attempting to rotate item {itemData.ID} from rotation {itemData.currentRotation}");
 
         // Store current state
         var currentRotation = itemData.currentRotation;
@@ -510,7 +510,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         gridVisual.ShowPlacementPreview(gridPos, itemData, isValidPlacement);
         wasValidPlacement = isValidPlacement;
 
-        Debug.Log($"[DragHandler] Rotated item {itemData.ID} to rotation {newRotation} (placement valid: {isValidPlacement})");
+        // Debug.Log($"[DragHandler] Rotated item {itemData.ID} to rotation {newRotation} (placement valid: {isValidPlacement})");
     }
 
     private Vector2 GetVisualCenter()

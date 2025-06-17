@@ -141,7 +141,7 @@ public class DoorInteractable : InteractableBase, IConditionalInteractable
             return false;
         }
 
-        DebugLog($"Animating door: {(isOpen ? "closing" : "opening")}");
+        //  DebugLog($"Animating door: {(isOpen ? "closing" : "opening")}");
 
         // Toggle door state
         isOpen = !isOpen;
@@ -160,7 +160,7 @@ public class DoorInteractable : InteractableBase, IConditionalInteractable
             return false;
         }
 
-        DebugLog("Using doorway for immediate transition");
+        //  DebugLog("Using doorway for immediate transition");
         doorwayComponent.UseDoorway();
         return true;
     }
@@ -185,13 +185,13 @@ public class DoorInteractable : InteractableBase, IConditionalInteractable
         // For now, just simulate animation completion
         Invoke(nameof(CompleteAnimation), animationDuration);
 
-        DebugLog($"Door animation started - Door will be {(isOpen ? "open" : "closed")} in {animationDuration} seconds");
+        // DebugLog($"Door animation started - Door will be {(isOpen ? "open" : "closed")} in {animationDuration} seconds");
     }
 
     private void CompleteAnimation()
     {
         isAnimating = false;
-        DebugLog($"Door animation completed - Door is now {(isOpen ? "open" : "closed")}");
+        // DebugLog($"Door animation completed - Door is now {(isOpen ? "open" : "closed")}");
 
         // Auto-close if enabled and door is now open
         if (isOpen && closeAfterDelay)
@@ -269,7 +269,7 @@ public class DoorInteractable : InteractableBase, IConditionalInteractable
     public void SetLocked(bool locked)
     {
         isLocked = locked;
-        DebugLog($"Door {(locked ? "locked" : "unlocked")}");
+        // DebugLog($"Door {(locked ? "locked" : "unlocked")}");
         RefreshVisualState();
     }
 

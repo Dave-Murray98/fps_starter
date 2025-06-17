@@ -60,7 +60,7 @@ public class InventoryDropdownManager : MonoBehaviour
         }
 
         ConfigureDropdownMenu();
-        Debug.Log("Fixed dropdown menu created and configured");
+        //        Debug.Log("Fixed dropdown menu created and configured");
     }
 
     /// <summary>
@@ -143,7 +143,7 @@ public class InventoryDropdownManager : MonoBehaviour
         dropdownInstance.positionOffset = positionOffset;
 
         // Debug log to verify offset is being set
-        Debug.Log($"[DropdownManager] Setting position offset to: {positionOffset}");
+        //        Debug.Log($"[DropdownManager] Setting position offset to: {positionOffset}");
     }
 
     /// <summary>
@@ -181,7 +181,7 @@ public class InventoryDropdownManager : MonoBehaviour
             SetPrivateField(handler, "dropdownMenu", DropdownMenu);
         }
 
-        Debug.Log($"Registered dropdown with {dragHandlers.Length} drag handlers");
+        // Debug.Log($"Registered dropdown with {dragHandlers.Length} drag handlers");
     }
 
     private void OnEnable()
@@ -222,7 +222,7 @@ public class InventoryDropdownManager : MonoBehaviour
         if (dropdownInstance != null)
         {
             SetPrivateField(dropdownInstance, "positionOffset", positionOffset);
-            Debug.Log($"[DropdownManager] Updated position offset to: {newOffset}");
+            // Debug.Log($"[DropdownManager] Updated position offset to: {newOffset}");
         }
     }
 

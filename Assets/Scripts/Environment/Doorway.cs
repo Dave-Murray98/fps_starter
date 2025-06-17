@@ -16,7 +16,7 @@ public class Doorway : MonoBehaviour
     public bool requiresInteraction = true;
     public string interactionPrompt = "Press E to enter";
 
-    private bool playerInRange = false;
+    //private bool playerInRange = false;
 
     private void Start()
     {
@@ -48,10 +48,10 @@ public class Doorway : MonoBehaviour
         // CRITICAL: Save current scene data BEFORE transition
         if (SceneDataManager.Instance != null)
         {
-            Debug.Log("[Doorway] Forcing scene data save before transition");
+            //     Debug.Log("[Doorway] Forcing scene data save before transition");
             // This will save all interactables in the current scene
             var currentSceneData = SceneDataManager.Instance.GetSceneDataForSaving();
-            Debug.Log($"[Doorway] Saved scene data for {currentSceneData.Count} scenes");
+            //            Debug.Log($"[Doorway] Saved scene data for {currentSceneData.Count} scenes");
         }
         else
         {
@@ -76,7 +76,7 @@ public class Doorway : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            playerInRange = true;
+            //playerInRange = true;
             if (!requiresInteraction)
             {
                 UseDoorway();
@@ -88,7 +88,7 @@ public class Doorway : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            playerInRange = false;
+            //playerInRange = false;
         }
     }
 }

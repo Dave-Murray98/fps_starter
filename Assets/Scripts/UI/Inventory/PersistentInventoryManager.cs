@@ -105,7 +105,7 @@ public class PersistentInventoryManager : MonoBehaviour
         {
             OnItemRemoved?.Invoke(itemId);
             OnInventoryDataChanged?.Invoke(inventoryData);
-            Debug.Log($"Removed item {itemId}");
+            //            Debug.Log($"Removed item {itemId}");
             return true;
         }
         return false;

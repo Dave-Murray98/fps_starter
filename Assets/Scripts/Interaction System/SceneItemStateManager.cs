@@ -50,12 +50,12 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         if (isLoadingFromSave)
         {
             // Loading from save - wait for save system to call OnAfterLoad()
-            DebugLog("SceneItemStateManager started - waiting for save data to load");
+            //          DebugLog("SceneItemStateManager started - waiting for save data to load");
         }
         else
         {
             // Fresh scene entry (via doorway or new game) - apply states immediately
-            DebugLog("SceneItemStateManager started - applying states immediately (fresh scene entry)");
+            //            DebugLog("SceneItemStateManager started - applying states immediately (fresh scene entry)");
             StartCoroutine(ApplyItemStatesAfterSceneLoad());
         }
     }
@@ -85,13 +85,13 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
     {
         if (collectedOriginalItems.Add(itemId))
         {
-            DebugLog($"Marked original item {itemId} as collected");
+            //DebugLog($"Marked original item {itemId} as collected");
 
             // Immediately destroy the pickup GameObject for efficiency
             var pickup = FindPickupById(itemId);
             if (pickup != null)
             {
-                DebugLog($"Destroying pickup GameObject for {itemId}");
+                //DebugLog($"Destroying pickup GameObject for {itemId}");
                 Destroy(pickup.gameObject);
             }
         }
@@ -121,7 +121,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         };
 
         droppedInventoryItems[droppedId] = droppedData;
-        DebugLog($"Added dropped inventory item {droppedId} ({itemData.itemName}) at {position}");
+        // DebugLog($"Added dropped inventory item {droppedId} ({itemData.itemName}) at {position}");
 
         return droppedId;
     }
@@ -133,7 +133,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
     {
         if (droppedInventoryItems.Remove(droppedId))
         {
-            DebugLog($"Removed dropped inventory item {droppedId}");
+            //DebugLog($"Removed dropped inventory item {droppedId}");
         }
     }
 
@@ -144,7 +144,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
     {
         if (collectedOriginalItems.Remove(itemId))
         {
-            DebugLog($"Restored original item {itemId} to scene");
+            //DebugLog($"Restored original item {itemId} to scene");
 
             // Find and respawn the original item
             var originalPickup = FindOriginalItemById(itemId);
@@ -172,7 +172,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         yield return new WaitForEndOfFrame();
         yield return new WaitForSeconds(0.1f);
 
-        DebugLog($"Applying item states - {collectedOriginalItems.Count} collected, {droppedInventoryItems.Count} dropped");
+        //        DebugLog($"Applying item states - {collectedOriginalItems.Count} collected, {droppedInventoryItems.Count} dropped");
 
         // FIRST: Clean up any existing dropped items that shouldn't be there
         CleanupExistingDroppedItems();
@@ -183,7 +183,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         // FINALLY: Spawn dropped inventory items that should exist
         SpawnDroppedInventoryItems();
 
-        DebugLog("Item states applied successfully");
+        //  DebugLog("Item states applied successfully");
     }
 
     /// <summary>
@@ -196,7 +196,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         var allPickups = FindObjectsByType<ItemPickupInteractable>(FindObjectsSortMode.None);
         var droppedPickups = allPickups.Where(p => p.IsDroppedInventoryItem).ToArray();
 
-        DebugLog($"Found {droppedPickups.Length} existing dropped items in scene");
+        //    DebugLog($"Found {droppedPickups.Length} existing dropped items in scene");
 
         foreach (var pickup in droppedPickups)
         {
@@ -205,12 +205,12 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
             // If this dropped item is NOT in our saved state, it shouldn't exist
             if (!droppedInventoryItems.ContainsKey(pickupId))
             {
-                DebugLog($"Removing orphaned dropped item: {pickupId}");
+                //DebugLog($"Removing orphaned dropped item: {pickupId}");
                 Destroy(pickup.gameObject);
             }
             else
             {
-                DebugLog($"Keeping valid dropped item: {pickupId}");
+                //DebugLog($"Keeping valid dropped item: {pickupId}");
             }
         }
     }
@@ -226,7 +226,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         {
             if (IsOriginalItemCollected(pickup.InteractableID))
             {
-                DebugLog($"Original item {pickup.InteractableID} was collected - destroying");
+                //DebugLog($"Original item {pickup.InteractableID} was collected - destroying");
                 Destroy(pickup.gameObject);
             }
         }
@@ -244,7 +244,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
             var existingPickup = FindPickupById(droppedData.id);
             if (existingPickup != null)
             {
-                DebugLog($"Dropped item {droppedData.id} already exists in scene - skipping spawn");
+                //DebugLog($"Dropped item {droppedData.id} already exists in scene - skipping spawn");
                 continue;
             }
 
@@ -294,7 +294,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
             pickupComponent.MarkAsDroppedItem(); // Special flag for dropped items
         }
 
-        DebugLog($"Spawned dropped inventory item {dropData.id} ({itemData.itemName})");
+        // DebugLog($"Spawned dropped inventory item {dropData.id} ({itemData.itemName})");
     }
 
     #endregion
@@ -345,7 +345,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
             nextDroppedItemId = nextDroppedItemId
         };
 
-        DebugLog($"GetDataToSave called - saving {collectedOriginalItems.Count} collected items, {droppedInventoryItems.Count} dropped items");
+        //DebugLog($"GetDataToSave called - saving {collectedOriginalItems.Count} collected items, {droppedInventoryItems.Count} dropped items");
 
         return saveData;
     }
@@ -368,18 +368,18 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
                 .ToDictionary(item => item.id, item => item);
             nextDroppedItemId = saveData.nextDroppedItemId;
 
-            DebugLog($"Loaded state: {collectedOriginalItems.Count} collected items, {droppedInventoryItems.Count} dropped items");
+            // DebugLog($"Loaded state: {collectedOriginalItems.Count} collected items, {droppedInventoryItems.Count} dropped items");
         }
     }
 
     public void OnBeforeSave()
     {
-        DebugLog($"OnBeforeSave called - current state: {collectedOriginalItems.Count} collected, {droppedInventoryItems.Count} dropped");
+        // DebugLog($"OnBeforeSave called - current state: {collectedOriginalItems.Count} collected, {droppedInventoryItems.Count} dropped");
     }
 
     public void OnAfterLoad()
     {
-        DebugLog("Scene item state manager loaded successfully - applying loaded state to scene");
+        // DebugLog("Scene item state manager loaded successfully - applying loaded state to scene");
 
         // Force a complete state refresh after loading save data
         // This ensures that the scene matches exactly what was saved
@@ -395,14 +395,14 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         yield return new WaitForEndOfFrame();
         yield return new WaitForSeconds(0.2f); // Slightly longer wait for save loads
 
-        DebugLog($"Applying SAVE-LOADED states - {collectedOriginalItems.Count} collected, {droppedInventoryItems.Count} dropped");
+        //  DebugLog($"Applying SAVE-LOADED states - {collectedOriginalItems.Count} collected, {droppedInventoryItems.Count} dropped");
 
         // More thorough cleanup for save loads
         CleanupExistingDroppedItems();
         ApplyCollectedItemStates();
         SpawnDroppedInventoryItems();
 
-        DebugLog("Save-loaded item states applied successfully");
+        //DebugLog("Save-loaded item states applied successfully");
 
         // Debug the final state
         if (showDebugLogs)

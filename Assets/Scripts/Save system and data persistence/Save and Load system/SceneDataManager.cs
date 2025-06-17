@@ -41,7 +41,7 @@ public class SceneDataManager : MonoBehaviour
 
     public void PrepareSceneTransition(string targetScene, string targetDoorway, TransitionType transitionType)
     {
-        DebugLog($"Preparing transition to {targetScene} via {transitionType}");
+        // DebugLog($"Preparing transition to {targetScene} via {transitionType}");
 
         // Save current scene data if this is a portal transition
         if (transitionType == TransitionType.Doorway)
@@ -116,7 +116,7 @@ public class SceneDataManager : MonoBehaviour
         }
 
         sceneDataContainer.SetSceneData(currentScene, sceneData);
-        DebugLog($"Saved {saveableObjects.Length} scene objects for: {currentScene}");
+        // DebugLog($"Saved {saveableObjects.Length} scene objects for: {currentScene}");
     }
 
     /// <summary>
@@ -131,7 +131,7 @@ public class SceneDataManager : MonoBehaviour
             return;
         }
 
-        DebugLog($"Restoring scene data for: {sceneName}");
+        //DebugLog($"Restoring scene data for: {sceneName}");
 
         // Restore all objects EXCEPT player-related
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
@@ -174,7 +174,7 @@ public class SceneDataManager : MonoBehaviour
             if (player != null)
             {
                 player.transform.position = targetDoorway.transform.position + Vector3.up * 0.1f;
-                DebugLog($"Positioned player at doorway: {doorwayID}");
+                // DebugLog($"Positioned player at doorway: {doorwayID}");
             }
         }
         else
@@ -188,35 +188,35 @@ public class SceneDataManager : MonoBehaviour
     /// </summary>
     public Dictionary<string, SceneSaveData> GetSceneDataForSaving()
     {
-        DebugLog("GetSceneDataForSaving called - forcing current scene save...");
+        // DebugLog("GetSceneDataForSaving called - forcing current scene save...");
 
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        // var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         // Save current scene first
         SaveCurrentSceneData();
 
-        stopwatch.Stop();
-        DebugLog($"SaveCurrentSceneData completed in {stopwatch.ElapsedMilliseconds}ms");
+        //stopwatch.Stop();
+        // DebugLog($"SaveCurrentSceneData completed in {stopwatch.ElapsedMilliseconds}ms");
 
         // Immediate check
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         if (sceneDataContainer.sceneData.ContainsKey(currentScene))
         {
             var sceneData = sceneDataContainer.sceneData[currentScene];
-            DebugLog($"IMMEDIATE: Current scene '{currentScene}' found with {sceneData.objectData.Count} objects");
+            // DebugLog($"IMMEDIATE: Current scene '{currentScene}' found with {sceneData.objectData.Count} objects");
 
             if (sceneData.objectData.ContainsKey("SceneItemStateManager"))
             {
-                DebugLog("IMMEDIATE: SceneItemStateManager data confirmed in scene data");
+                // DebugLog("IMMEDIATE: SceneItemStateManager data confirmed in scene data");
             }
             else
             {
-                DebugLog("IMMEDIATE: WARNING - SceneItemStateManager data missing!");
+                DebugLog("WARNING - SceneItemStateManager data missing!");
             }
         }
         else
         {
-            DebugLog($"IMMEDIATE: WARNING - Current scene '{currentScene}' not found in container!");
+            DebugLog($"WARNING - Current scene '{currentScene}' not found in container!");
         }
 
         return new Dictionary<string, SceneSaveData>(sceneDataContainer.sceneData);
@@ -233,9 +233,9 @@ public class SceneDataManager : MonoBehaviour
     [Button("Force Save Current Scene")]
     public void ForceSaveCurrentSceneDebug()
     {
-        Debug.Log("=== FORCE SAVE DEBUG ===");
+        //  Debug.Log("=== FORCE SAVE DEBUG ===");
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        Debug.Log($"Current scene: {currentScene}");
+        //  Debug.Log($"Current scene: {currentScene}");
 
         SaveCurrentSceneData();
 
@@ -243,11 +243,11 @@ public class SceneDataManager : MonoBehaviour
         var savedData = sceneDataContainer.GetSceneData(currentScene);
         if (savedData != null)
         {
-            Debug.Log($"IMMEDIATE CHECK: Scene data contains {savedData.objectData.Count} objects");
+            //  Debug.Log($"IMMEDIATE CHECK: Scene data contains {savedData.objectData.Count} objects");
 
             foreach (var kvp in savedData.objectData)
             {
-                Debug.Log($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
+                // Debug.Log($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
             }
         }
         else
