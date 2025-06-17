@@ -1,53 +1,41 @@
 using UnityEngine;
 
-
 /// <summary>
 /// Data for currently equipped item
+/// FIXED: Added copy constructor for scene transitions
 /// </summary>
 [System.Serializable]
 public class EquippedItemData
 {
-    [Header("Equipped Item")]
-    public string equippedItemId;
-    public string itemDataName;
-    public ItemType itemType;
-
-    [Header("Source")]
-    public int sourceHotkeySlot = -1;  // Which hotkey slot this came from (-1 = direct equip)
-    public bool isEquippedFromHotkey;  // True if equipped via hotkey, false if via inventory right-click
-
-    [Header("State")]
+    [Header("Equipment State")]
     public bool isEquipped;
+    public string equippedItemId;
+    public string equippedItemDataName; // For persistence and fallback lookup
 
+    [Header("Source Info")]
+    public bool isEquippedFromHotkey;
+    public int sourceHotkeySlot = -1;
+
+    // Default constructor
     public EquippedItemData()
     {
         Clear();
     }
 
-    /// <summary>
-    /// Equip an item from inventory (right-click)
-    /// </summary>
-    public void EquipFromInventory(string itemId, ItemData itemData)
+    // CRITICAL FIX: Copy constructor for scene transitions
+    public EquippedItemData(EquippedItemData other)
     {
-        equippedItemId = itemId;
-        itemDataName = itemData.name;
-        itemType = itemData.itemType;
-        sourceHotkeySlot = -1;
-        isEquippedFromHotkey = false;
-        isEquipped = true;
-    }
+        isEquipped = other.isEquipped;
+        equippedItemId = other.equippedItemId;
+        equippedItemDataName = other.equippedItemDataName; // ← CRITICAL: Don't forget this!
+        isEquippedFromHotkey = other.isEquippedFromHotkey;
+        sourceHotkeySlot = other.sourceHotkeySlot;
 
-    /// <summary>
-    /// Equip an item from hotkey
-    /// </summary>
-    public void EquipFromHotkey(string itemId, ItemData itemData, int hotkeySlot)
-    {
-        equippedItemId = itemId;
-        itemDataName = itemData.name;
-        itemType = itemData.itemType;
-        sourceHotkeySlot = hotkeySlot;
-        isEquippedFromHotkey = true;
-        isEquipped = true;
+        // Debug log to verify copy worked
+        if (isEquipped)
+        {
+            Debug.Log($"[EquippedItemData] Copy constructor: Copied equipped item {equippedItemDataName} (ID: {equippedItemId})");
+        }
     }
 
     /// <summary>
@@ -55,27 +43,61 @@ public class EquippedItemData
     /// </summary>
     public void Clear()
     {
-        equippedItemId = "";
-        itemDataName = "";
-        itemType = ItemType.Consumable; // Default
-        sourceHotkeySlot = -1;
-        isEquippedFromHotkey = false;
         isEquipped = false;
+        equippedItemId = "";
+        equippedItemDataName = ""; // ← Clear this too
+        isEquippedFromHotkey = false;
+        sourceHotkeySlot = -1;
     }
 
     /// <summary>
-    /// Get the ItemData for equipped item
+    /// Equip item from inventory
+    /// </summary>
+    public void EquipFromInventory(string itemId, ItemData itemData)
+    {
+        equippedItemId = itemId;
+        equippedItemDataName = itemData.name; // ← Set the data name
+        isEquipped = true;
+        isEquippedFromHotkey = false;
+        sourceHotkeySlot = -1;
+    }
+
+    /// <summary>
+    /// Equip item from hotkey
+    /// </summary>
+    public void EquipFromHotkey(string itemId, ItemData itemData, int hotkeySlot)
+    {
+        equippedItemId = itemId;
+        equippedItemDataName = itemData.name; // ← Set the data name
+        isEquipped = true;
+        isEquippedFromHotkey = true;
+        sourceHotkeySlot = hotkeySlot;
+    }
+
+    /// <summary>
+    /// Get the ItemData for the equipped item
     /// </summary>
     public ItemData GetItemData()
     {
-        if (!isEquipped || string.IsNullOrEmpty(itemDataName))
+        if (!isEquipped || string.IsNullOrEmpty(equippedItemDataName))
             return null;
 
-        return Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + itemDataName);
+        // First try to get from current inventory item
+        if (PersistentInventoryManager.Instance != null)
+        {
+            var inventoryItem = PersistentInventoryManager.Instance.InventoryData.GetItem(equippedItemId);
+            if (inventoryItem?.ItemData != null)
+            {
+                return inventoryItem.ItemData;
+            }
+        }
+
+        // Fallback to Resources load using the saved data name
+        return Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + equippedItemDataName);
     }
 
     /// <summary>
-    /// Check if this equipped item matches the given item ID
+    /// Check if this specific item is equipped
     /// </summary>
     public bool IsEquipped(string itemId)
     {

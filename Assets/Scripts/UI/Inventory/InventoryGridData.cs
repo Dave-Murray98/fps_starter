@@ -110,7 +110,16 @@ public class InventoryGridData
 
     public InventoryItemData GetItem(string itemID)
     {
-        return items.ContainsKey(itemID) ? items[itemID] : null;
+        if (items.ContainsKey(itemID))
+        {
+            Debug.Log($"Found item {itemID} in inventory");
+            return items[itemID];
+        }
+        else
+        {
+            Debug.Log($"Item {itemID} not found in inventory");
+            return null;
+        }
     }
 
     public List<InventoryItemData> GetAllItems()

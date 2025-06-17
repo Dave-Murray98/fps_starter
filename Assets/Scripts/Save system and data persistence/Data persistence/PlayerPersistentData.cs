@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Updated PlayerPersistentData that works with the new inventory system
-/// FIXED: Copy constructor no longer triggers hotkey assignment side effects
+/// FIXED: Simplified copy constructor using proper copy constructors for equipment data
 /// </summary>
 [System.Serializable]
 public class PlayerPersistentData
@@ -22,6 +22,7 @@ public class PlayerPersistentData
     [Header("Equipment")]
     public EquipmentSaveData equipmentData;
 
+    // Default constructor
     public PlayerPersistentData()
     {
         // Default values
@@ -29,73 +30,57 @@ public class PlayerPersistentData
         equipmentData = new EquipmentSaveData();
     }
 
+    // SIMPLIFIED: Copy constructor using proper copy constructors
     public PlayerPersistentData(PlayerPersistentData other)
     {
-        // Copy constructor
-        this.currentHealth = other.currentHealth;
-        this.canJump = other.canJump;
-        this.canSprint = other.canSprint;
-        this.canCrouch = other.canCrouch;
+        // Copy basic player data
+        currentHealth = other.currentHealth;
+        canJump = other.canJump;
+        canSprint = other.canSprint;
+        canCrouch = other.canCrouch;
 
         // Deep copy inventory data
         if (other.inventoryData != null)
         {
-            this.inventoryData = new InventorySaveData(other.inventoryData.gridWidth, other.inventoryData.gridHeight);
-            this.inventoryData.nextItemId = other.inventoryData.nextItemId;
+            inventoryData = new InventorySaveData(other.inventoryData.gridWidth, other.inventoryData.gridHeight);
+            inventoryData.nextItemId = other.inventoryData.nextItemId;
 
             // Copy all items
             foreach (var item in other.inventoryData.items)
             {
                 var itemCopy = new InventoryItemSaveData(item.itemID, item.itemDataName, item.gridPosition, item.currentRotation);
                 itemCopy.stackCount = item.stackCount;
-                this.inventoryData.AddItem(itemCopy);
+                inventoryData.AddItem(itemCopy);
             }
         }
         else
         {
-            this.inventoryData = new InventorySaveData();
+            inventoryData = new InventorySaveData();
         }
 
-        // Deep copy equipment data
+        // SIMPLIFIED: Use the EquipmentSaveData copy constructor
         if (other.equipmentData != null)
         {
-            this.equipmentData = new EquipmentSaveData();
+            equipmentData = new EquipmentSaveData(other.equipmentData);
 
-            // Direct copy of equipment data (like you already do for inventory)
-            for (int i = 0; i < other.equipmentData.hotkeyBindings.Count; i++)
+            // Debug log to verify copy worked
+            var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+            Debug.Log($"[PlayerPersistentData] Copy constructor: Copied equipment data with {assignedCount} hotkey assignments");
+
+            // Debug first hotkey specifically
+            if (equipmentData.hotkeyBindings?.Count > 0)
             {
-                var originalBinding = other.equipmentData.hotkeyBindings[i];
-                var newBinding = new HotkeyBinding(originalBinding.slotNumber);
-
-                if (originalBinding.isAssigned)
+                var binding1 = equipmentData.hotkeyBindings.Find(h => h.slotNumber == 1);
+                if (binding1?.isAssigned == true)
                 {
-                    // Direct property assignment - NO method calls!
-                    newBinding.itemId = originalBinding.itemId;
-                    newBinding.itemDataName = originalBinding.itemDataName;
-                    newBinding.isAssigned = originalBinding.isAssigned;
-                    newBinding.currentStackIndex = originalBinding.currentStackIndex;
-                    newBinding.stackedItemIds = new List<string>(originalBinding.stackedItemIds);
+                    Debug.Log($"[PlayerPersistentData] Copy constructor: Hotkey 1 = {binding1.itemDataName} (ID: {binding1.itemId})");
                 }
-
-                this.equipmentData.hotkeyBindings[i] = newBinding;
-            }
-
-            // Copy equipped item data
-            this.equipmentData.equippedItem = new EquippedItemData();
-            if (other.equipmentData.equippedItem.isEquipped)
-            {
-                this.equipmentData.equippedItem.equippedItemId = other.equipmentData.equippedItem.equippedItemId;
-                this.equipmentData.equippedItem.itemDataName = other.equipmentData.equippedItem.itemDataName;
-                this.equipmentData.equippedItem.itemType = other.equipmentData.equippedItem.itemType;
-                this.equipmentData.equippedItem.sourceHotkeySlot = other.equipmentData.equippedItem.sourceHotkeySlot;
-                this.equipmentData.equippedItem.isEquippedFromHotkey = other.equipmentData.equippedItem.isEquippedFromHotkey;
-                this.equipmentData.equippedItem.isEquipped = other.equipmentData.equippedItem.isEquipped;
             }
         }
         else
         {
-            Debug.Log("Equipment data is null, creating new EquipmentSaveData");
-            this.equipmentData = new EquipmentSaveData();
+            Debug.Log("[PlayerPersistentData] Equipment data is null, creating new EquipmentSaveData");
+            equipmentData = new EquipmentSaveData();
         }
     }
 }

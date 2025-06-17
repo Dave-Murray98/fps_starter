@@ -4,6 +4,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Data for a hotkey slot assignment
 /// FIXED: Now properly handles replacement and smart stacking for consumables only
+/// CRITICAL FIX: Added copy constructor for scene transitions
 /// </summary>
 [System.Serializable]
 public class HotkeyBinding
@@ -20,11 +21,32 @@ public class HotkeyBinding
     public List<string> stackedItemIds = new List<string>(); // All items of this type
     public int currentStackIndex = 0; // Which item in stack is active
 
+    // Default constructor
     public HotkeyBinding(int slot)
     {
         slotNumber = slot;
         isAssigned = false;
+        itemId = "";
+        itemDataName = "";
         stackedItemIds = new List<string>();
+        currentStackIndex = 0;
+    }
+
+    // CRITICAL FIX: Copy constructor for scene transitions
+    public HotkeyBinding(HotkeyBinding other)
+    {
+        slotNumber = other.slotNumber;
+        isAssigned = other.isAssigned;
+        itemId = other.itemId;
+        itemDataName = other.itemDataName; // ← CRITICAL: Copy the item data name!
+        stackedItemIds = new List<string>(other.stackedItemIds); // Deep copy the list
+        currentStackIndex = other.currentStackIndex;
+
+        // Debug log to verify copy worked
+        if (isAssigned)
+        {
+            Debug.Log($"[HotkeyBinding] Copy constructor: Slot {slotNumber} copied with item {itemDataName} (ID: {itemId})");
+        }
     }
 
     /// <summary>
@@ -123,6 +145,8 @@ public class HotkeyBinding
     /// </summary>
     public bool RemoveItem(string itemIdToRemove)
     {
+        Debug.Log($"Hotkey {slotNumber}: Removing {itemIdToRemove} from {itemDataName} stack");
+
         bool removed = stackedItemIds.Remove(itemIdToRemove);
 
         if (removed)

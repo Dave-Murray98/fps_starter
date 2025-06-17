@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Save data for the equipment system
+/// FIXED: Added copy constructor for scene transitions
 /// </summary>
 [System.Serializable]
 public class EquipmentSaveData
@@ -13,6 +14,7 @@ public class EquipmentSaveData
     [Header("Equipped Item")]
     public EquippedItemData equippedItem = new EquippedItemData();
 
+    // Default constructor
     public EquipmentSaveData()
     {
         // Initialize 10 hotkey slots (1-0)
@@ -23,6 +25,30 @@ public class EquipmentSaveData
         }
 
         equippedItem = new EquippedItemData();
+    }
+
+    // CRITICAL FIX: Copy constructor for scene transitions
+    public EquipmentSaveData(EquipmentSaveData other)
+    {
+        // Deep copy equipped item
+        equippedItem = new EquippedItemData(other.equippedItem);
+
+        // Deep copy hotkey bindings using copy constructor
+        hotkeyBindings = new List<HotkeyBinding>();
+        foreach (var binding in other.hotkeyBindings)
+        {
+            hotkeyBindings.Add(new HotkeyBinding(binding)); // Uses HotkeyBinding copy constructor
+        }
+
+        // Debug log to verify copy worked
+        var assignedCount = hotkeyBindings.FindAll(h => h.isAssigned).Count;
+        Debug.Log($"[EquipmentSaveData] Copy constructor: Copied {hotkeyBindings.Count} hotkey slots, {assignedCount} assigned");
+
+        // Debug first hotkey specifically
+        if (hotkeyBindings.Count > 0 && hotkeyBindings[0].isAssigned)
+        {
+            Debug.Log($"[EquipmentSaveData] Copy constructor: Hotkey 1 = {hotkeyBindings[0].itemDataName} (ID: {hotkeyBindings[0].itemId})");
+        }
     }
 
     /// <summary>
@@ -38,6 +64,6 @@ public class EquipmentSaveData
     /// </summary>
     public bool IsValid()
     {
-        return hotkeyBindings.Count == 10;
+        return hotkeyBindings != null && hotkeyBindings.Count == 10;
     }
 }

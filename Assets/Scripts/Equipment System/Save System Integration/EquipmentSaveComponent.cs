@@ -32,7 +32,21 @@ public class EquipmentSaveComponent : SaveComponentBase
 
         // CLEANED: Call the simplified GetDataToSave method
         var saveData = equipmentManager.GetDataToSave();
-        DebugLog($"Saved equipment: {(saveData.equippedItem?.isEquipped == true ? "has equipped item" : "no equipped item")}");
+
+        // Debug log what we're saving
+        if (saveData?.hotkeyBindings != null)
+        {
+            var assignedCount = saveData.hotkeyBindings.FindAll(h => h.isAssigned).Count;
+            DebugLog($"Saving equipment: {assignedCount} hotkey assignments, equipped: {saveData.equippedItem?.isEquipped == true}");
+
+            // Debug first hotkey specifically
+            var binding1 = saveData.hotkeyBindings.Find(h => h.slotNumber == 1);
+            if (binding1?.isAssigned == true)
+            {
+                DebugLog($"Saving hotkey 1: {binding1.itemDataName} (ID: {binding1.itemId})");
+            }
+        }
+
         return saveData;
     }
 
@@ -45,7 +59,17 @@ public class EquipmentSaveComponent : SaveComponentBase
             // FIXED: Extract the actual saved equipment data from PlayerSaveData
             if (playerSaveData.equipmentData != null)
             {
-                DebugLog($"Extracting equipment data from PlayerSaveData - has equipped item: {playerSaveData.equipmentData.equippedItem?.isEquipped == true}");
+                // Debug log what we're extracting
+                var assignedCount = playerSaveData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"Extracting equipment data from PlayerSaveData - {assignedCount} hotkey assignments, equipped: {playerSaveData.equipmentData.equippedItem?.isEquipped == true}");
+
+                // Debug first hotkey specifically
+                var binding1 = playerSaveData.equipmentData.hotkeyBindings?.Find(h => h.slotNumber == 1);
+                if (binding1?.isAssigned == true)
+                {
+                    DebugLog($"Extracting hotkey 1: {binding1.itemDataName} (ID: {binding1.itemId})");
+                }
+
                 return playerSaveData.equipmentData; // Return the SAVED data
             }
             else
@@ -84,7 +108,16 @@ public class EquipmentSaveComponent : SaveComponentBase
             }
         }
 
-        DebugLog($"Loading equipment: {(equipmentData.equippedItem?.isEquipped == true ? "has equipped item" : "no equipped item")}");
+        // Debug log what we're loading
+        var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+        DebugLog($"Loading equipment: {assignedCount} hotkey assignments, equipped: {equipmentData.equippedItem?.isEquipped == true}");
+
+        // Debug first hotkey specifically
+        var binding1 = equipmentData.hotkeyBindings?.Find(h => h.slotNumber == 1);
+        if (binding1?.isAssigned == true)
+        {
+            DebugLog($"Loading hotkey 1: {binding1.itemDataName} (ID: {binding1.itemId})");
+        }
 
         try
         {

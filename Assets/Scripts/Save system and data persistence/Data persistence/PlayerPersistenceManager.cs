@@ -1,9 +1,9 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-
 /// <summary>
 /// Updated PlayerPersistenceManager that works with the new data-driven inventory system
+/// FIXED: Enhanced debug logging to track equipment data through transitions
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
@@ -142,8 +142,6 @@ public class PlayerPersistenceManager : MonoBehaviour
         }
     }
 
-
-
     private void RestoreEquipmentData()
     {
         if (persistentData.equipmentData == null)
@@ -152,20 +150,29 @@ public class PlayerPersistenceManager : MonoBehaviour
             return;
         }
 
-        // Enhanced debug logging
-        DebugLog($"Restoring equipment data:");
-        DebugLog($"  - Equipped item: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? persistentData.equipmentData.equippedItem.itemDataName : "None")}");
+        // ENHANCED: Debug log what we have BEFORE restoration
+        var assignedCount = persistentData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+        DebugLog($"Restoring equipment data: first hotkeybinding name is {persistentData.equipmentData.hotkeyBindings?[0]?.itemDataName ?? "None"}");
 
-        int assignedHotkeys = 0;
-        foreach (var binding in persistentData.equipmentData.hotkeyBindings)
+        // Debug each assigned hotkey
+        if (persistentData.equipmentData.hotkeyBindings != null)
         {
-            if (binding.isAssigned)
+            foreach (var binding in persistentData.equipmentData.hotkeyBindings)
             {
-                assignedHotkeys++;
-                DebugLog($"  - Hotkey {binding.slotNumber}: {binding.itemDataName} (Stack: {binding.stackedItemIds.Count})");
+                if (binding.isAssigned)
+                {
+                    DebugLog($"  - Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}, Stack: {binding.stackedItemIds?.Count ?? 0})");
+                }
+                else
+                {
+                    DebugLog($"  - Hotkey {binding.slotNumber}: isAssigned == false");
+                }
             }
         }
-        DebugLog($"  - Total assigned hotkeys: {assignedHotkeys}");
+        else
+        {
+            DebugLog("persistentData.equipmentData.hotkeyBindings is null");
+        }
 
         if (EquippedItemManager.Instance != null)
         {
@@ -243,24 +250,48 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         if (EquippedItemManager.Instance != null)
         {
-            persistentData.equipmentData = EquippedItemManager.Instance.GetDataToSave() as EquipmentSaveData;
+            var equipmentDataToSave = EquippedItemManager.Instance.GetDataToSave();
 
-            // Enhanced debug logging
-            if (persistentData.equipmentData != null)
+            // ENHANCED: Debug what we're getting from EquippedItemManager
+            if (equipmentDataToSave != null)
             {
-                DebugLog($"Saved equipment data:");
-                DebugLog($"  - Equipped item: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? persistentData.equipmentData.equippedItem.itemDataName : "None")}");
+                var assignedCount = equipmentDataToSave.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"Getting equipment data from EquippedItemManager: {assignedCount} hotkey assignments");
 
-                int assignedHotkeys = 0;
-                foreach (var binding in persistentData.equipmentData.hotkeyBindings)
+                // Debug each assigned hotkey
+                if (equipmentDataToSave.hotkeyBindings != null)
                 {
-                    if (binding.isAssigned)
+                    foreach (var binding in equipmentDataToSave.hotkeyBindings)
                     {
-                        assignedHotkeys++;
-                        DebugLog($"  - Hotkey {binding.slotNumber}: {binding.itemDataName} (Stack: {binding.stackedItemIds.Count})");
+                        if (binding.isAssigned)
+                        {
+                            DebugLog($"  - Source Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}, Stack: {binding.stackedItemIds?.Count ?? 0})");
+                        }
                     }
                 }
-                DebugLog($"  - Total assigned hotkeys: {assignedHotkeys}");
+            }
+
+            // Assign the data
+            persistentData.equipmentData = equipmentDataToSave;
+
+            // ENHANCED: Debug what we saved to persistentData
+            if (persistentData.equipmentData != null)
+            {
+                var assignedCount = persistentData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"Saved equipment data to persistentData: {assignedCount} hotkey assignments");
+                DebugLog($"  - Equipped item: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? persistentData.equipmentData.equippedItem.equippedItemDataName : "None")}");
+
+                // Debug each assigned hotkey in saved data
+                if (persistentData.equipmentData.hotkeyBindings != null)
+                {
+                    foreach (var binding in persistentData.equipmentData.hotkeyBindings)
+                    {
+                        if (binding.isAssigned)
+                        {
+                            DebugLog($"  - Saved Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}, Stack: {binding.stackedItemIds?.Count ?? 0})");
+                        }
+                    }
+                }
             }
         }
         else
@@ -277,6 +308,10 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         if (saveData != null)
         {
+            // ENHANCED: Debug what we're loading
+            var assignedCount = saveData.equipmentData?.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+            DebugLog($"Loading persistent data from save: {assignedCount} hotkey assignments, {saveData.inventoryData?.ItemCount ?? 0} inventory items");
+
             // Clear existing data before loading new
             persistentData = new PlayerPersistentData(saveData);
 
@@ -284,7 +319,9 @@ public class PlayerPersistenceManager : MonoBehaviour
             hasPersistentData = false;
             saveManagerIsHandlingRestore = true; // Disables doorway transition data restoration
 
-            DebugLog($"Player persistent data loaded from save - doorway data cleared. Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
+            // ENHANCED: Debug what we have after loading
+            var newAssignedCount = persistentData.equipmentData?.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+            DebugLog($"Player persistent data loaded from save - doorway data cleared. Equipment: {newAssignedCount} hotkeys, Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
         }
     }
 
@@ -391,4 +428,3 @@ public class PlayerPersistenceManager : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 }
-

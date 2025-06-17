@@ -483,6 +483,7 @@ public class EquippedItemManager : MonoBehaviour
 
     /// <summary>
     /// Load equipment data from save (called by EquipmentSaveComponent)
+    /// FIXED: Create a copy of savedData to prevent clearing the original during doorway transitions
     /// </summary>
     public void LoadSaveData(EquipmentSaveData savedData)
     {
@@ -490,7 +491,7 @@ public class EquippedItemManager : MonoBehaviour
 
         if (savedData != null && savedData.IsValid())
         {
-            DebugLog($"Loading equipment data with {savedData.hotkeyBindings?.Count ?? 0} hotkey bindings");
+            DebugLog($"Loading equipment data, saved data first itemname is {savedData.hotkeyBindings[0].itemDataName}");
 
             // Debug what we're loading
             if (savedData.hotkeyBindings != null)
@@ -507,16 +508,29 @@ public class EquippedItemManager : MonoBehaviour
                     }
                 }
             }
+            else
+            {
+                DebugLog("No hotkey bindings found in saved data");
+            }
 
-            // Clear current state first
+            // CRITICAL FIX: Create a copy of the saved data BEFORE clearing current state
+            // This prevents clearing the original data during doorway transitions where savedData might be the same reference
+            DebugLog("Creating copy of saved data to prevent reference issues...");
+            var dataCopy = new EquipmentSaveData(savedData);
+
+            // Now clear current state (safe because we have a copy)
             DebugLog("Clearing current equipment state before loading...");
             ClearCurrentEquipmentState();
 
-            // Load the saved data
-            equipmentData = savedData;
+            // Load the copied data
+            equipmentData = dataCopy;
+
+            DebugLog($"After creating copy, equipment data first itemname is {equipmentData.hotkeyBindings[0].itemDataName}");
 
             // Validate loaded data against current inventory
             ValidateLoadedHotkeys();
+
+            DebugLog($"After validation, equipment data first itemname is {equipmentData.hotkeyBindings[0].itemDataName}");
 
             DebugLog("Equipment data loaded from save");
 
@@ -589,6 +603,7 @@ public class EquippedItemManager : MonoBehaviour
     /// </summary>
     private void ValidateLoadedHotkeys()
     {
+
         if (inventoryManager == null)
         {
             DebugLog("Cannot validate hotkeys - inventory manager is null");
@@ -597,10 +612,17 @@ public class EquippedItemManager : MonoBehaviour
 
         foreach (var binding in equipmentData.hotkeyBindings)
         {
-            if (!binding.isAssigned) continue;
+            if (!binding.isAssigned)
+            {
+                Debug.Log("Hotkey " + binding.slotNumber + " is not assigned - skipping");
+                continue;
+            }
 
             // Check if the primary item still exists
-            var inventoryItem = inventoryManager.InventoryData.GetItem(binding.itemId);
+            InventoryItemData inventoryItem = inventoryManager.InventoryData.GetItem(binding.itemId);
+
+            Debug.Log($"Hotkey {binding.slotNumber}: Validating primary item {binding.itemId}");
+
             if (inventoryItem == null)
             {
                 DebugLog($"Hotkey {binding.slotNumber}: Primary item {binding.itemId} no longer exists - clearing slot");
@@ -614,6 +636,7 @@ public class EquippedItemManager : MonoBehaviour
             {
                 if (inventoryManager.InventoryData.GetItem(stackedId) == null)
                 {
+                    DebugLog($"Hotkey {binding.slotNumber}: Stacked item {stackedId} no longer exists - removing");
                     itemsToRemove.Add(stackedId);
                 }
             }
