@@ -142,9 +142,8 @@ public class PlayerPersistenceManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Restore equipment data after scene transition
-    /// </summary>
+
+
     private void RestoreEquipmentData()
     {
         if (persistentData.equipmentData == null)
@@ -153,10 +152,25 @@ public class PlayerPersistenceManager : MonoBehaviour
             return;
         }
 
+        // Enhanced debug logging
+        DebugLog($"Restoring equipment data:");
+        DebugLog($"  - Equipped item: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? persistentData.equipmentData.equippedItem.itemDataName : "None")}");
+
+        int assignedHotkeys = 0;
+        foreach (var binding in persistentData.equipmentData.hotkeyBindings)
+        {
+            if (binding.isAssigned)
+            {
+                assignedHotkeys++;
+                DebugLog($"  - Hotkey {binding.slotNumber}: {binding.itemDataName} (Stack: {binding.stackedItemIds.Count})");
+            }
+        }
+        DebugLog($"  - Total assigned hotkeys: {assignedHotkeys}");
+
         if (EquippedItemManager.Instance != null)
         {
             EquippedItemManager.Instance.LoadSaveData(persistentData.equipmentData);
-            DebugLog($"Restored equipment data: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? "has equipped item" : "no equipped item")}");
+            DebugLog($"Equipment data restored successfully");
         }
         else
         {
@@ -225,15 +239,29 @@ public class PlayerPersistenceManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Save equipment data during scene transition
-    /// </summary>
     private void SaveEquipmentData()
     {
         if (EquippedItemManager.Instance != null)
         {
             persistentData.equipmentData = EquippedItemManager.Instance.GetDataToSave() as EquipmentSaveData;
-            DebugLog($"Saved equipment data: {(persistentData.equipmentData?.equippedItem?.isEquipped == true ? "has equipped item" : "no equipped item")}");
+
+            // Enhanced debug logging
+            if (persistentData.equipmentData != null)
+            {
+                DebugLog($"Saved equipment data:");
+                DebugLog($"  - Equipped item: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? persistentData.equipmentData.equippedItem.itemDataName : "None")}");
+
+                int assignedHotkeys = 0;
+                foreach (var binding in persistentData.equipmentData.hotkeyBindings)
+                {
+                    if (binding.isAssigned)
+                    {
+                        assignedHotkeys++;
+                        DebugLog($"  - Hotkey {binding.slotNumber}: {binding.itemDataName} (Stack: {binding.stackedItemIds.Count})");
+                    }
+                }
+                DebugLog($"  - Total assigned hotkeys: {assignedHotkeys}");
+            }
         }
         else
         {

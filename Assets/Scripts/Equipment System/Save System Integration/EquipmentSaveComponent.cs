@@ -30,7 +30,8 @@ public class EquipmentSaveComponent : SaveComponentBase
             return new EquipmentSaveData();
         }
 
-        var saveData = equipmentManager.GetDataToSave() as EquipmentSaveData;
+        // CLEANED: Call the simplified GetDataToSave method
+        var saveData = equipmentManager.GetDataToSave();
         DebugLog($"Saved equipment: {(saveData.equippedItem?.isEquipped == true ? "has equipped item" : "no equipped item")}");
         return saveData;
     }
@@ -41,10 +42,10 @@ public class EquipmentSaveComponent : SaveComponentBase
 
         if (saveContainer is PlayerSaveData playerSaveData)
         {
-            // FIXED: Extract the actual saved equipment data, not current state!
+            // FIXED: Extract the actual saved equipment data from PlayerSaveData
             if (playerSaveData.equipmentData != null)
             {
-                DebugLog("Extracting equipment data from PlayerSaveData");
+                DebugLog($"Extracting equipment data from PlayerSaveData - has equipped item: {playerSaveData.equipmentData.equippedItem?.isEquipped == true}");
                 return playerSaveData.equipmentData; // Return the SAVED data
             }
             else
@@ -60,7 +61,7 @@ public class EquipmentSaveComponent : SaveComponentBase
         }
         else
         {
-            DebugLog("No equipment data found in save container - creating empty");
+            DebugLog($"No equipment data found in save container (type: {saveContainer?.GetType()}) - creating empty");
             return new EquipmentSaveData();
         }
     }
@@ -87,6 +88,7 @@ public class EquipmentSaveComponent : SaveComponentBase
 
         try
         {
+            // CLEANED: Call the simplified LoadSaveData method
             equipmentManager.LoadSaveData(equipmentData);
             DebugLog("Equipment loaded successfully");
         }

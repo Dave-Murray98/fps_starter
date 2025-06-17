@@ -5,9 +5,9 @@ using Sirenix.OdinInspector;
 /// <summary>
 /// Main equipment system manager
 /// Handles equipped items, hotkey assignments, and item actions
-/// UPDATED: Efficient Input System integration
+/// CLEANED: No longer implements ISaveable - EquipmentSaveComponent handles all save/load
 /// </summary>
-public class EquippedItemManager : MonoBehaviour, ISaveable
+public class EquippedItemManager : MonoBehaviour
 {
     public static EquippedItemManager Instance { get; private set; }
 
@@ -16,7 +16,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
 
     [Header("Settings")]
     [SerializeField] private bool enableDebugLogs = true;
-    [SerializeField] private string saveID = "EquippedItemManager";
     [SerializeField] private float scrollCooldown = 0.1f; // Prevent scroll spam
 
     [Header("Audio")]
@@ -36,10 +35,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
     public System.Action<int, HotkeyBinding> OnHotkeyAssigned;
     public System.Action<int> OnHotkeyCleared;
     public System.Action<ItemType, bool> OnItemActionPerformed; // itemType, isLeftClick
-
-    // ISaveable implementation
-    public string SaveID => saveID;
-    public SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
     // Public properties
     public EquippedItemData CurrentEquippedItem => equipmentData.equippedItem;
@@ -79,7 +74,7 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
         if (inventoryManager != null)
         {
             inventoryManager.OnItemRemoved += OnInventoryItemRemoved;
-            inventoryManager.OnItemAdded += OnInventoryItemAdded; // New subscription for dynamic stacking
+            inventoryManager.OnItemAdded += OnInventoryItemAdded;
         }
 
         RefreshReferences();
@@ -108,25 +103,16 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
         if (inputManager != null)
         {
             // Subscribe to scroll wheel input from InputManager
-            // You'll need to add this event to your InputManager if it doesn't exist
             inputManager.OnScrollWheelInput += HandleScrollInput;
-
-            // Subscribe to hotkey inputs (if InputManager handles them)
             inputManager.OnHotkeyPressed += OnHotkeyPressed;
         }
     }
 
-    /// <summary>
-    /// Handle hotkey input from InputManager (wrapper for ActivateHotkey)
-    /// </summary>
     private void OnHotkeyPressed(int slotNumber)
     {
         ActivateHotkey(slotNumber);
     }
 
-    /// <summary>
-    /// Handle scroll wheel input efficiently
-    /// </summary>
     public void HandleScrollInput(Vector2 scrollDelta)
     {
         // Only process if enough time has passed (prevents scroll spam)
@@ -192,9 +178,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
 
     #region Equipment Management
 
-    /// <summary>
-    /// Equip an item directly from inventory (right-click option)
-    /// </summary>
     public bool EquipItemFromInventory(string itemId)
     {
         if (inventoryManager == null)
@@ -220,9 +203,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
         return true;
     }
 
-    /// <summary>
-    /// Unequip the currently equipped item
-    /// </summary>
     public void UnequipCurrentItem()
     {
         if (!HasEquippedItem) return;
@@ -238,9 +218,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
 
     #region Hotkey Management
 
-    /// <summary>
-    /// Assign an item to a hotkey slot
-    /// </summary>
     public bool AssignItemToHotkey(string itemId, int slotNumber)
     {
         if (slotNumber < 1 || slotNumber > 10)
@@ -269,9 +246,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
         return true;
     }
 
-    /// <summary>
-    /// Activate a hotkey slot (equip the assigned item)
-    /// </summary>
     public bool ActivateHotkey(int slotNumber)
     {
         var binding = equipmentData.GetHotkeyBinding(slotNumber);
@@ -303,9 +277,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
         return true;
     }
 
-    /// <summary>
-    /// Cycle through equipped items using mouse wheel (OPTIMIZED)
-    /// </summary>
     public void CycleEquippedItem(bool forward)
     {
         // Cache assigned bindings to avoid repeated calculations
@@ -338,9 +309,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
 
     #region Item Actions
 
-    /// <summary>
-    /// Perform an action with the currently equipped item
-    /// </summary>
     public void PerformItemAction(bool isLeftClick)
     {
         if (!HasEquippedItem) return;
@@ -375,7 +343,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
 
             case ItemType.Ammo:
                 if (isLeftClick) OnPunch();
-                // Right click does nothing for ammo
                 break;
         }
 
@@ -386,19 +353,16 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
     private void OnWeaponAttack(ItemData weaponData)
     {
         DebugLog($"Attacking with {weaponData.itemName}");
-        // TODO: Implement weapon attack logic
     }
 
     private void OnWeaponAim(ItemData weaponData)
     {
         DebugLog($"Aiming {weaponData.itemName}");
-        // TODO: Implement weapon aiming logic
     }
 
     private void OnConsumeItem(ItemData consumableData)
     {
         DebugLog($"Consuming {consumableData.itemName}");
-        // TODO: Implement consumption logic
 
         // For now, just remove from inventory
         if (inventoryManager != null)
@@ -410,28 +374,22 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
     private void OnUseEquipment(ItemData equipmentData)
     {
         DebugLog($"Using equipment {equipmentData.itemName}");
-        // TODO: Implement equipment usage logic
     }
 
     private void OnUseKeyItem(ItemData keyItemData)
     {
         DebugLog($"Attempting to use key item {keyItemData.itemName}");
-        // TODO: Implement key item usage logic
     }
 
     private void OnPunch()
     {
         DebugLog("Punching (no weapon equipped)");
-        // TODO: Implement punch/unarmed attack logic
     }
 
     #endregion
 
     #region Event Handlers
 
-    /// <summary>
-    /// Handle when an item is removed from inventory
-    /// </summary>
     private void OnInventoryItemRemoved(string itemId)
     {
         // Check if equipped item was removed
@@ -457,9 +415,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
         }
     }
 
-    /// <summary>
-    /// Handle when an item is added to inventory (for dynamic stacking)
-    /// </summary>
     private void OnInventoryItemAdded(InventoryItemData newItem)
     {
         if (newItem?.ItemData == null) return;
@@ -501,9 +456,12 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
 
     #endregion
 
-    #region ISaveable Implementation
+    #region Public API for Save System (Called by EquipmentSaveComponent)
 
-    public object GetDataToSave()
+    /// <summary>
+    /// Get equipment data for saving (called by EquipmentSaveComponent)
+    /// </summary>
+    public EquipmentSaveData GetDataToSave()
     {
         DebugLog("=== SAVING EQUIPMENT DATA ===");
         DebugLog($"Equipped Item: {(HasEquippedItem ? equipmentData.equippedItem.GetItemData()?.itemName : "None")}");
@@ -523,22 +481,14 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
         return equipmentData;
     }
 
-    public object ExtractRelevantData(object saveContainer)
-    {
-        if (saveContainer is PlayerSaveData playerSaveData)
-        {
-            // In the future, PlayerSaveData should include equipment data
-            // For now, return current data
-            return equipmentData;
-        }
-        return saveContainer;
-    }
-
-    public void LoadSaveData(object data)
+    /// <summary>
+    /// Load equipment data from save (called by EquipmentSaveComponent)
+    /// </summary>
+    public void LoadSaveData(EquipmentSaveData savedData)
     {
         DebugLog("=== LOADING EQUIPMENT DATA ===");
 
-        if (data is EquipmentSaveData savedData && savedData.IsValid())
+        if (savedData != null && savedData.IsValid())
         {
             DebugLog($"Loading equipment data with {savedData.hotkeyBindings?.Count ?? 0} hotkey bindings");
 
@@ -558,11 +508,11 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
                 }
             }
 
-            // CLEAR CURRENT STATE FIRST (this was missing!)
+            // Clear current state first
             DebugLog("Clearing current equipment state before loading...");
             ClearCurrentEquipmentState();
 
-            // Then load the saved data
+            // Load the saved data
             equipmentData = savedData;
 
             // Validate loaded data against current inventory
@@ -570,7 +520,7 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
 
             DebugLog("Equipment data loaded from save");
 
-            // Refresh UI for all hotkeys (including empty ones)
+            // Refresh UI for all hotkeys
             RefreshAllHotkeyUI();
         }
         else
@@ -674,16 +624,6 @@ public class EquippedItemManager : MonoBehaviour, ISaveable
                 binding.RemoveItem(itemToRemove);
             }
         }
-    }
-
-    public void OnBeforeSave()
-    {
-        DebugLog("Preparing equipment data for save");
-    }
-
-    public void OnAfterLoad()
-    {
-        DebugLog("Equipment data loaded successfully");
     }
 
     #endregion
