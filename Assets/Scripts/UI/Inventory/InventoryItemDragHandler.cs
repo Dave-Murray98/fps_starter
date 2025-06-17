@@ -266,6 +266,8 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         // Animate back to original position
         AnimateToOriginalPosition();
+
+        visualRenderer.RefreshHotkeyIndicatorVisuals();
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -372,44 +374,109 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     private void EquipItem()
     {
+        if (itemData?.ItemData == null)
+        {
+            Debug.LogWarning("Cannot equip - no item data");
+            return;
+        }
+
         Debug.Log($"Equipping {itemData.ItemData.itemName}");
 
-        // TODO: Implement equipment logic when you add equipped item system
-        // For now, just log what would happen
-
-        switch (itemData.ItemData.itemType)
+        // Use the new equipment system
+        if (EquippedItemManager.Instance != null)
         {
-            case ItemType.Weapon:
-                Debug.Log($"Would equip weapon: {itemData.ItemData.itemName}");
-                // EquippedItemManager.Instance.EquipWeapon(itemData);
-                break;
-            case ItemType.Equipment:
-                Debug.Log($"Would equip equipment: {itemData.ItemData.itemName}");
-                // EquippedItemManager.Instance.EquipTool(itemData);
-                break;
-            case ItemType.Consumable:
-            case ItemType.Ammo:
-            case ItemType.KeyItem:
-                Debug.Log($"Would equip for quick use: {itemData.ItemData.itemName}");
-                // EquippedItemManager.Instance.EquipQuickUse(itemData);
-                break;
+            bool success = EquippedItemManager.Instance.EquipItemFromInventory(itemData.ID);
+            if (success)
+            {
+                Debug.Log($"Successfully equipped {itemData.ItemData.itemName}");
+            }
+            else
+            {
+                Debug.LogWarning($"Failed to equip {itemData.ItemData.itemName}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("EquippedItemManager not found - cannot equip item");
         }
     }
 
     private void AssignHotkey()
     {
+        if (itemData?.ItemData == null)
+        {
+            Debug.LogWarning("Cannot assign hotkey - no item data");
+            return;
+        }
+
         Debug.Log($"Assigning hotkey for {itemData.ItemData.itemName}");
 
-        // TODO: Implement hotkey assignment when you add the hotkey system
-        // For now, just log what would happen
-
-        // This could open a hotkey selection UI or auto-assign to next available slot
-        // HotkeyManager.Instance.ShowAssignmentUI(itemData);
-        // or
-        // HotkeyManager.Instance.AutoAssignHotkey(itemData);
-
-        Debug.Log("Hotkey assignment system not yet implemented");
+        // Show hotkey selection UI
+        ShowHotkeySelectionUI();
     }
+
+    /// <summary>
+    /// Show UI for selecting which hotkey slot to assign this item to
+    /// </summary>
+    private void ShowHotkeySelectionUI()
+    {
+        if (HotkeySelectionUI.Instance != null)
+        {
+            HotkeySelectionUI.Instance.ShowSelection(itemData);
+        }
+        else
+        {
+            // Fallback: auto-assign to first available slot
+            AutoAssignToAvailableSlot();
+        }
+    }
+
+    /// <summary>
+    /// Auto-assign item to the first available hotkey slot
+    /// </summary>
+    private void AutoAssignToAvailableSlot()
+    {
+        if (EquippedItemManager.Instance == null) return;
+
+        var bindings = EquippedItemManager.Instance.GetAllHotkeyBindings();
+
+        // First, check if this item type is already assigned somewhere
+        foreach (var binding in bindings)
+        {
+            if (binding.isAssigned)
+            {
+                var assignedItemData = binding.GetCurrentItemData();
+                if (assignedItemData != null && assignedItemData.name == itemData.ItemData.name)
+                {
+                    // Same item type already assigned - add to that stack
+                    bool success = EquippedItemManager.Instance.AssignItemToHotkey(itemData.ID, binding.slotNumber);
+                    if (success)
+                    {
+                        Debug.Log($"Added {itemData.ItemData.itemName} to existing hotkey {binding.slotNumber} stack");
+                    }
+                    return;
+                }
+            }
+        }
+
+        // No existing assignment, find first empty slot
+        foreach (var binding in bindings)
+        {
+            if (!binding.isAssigned)
+            {
+                bool success = EquippedItemManager.Instance.AssignItemToHotkey(itemData.ID, binding.slotNumber);
+                if (success)
+                {
+                    Debug.Log($"Assigned {itemData.ItemData.itemName} to hotkey {binding.slotNumber}");
+                }
+                return;
+            }
+        }
+
+        Debug.LogWarning("All hotkey slots are occupied - cannot auto-assign");
+    }
+
+
 
     private void UnloadWeapon()
     {

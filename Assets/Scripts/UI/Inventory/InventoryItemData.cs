@@ -139,7 +139,7 @@ public class InventoryItemData
 
     private ItemData FindItemDataByName(string dataName)
     {
-        ItemData itemData = Resources.Load<ItemData>(dataName);
+        ItemData itemData = Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + dataName);
         if (itemData != null)
             return itemData;
 
@@ -165,7 +165,7 @@ public class InventoryItemData
 
     public static InventoryItemData FromSaveData(InventoryItemSaveData saveData)
     {
-        var itemData = Resources.Load<ItemData>(saveData.itemDataName);
+        var itemData = Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + saveData.itemDataName);
         if (itemData == null)
         {
             ItemData[] allItemData = Resources.FindObjectsOfTypeAll<ItemData>();

@@ -3,6 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Player-specific save data
+/// UPDATED: Now includes equipment data
 /// </summary>
 [System.Serializable]
 public class PlayerSaveData
@@ -32,11 +33,15 @@ public class PlayerSaveData
     [Header("Inventory")]
     public InventorySaveData inventoryData;
 
+    [Header("Equipment")]
+    public EquipmentSaveData equipmentData;
+
     // Easy to expand for future player stats
     public Dictionary<string, object> customStats = new Dictionary<string, object>();
 
     public PlayerSaveData()
     {
         inventoryData = new InventorySaveData();
+        equipmentData = new EquipmentSaveData();
     }
 }

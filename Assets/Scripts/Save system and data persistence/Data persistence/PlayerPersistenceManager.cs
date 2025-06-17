@@ -104,6 +104,7 @@ public class PlayerPersistenceManager : MonoBehaviour
 
             // Restore inventory data using the new system
             RestoreInventoryData();
+            RestoreEquipmentData();
 
             // Trigger UI updates
             if (GameManager.Instance?.playerData != null)
@@ -142,6 +143,28 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Restore equipment data after scene transition
+    /// </summary>
+    private void RestoreEquipmentData()
+    {
+        if (persistentData.equipmentData == null)
+        {
+            DebugLog("No equipment data to restore");
+            return;
+        }
+
+        if (EquippedItemManager.Instance != null)
+        {
+            EquippedItemManager.Instance.LoadSaveData(persistentData.equipmentData);
+            DebugLog($"Restored equipment data: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? "has equipped item" : "no equipped item")}");
+        }
+        else
+        {
+            DebugLog("EquippedItemManager not found - equipment not restored");
+        }
+    }
+
+    /// <summary>
     /// Get current persistent data for save system
     /// </summary>
     public PlayerPersistentData GetPersistentDataForSave()
@@ -168,6 +191,7 @@ public class PlayerPersistenceManager : MonoBehaviour
 
             // Save inventory data using the new system
             SaveInventoryData();
+            SaveEquipmentData();
 
             hasPersistentData = true;
             DebugLog($"Player data saved for doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData?.ItemCount ?? 0} items");
@@ -198,6 +222,23 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             DebugLog("No inventory system found - inventory not saved");
             persistentData.inventoryData = new InventorySaveData(); // Empty but valid
+        }
+    }
+
+    /// <summary>
+    /// Save equipment data during scene transition
+    /// </summary>
+    private void SaveEquipmentData()
+    {
+        if (EquippedItemManager.Instance != null)
+        {
+            persistentData.equipmentData = EquippedItemManager.Instance.GetDataToSave() as EquipmentSaveData;
+            DebugLog($"Saved equipment data: {(persistentData.equipmentData?.equippedItem?.isEquipped == true ? "has equipped item" : "no equipped item")}");
+        }
+        else
+        {
+            DebugLog("EquippedItemManager not found - equipment not saved");
+            persistentData.equipmentData = new EquipmentSaveData();
         }
     }
 

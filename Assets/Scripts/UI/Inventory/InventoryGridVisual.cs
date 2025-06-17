@@ -258,6 +258,7 @@ public class InventoryGridVisual : MonoBehaviour
             itemObj.AddComponent<RectTransform>();
             itemObj.AddComponent<InventoryItemVisualRenderer>();
             itemObj.AddComponent<InventoryItemDragHandler>();
+            itemObj.AddComponent<InventoryHotkeyIndicator>();
         }
 
         // Initialize the visual components
@@ -271,6 +272,16 @@ public class InventoryGridVisual : MonoBehaviour
         if (dragHandler != null)
         {
             dragHandler.Initialize(item, this);
+        }
+
+        var inventoryHotkeyIndicator = itemObj.GetComponent<InventoryHotkeyIndicator>();
+        if (inventoryHotkeyIndicator != null)
+        {
+            inventoryHotkeyIndicator.Initialize(item);
+        }
+        else
+        {
+            Debug.LogWarning($"Missing InventoryHotkeyIndicator component on {itemObj.name}");
         }
 
         itemVisuals[item.ID] = itemObj;

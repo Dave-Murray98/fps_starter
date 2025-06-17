@@ -44,11 +44,6 @@ public class UIManager : MonoBehaviour, IManager
             pauseMenu.SetActive(false);
         }
 
-        if (inventoryPanel != null)
-        {
-            inventoryPanel.SetActive(false);
-        }
-
         if (interactionUIManager == null)
         {
             interactionUIManager = FindFirstObjectByType<InteractionUIManager>();
@@ -61,6 +56,12 @@ public class UIManager : MonoBehaviour, IManager
                 interactionUIManager = interactionUIObj.AddComponent<InteractionUIManager>();
             }
         }
+
+        if (inventoryPanel != null)
+        {
+            inventoryPanel.SetActive(false);
+        }
+
 
         // Update UI with current values
         UpdateUIAfterSceneLoad();

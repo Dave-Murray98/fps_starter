@@ -56,7 +56,7 @@ public class InventoryItemSaveData
     public GridItem ToGridItem()
     {
         // Find the ItemData by name
-        ItemData itemData = FindItemDataByName(itemDataName);
+        ItemData itemData = FindItemDataByName(SaveManager.Instance.itemDataPath + itemDataName);
         if (itemData == null)
         {
             Debug.LogError($"Could not find ItemData with name: {itemDataName}");
@@ -76,7 +76,7 @@ public class InventoryItemSaveData
     private ItemData FindItemDataByName(string dataName)
     {
         // First, try to load from Resources
-        ItemData itemData = Resources.Load<ItemData>(dataName);
+        ItemData itemData = Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + dataName);
         if (itemData != null)
             return itemData;
 

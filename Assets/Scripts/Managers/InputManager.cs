@@ -5,20 +5,33 @@ using UnityEngine.InputSystem;
 
 public class InputManager : MonoBehaviour, IManager
 {
+    #region Fields
     [Header("Input Actions")]
     public InputActionAsset inputActions;
 
+    [Header("Locomotion Actions")]
     //Input Actions
     private InputAction moveAction;
     private InputAction lookAction;
     private InputAction jumpAction;
     private InputAction sprintAction;
     private InputAction crouchAction;
+
+    [Header("UI Actions")]
     private InputAction pauseAction;
-    private InputAction interactAction;
     private InputAction toggleInventoryAction;
     private InputAction rotateInventoryItemAction; // For rotating items in the inventory
 
+    [Header("Gameplay Actions")]
+    private InputAction interactAction;
+    private InputAction leftClickAction;
+    private InputAction rightClickAction;
+    private InputAction scrollWheelAction;
+    private InputAction[] hotkeyActions = new InputAction[10];
+
+    #endregion
+
+    #region Public Properties
     //Input State - other systems will read these 
     public Vector2 MovementInput { get; private set; }
     public Vector2 LookInput { get; private set; }
@@ -28,7 +41,9 @@ public class InputManager : MonoBehaviour, IManager
     public bool CrouchPressed { get; private set; }
     public bool CrouchHeld { get; private set; }
 
+    #endregion
 
+    #region Events
     //input events
     public event Action OnJumpPressed;
     public event Action OnJumpReleased;
@@ -39,8 +54,16 @@ public class InputManager : MonoBehaviour, IManager
 
     public event Action OnRotateInventoryItemPressed; // For rotating items in the inventory (will be used by the DraggableGridItem script to rotate items)
 
+    // Events for equipment system
+    public event Action OnLeftClickPressed;
+    public event Action OnRightClickPressed;
+    public System.Action<Vector2> OnScrollWheelInput;
+    public System.Action<int> OnHotkeyPressed; // Optional
+
     // Event for when InputManager is ready
     public static event Action<InputManager> OnInputManagerReady;
+
+    #endregion
 
     private InputActionMap locomotionActionMap;
     private InputActionMap uiActionMap;
@@ -120,6 +143,8 @@ public class InputManager : MonoBehaviour, IManager
         UnsubscribeFromInputActions();
     }
 
+    #region Setup
+
     private void SetupInputActions()
     {
         if (inputActions == null)
@@ -138,22 +163,69 @@ public class InputManager : MonoBehaviour, IManager
             return;
         }
 
-        moveAction = locomotionActionMap.FindAction("Move");
-        lookAction = locomotionActionMap.FindAction("Look");
-        jumpAction = locomotionActionMap.FindAction("Jump");
-        sprintAction = locomotionActionMap.FindAction("Sprint");
-        crouchAction = locomotionActionMap.FindAction("Crouch");
-        interactAction = gameplayActionMap?.FindAction("Interact");
-        pauseAction = uiActionMap.FindAction("Pause");
-        toggleInventoryAction = uiActionMap.FindAction("ToggleInventory");
-        rotateInventoryItemAction = uiActionMap.FindAction("RotateInventoryItem");
+        SetupLocomotionInputActions();
+        SetupUIInputActions();
+        SetupGameplayInputActions();
 
         SubscribeToInputActions();
 
         //  Debug.Log("Input actions set up successfully");
     }
 
+    private void SetupLocomotionInputActions()
+    {
+        if (locomotionActionMap == null) return;
+
+        moveAction = locomotionActionMap.FindAction("Move");
+        lookAction = locomotionActionMap.FindAction("Look");
+        jumpAction = locomotionActionMap.FindAction("Jump");
+        sprintAction = locomotionActionMap.FindAction("Sprint");
+        crouchAction = locomotionActionMap.FindAction("Crouch");
+    }
+
+    private void SetupUIInputActions()
+    {
+        if (uiActionMap == null) return;
+
+        pauseAction = uiActionMap.FindAction("Pause");
+        toggleInventoryAction = uiActionMap.FindAction("ToggleInventory");
+        rotateInventoryItemAction = uiActionMap.FindAction("RotateInventoryItem");
+
+        // Debug.Log("UI input actions set up successfully");
+    }
+
+    private void SetupGameplayInputActions()
+    {
+        if (gameplayActionMap == null) return;
+
+        interactAction = gameplayActionMap?.FindAction("Interact");
+
+        // Mouse actions
+        leftClickAction = gameplayActionMap.FindAction("LeftClick");
+        rightClickAction = gameplayActionMap.FindAction("RightClick");
+        scrollWheelAction = gameplayActionMap.FindAction("ScrollWheel");
+
+        // Hotkey actions (you'll need to add these to your Input Action Asset)
+        for (int i = 1; i <= 10; i++)
+        {
+            string actionName = i == 10 ? "Hotkey0" : $"Hotkey{i}";
+            hotkeyActions[i - 1] = gameplayActionMap.FindAction(actionName);
+        }
+    }
+
+    #endregion
+
+    #region Subscription and Unsubscription
+
     private void SubscribeToInputActions()
+    {
+
+        SubscribeLocomotionInputActions();
+        SubscribeToUIInputActions();
+        SubscribeToGameplayInputActions();
+    }
+
+    private void SubscribeLocomotionInputActions()
     {
         if (jumpAction != null)
         {
@@ -166,15 +238,13 @@ public class InputManager : MonoBehaviour, IManager
             crouchAction.performed += OnCrouchPerformed;
             crouchAction.canceled += OnCrouchCanceled;
         }
+    }
 
+    private void SubscribeToUIInputActions()
+    {
         if (pauseAction != null)
         {
             pauseAction.performed += OnPausePerformed;
-        }
-
-        if (interactAction != null)
-        {
-            interactAction.performed += OnInteractPerformed;
         }
 
         if (toggleInventoryAction != null)
@@ -188,7 +258,50 @@ public class InputManager : MonoBehaviour, IManager
         }
     }
 
+    private void SubscribeToGameplayInputActions()
+    {
+
+        if (interactAction != null)
+        {
+            interactAction.performed += OnInteractPerformed;
+        }
+
+        //mouse actions
+        if (leftClickAction != null)
+        {
+            leftClickAction.performed += OnLeftClickPerformed;
+        }
+
+        if (rightClickAction != null)
+        {
+            rightClickAction.performed += OnRightClickPerformed;
+        }
+
+        if (scrollWheelAction != null)
+        {
+            scrollWheelAction.performed += OnScrollWheelPerformed;
+        }
+
+        // Subscribe to hotkey actions
+        for (int i = 0; i < hotkeyActions.Length; i++)
+        {
+            if (hotkeyActions[i] != null)
+            {
+                int slotNumber = i + 1; // Capture for closure
+                hotkeyActions[i].performed += _ => OnHotkeyPerformed(slotNumber);
+            }
+        }
+    }
+
     private void UnsubscribeFromInputActions()
+    {
+        UnsubscribeFromLocomotionInputActions();
+        UnsubscribeFromUIInputActions();
+        UnsubscribeFromGameplayInputActions();
+
+    }
+
+    private void UnsubscribeFromLocomotionInputActions()
     {
         if (jumpAction != null)
         {
@@ -201,17 +314,14 @@ public class InputManager : MonoBehaviour, IManager
             crouchAction.performed -= OnCrouchPerformed;
             crouchAction.canceled -= OnCrouchCanceled;
         }
+    }
 
+    private void UnsubscribeFromUIInputActions()
+    {
         if (pauseAction != null)
         {
             pauseAction.performed -= OnPausePerformed;
         }
-
-        if (interactAction != null)
-        {
-            interactAction.performed -= OnInteractPerformed;
-        }
-
 
         if (toggleInventoryAction != null)
         {
@@ -222,8 +332,45 @@ public class InputManager : MonoBehaviour, IManager
         {
             rotateInventoryItemAction.performed -= OnRotateInventoryItemPerformed;
         }
-
     }
+
+    private void UnsubscribeFromGameplayInputActions()
+    {
+
+        if (interactAction != null)
+        {
+            interactAction.performed -= OnInteractPerformed;
+        }
+
+        if (leftClickAction != null)
+        {
+            leftClickAction.performed -= OnLeftClickPerformed;
+        }
+
+        if (rightClickAction != null)
+        {
+            rightClickAction.performed -= OnRightClickPerformed;
+        }
+
+        if (scrollWheelAction != null)
+        {
+            scrollWheelAction.performed -= OnScrollWheelPerformed;
+        }
+
+        // Unsubscribe from hotkey actions
+        for (int i = 0; i < hotkeyActions.Length; i++)
+        {
+            if (hotkeyActions[i] != null)
+            {
+                int slotNumber = i + 1;
+                hotkeyActions[i].performed -= _ => OnHotkeyPerformed(slotNumber);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Event Handlers
 
     // Safe event handlers that check if cleaned up
     private void OnJumpPerformed(InputAction.CallbackContext context)
@@ -301,6 +448,32 @@ public class InputManager : MonoBehaviour, IManager
         OnRotateInventoryItemPressed?.Invoke();
     }
 
+    private void OnLeftClickPerformed(InputAction.CallbackContext context)
+    {
+        if (isCleanedUp) return;
+        OnLeftClickPressed?.Invoke();
+    }
+
+    private void OnRightClickPerformed(InputAction.CallbackContext context)
+    {
+        if (isCleanedUp) return;
+        OnRightClickPressed?.Invoke();
+    }
+
+    private void OnScrollWheelPerformed(InputAction.CallbackContext context)
+    {
+        Vector2 scrollValue = context.ReadValue<Vector2>(); // Fix for your error!
+        OnScrollWheelInput?.Invoke(scrollValue);
+    }
+
+    private void OnHotkeyPerformed(int slotNumber)
+    {
+        if (isCleanedUp) return;
+        OnHotkeyPressed?.Invoke(slotNumber);
+    }
+
+    #endregion
+
     private void Update()
     {
         if (isCleanedUp) return;
@@ -323,6 +496,7 @@ public class InputManager : MonoBehaviour, IManager
         if (CrouchPressed) CrouchPressed = false;
     }
 
+    #region public enabling and disabling methods
 
     public void ReenableAllInput()
     {
@@ -384,6 +558,8 @@ public class InputManager : MonoBehaviour, IManager
         // Debug.Log("Disabling UI input actions");
         uiActionMap?.Disable();
     }
+
+    #endregion
 
     private void OnDestroy()
     {

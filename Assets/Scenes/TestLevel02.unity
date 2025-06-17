@@ -150,6 +150,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveFileName: GameSave
   showDebugLogs: 1
+  itemDataPath: Data/Items/
 --- !u!4 &2192014
 Transform:
   m_ObjectHideFlags: 0
@@ -1798,6 +1799,14 @@ PrefabInstance:
       propertyPath: m_AnchorMax.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1902820945652993390, guid: a250da43fbd7db3468b3c906eec51457, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1902820945652993390, guid: a250da43fbd7db3468b3c906eec51457, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3735273598467851849, guid: a250da43fbd7db3468b3c906eec51457, type: 3}
       propertyPath: m_Name
       value: HUD
@@ -2522,6 +2531,75 @@ MonoBehaviour:
       gridHeight: 0
       items: []
       nextItemId: 1
+    equipmentData:
+      hotkeyBindings:
+      - slotNumber: 1
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 2
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 3
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 4
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 5
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 6
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 7
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 8
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 9
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      - slotNumber: 10
+        isAssigned: 0
+        itemId: 
+        itemDataName: 
+        stackedItemIds: []
+        currentStackIndex: 0
+      equippedItem:
+        equippedItemId: 
+        itemDataName: 
+        itemType: 0
+        sourceHotkeySlot: -1
+        isEquippedFromHotkey: 0
+        isEquipped: 0
   showDebugLogs: 1
 --- !u!4 &1887775402
 Transform:
@@ -2695,6 +2773,140 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2124659223
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2124659225}
+  - component: {fileID: 2124659224}
+  - component: {fileID: 2124659226}
+  m_Layer: 0
+  m_Name: EquippedItemManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2124659224
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2124659223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae36f72bb7fd7924d8ec07d57a731eef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  equipmentData:
+    hotkeyBindings:
+    - slotNumber: 1
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 2
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 3
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 4
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 5
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 6
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 7
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 8
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 9
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    - slotNumber: 10
+      isAssigned: 0
+      itemId: 
+      itemDataName: 
+      stackedItemIds: []
+      currentStackIndex: 0
+    equippedItem:
+      equippedItemId: 
+      itemDataName: 
+      itemType: 0
+      sourceHotkeySlot: -1
+      isEquippedFromHotkey: 0
+      isEquipped: 0
+  enableDebugLogs: 1
+  saveID: EquippedItemManager
+  scrollCooldown: 0.1
+  equipSound: {fileID: 0}
+  hotkeySound: {fileID: 0}
+--- !u!4 &2124659225
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2124659223}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2124659226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2124659223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3578c0cf87248144d97feae23f6c1522, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  saveID: Equipment_Main
+  autoGenerateID: 0
+  enableDebugLogs: 1
 --- !u!1 &2133065632
 GameObject:
   m_ObjectHideFlags: 0
@@ -2749,6 +2961,7 @@ SceneRoots:
   - {fileID: 1892346194}
   - {fileID: 317039848}
   - {fileID: 2192014}
+  - {fileID: 2124659225}
   - {fileID: 319108600}
   - {fileID: 343215440}
   - {fileID: 304590118}

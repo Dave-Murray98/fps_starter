@@ -22,6 +22,9 @@ public class SaveManager : MonoBehaviour
     public System.Action<bool> OnSaveComplete;
     public System.Action<bool> OnLoadComplete;
 
+    [Header("Resources Data Paths")]
+    public string itemDataPath = "Data/Items/";
+
     private void Awake()
     {
         if (Instance == null)

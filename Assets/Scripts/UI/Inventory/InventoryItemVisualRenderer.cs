@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,6 +18,7 @@ public class InventoryItemVisualRenderer : MonoBehaviour
     private List<GameObject> cellObjects = new List<GameObject>();
     private GameObject imageOverlay;
     private RectTransform rectTransform;
+    private InventoryHotkeyIndicator hotkeyIndicator;
 
     public InventoryItemData ItemData => itemData;
 
@@ -30,16 +32,26 @@ public class InventoryItemVisualRenderer : MonoBehaviour
         itemData = item;
         gridVisual = visual;
         RefreshVisual();
+
+        hotkeyIndicator = GetComponent<InventoryHotkeyIndicator>();
+        if (hotkeyIndicator != null)
+        {
+            hotkeyIndicator.Initialize(itemData);
+        }
     }
 
     public void RefreshVisual()
     {
-        if (itemData?.ItemData == null) return;
+        if (itemData?.ItemData == null)
+        {
+            Debug.LogWarning("Cannot refresh visual - no item data");
+            return;
+        }
 
         ClearVisuals();
         CreateCells();
         UpdateLayout();
-        CreateImageOverlay();
+        RefreshImageAndHotkeyIndicatorVisuals();
         UpdatePosition();
     }
 
@@ -166,6 +178,19 @@ public class InventoryItemVisualRenderer : MonoBehaviour
         ApplyImageRotation(imageRect);
         imageOverlay.transform.SetAsLastSibling();
     }
+
+    public void RefreshHotkeyIndicatorVisuals()
+    {
+        if (hotkeyIndicator != null)
+            hotkeyIndicator.RefreshDisplay();
+    }
+
+    private void RefreshImageAndHotkeyIndicatorVisuals()
+    {
+        CreateImageOverlay();
+        RefreshHotkeyIndicatorVisuals();
+    }
+
 
     private void CalculateImageSizeAndPosition(RectTransform imageRect, Image overlayImage)
     {

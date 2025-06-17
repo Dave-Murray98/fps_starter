@@ -325,7 +325,7 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
     /// </summary>
     private ItemData FindItemDataByName(string itemDataName)
     {
-        ItemData itemData = Resources.Load<ItemData>(itemDataName);
+        ItemData itemData = Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + itemDataName);
         if (itemData != null) return itemData;
 
         ItemData[] allItemData = Resources.FindObjectsOfTypeAll<ItemData>();

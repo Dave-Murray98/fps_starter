@@ -31,7 +31,7 @@ public class InteractionUIManager : MonoBehaviour
     [SerializeField] private Color defaultBackgroundColor = new Color(0, 0, 0, 0.7f);
 
     // State
-    private PlayerInteractionController playerInteractionController;
+    // private PlayerInteractionController playerInteractionController;
     private PlayerInteractionDetector interactionDetector;
     private IInteractable currentDisplayedInteractable;
     private Tweener currentTween;
@@ -49,8 +49,8 @@ public class InteractionUIManager : MonoBehaviour
         var player = FindFirstObjectByType<PlayerController>();
         if (player != null)
         {
-            // Direct access to interaction components
-            playerInteractionController = player.interactionController;
+            // // Direct access to interaction components
+            // playerInteractionController = player.interactionController;
             interactionDetector = player.GetComponent<PlayerInteractionDetector>();
             playerCamera = Camera.main; // or get from PlayerCamera component
         }

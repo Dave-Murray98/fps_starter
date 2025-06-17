@@ -385,6 +385,123 @@ public partial class @Player: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""LeftClick"",
+                    ""type"": ""Button"",
+                    ""id"": ""d41035e1-98eb-4e38-8490-abc21d66de4c"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""RightClick"",
+                    ""type"": ""Button"",
+                    ""id"": ""690cf17d-6afd-4f59-b276-8b14ed68950f"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ScrollWheel"",
+                    ""type"": ""Value"",
+                    ""id"": ""d2dbc8f4-3e4a-449d-a9af-d474d05a40d4"",
+                    ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Hotkey1"",
+                    ""type"": ""Button"",
+                    ""id"": ""a48b3890-e0c8-4aa9-951e-3fefdde4f0ea"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey2"",
+                    ""type"": ""Button"",
+                    ""id"": ""b9a4c8dc-02b1-4953-a084-ca74fd8917c8"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey3"",
+                    ""type"": ""Button"",
+                    ""id"": ""a06ca6c8-29dc-4905-9c16-35e39e0c7492"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey4"",
+                    ""type"": ""Button"",
+                    ""id"": ""15cf8557-d7f3-46c1-92cc-34127342ef18"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey5"",
+                    ""type"": ""Button"",
+                    ""id"": ""decdff83-4605-4ba2-bdf3-c17ede19f0fe"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey6"",
+                    ""type"": ""Button"",
+                    ""id"": ""fe96367f-a956-419b-82c3-5e99ff752b03"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey7"",
+                    ""type"": ""Button"",
+                    ""id"": ""6a1a514b-d9db-483e-88e5-3957cd87525e"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey8"",
+                    ""type"": ""Button"",
+                    ""id"": ""4a5ebe90-392f-4c3a-995e-190dad118582"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey9"",
+                    ""type"": ""Button"",
+                    ""id"": ""8d190d81-d64d-4c42-b519-32255fde0114"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Hotkey0"",
+                    ""type"": ""Button"",
+                    ""id"": ""bfb8697c-9454-4535-85f5-238aa56fa167"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -409,6 +526,149 @@ public partial class @Player: IInputActionCollection2, IDisposable
                     ""action"": ""Interact"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""0d2672cb-6329-4d15-b5ab-29f40ac550f0"",
+                    ""path"": ""<Mouse>/leftButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""LeftClick"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""7389ef99-b97f-4eb9-9d54-9c357619e8b2"",
+                    ""path"": ""<Mouse>/rightButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""RightClick"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ebcb431f-3ce5-448f-9364-d737b3df53f6"",
+                    ""path"": ""<Mouse>/scroll"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""ScrollWheel"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""5a80ede0-a0c7-4d61-8980-4f1088be3d71"",
+                    ""path"": ""<Keyboard>/1"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey1"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c56b0f74-b340-445b-a452-304ebe99c5e9"",
+                    ""path"": ""<Keyboard>/2"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey2"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""4eeee4b3-e478-47e8-95e0-b57bf8fe04ee"",
+                    ""path"": ""<Keyboard>/3"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey3"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c4e9a5b1-7153-439c-a707-21f1214a853a"",
+                    ""path"": ""<Keyboard>/4"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey4"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""1a8ccd30-7d11-40e2-ae47-2e4c7f361256"",
+                    ""path"": ""<Keyboard>/5"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey5"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""bd854d4f-96b8-4ece-b549-58cc82cfc88e"",
+                    ""path"": ""<Keyboard>/6"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey6"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""af6ee157-a1d2-42c9-90ac-4b198e6e69cb"",
+                    ""path"": ""<Keyboard>/7"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey7"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""15d2b78a-329a-4a2e-8f83-a3a22d404dbd"",
+                    ""path"": ""<Keyboard>/8"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey8"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""3e865aba-1e8b-4666-87fe-1334a69146e3"",
+                    ""path"": ""<Keyboard>/9"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey9"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""1a6ac574-4520-47c9-af48-7349eb608819"",
+                    ""path"": ""<Keyboard>/0"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Hotkey0"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -430,6 +690,19 @@ public partial class @Player: IInputActionCollection2, IDisposable
         // Gameplay
         m_Gameplay = asset.FindActionMap("Gameplay", throwIfNotFound: true);
         m_Gameplay_Interact = m_Gameplay.FindAction("Interact", throwIfNotFound: true);
+        m_Gameplay_LeftClick = m_Gameplay.FindAction("LeftClick", throwIfNotFound: true);
+        m_Gameplay_RightClick = m_Gameplay.FindAction("RightClick", throwIfNotFound: true);
+        m_Gameplay_ScrollWheel = m_Gameplay.FindAction("ScrollWheel", throwIfNotFound: true);
+        m_Gameplay_Hotkey1 = m_Gameplay.FindAction("Hotkey1", throwIfNotFound: true);
+        m_Gameplay_Hotkey2 = m_Gameplay.FindAction("Hotkey2", throwIfNotFound: true);
+        m_Gameplay_Hotkey3 = m_Gameplay.FindAction("Hotkey3", throwIfNotFound: true);
+        m_Gameplay_Hotkey4 = m_Gameplay.FindAction("Hotkey4", throwIfNotFound: true);
+        m_Gameplay_Hotkey5 = m_Gameplay.FindAction("Hotkey5", throwIfNotFound: true);
+        m_Gameplay_Hotkey6 = m_Gameplay.FindAction("Hotkey6", throwIfNotFound: true);
+        m_Gameplay_Hotkey7 = m_Gameplay.FindAction("Hotkey7", throwIfNotFound: true);
+        m_Gameplay_Hotkey8 = m_Gameplay.FindAction("Hotkey8", throwIfNotFound: true);
+        m_Gameplay_Hotkey9 = m_Gameplay.FindAction("Hotkey9", throwIfNotFound: true);
+        m_Gameplay_Hotkey0 = m_Gameplay.FindAction("Hotkey0", throwIfNotFound: true);
     }
 
     ~@Player()
@@ -771,6 +1044,19 @@ public partial class @Player: IInputActionCollection2, IDisposable
     private readonly InputActionMap m_Gameplay;
     private List<IGameplayActions> m_GameplayActionsCallbackInterfaces = new List<IGameplayActions>();
     private readonly InputAction m_Gameplay_Interact;
+    private readonly InputAction m_Gameplay_LeftClick;
+    private readonly InputAction m_Gameplay_RightClick;
+    private readonly InputAction m_Gameplay_ScrollWheel;
+    private readonly InputAction m_Gameplay_Hotkey1;
+    private readonly InputAction m_Gameplay_Hotkey2;
+    private readonly InputAction m_Gameplay_Hotkey3;
+    private readonly InputAction m_Gameplay_Hotkey4;
+    private readonly InputAction m_Gameplay_Hotkey5;
+    private readonly InputAction m_Gameplay_Hotkey6;
+    private readonly InputAction m_Gameplay_Hotkey7;
+    private readonly InputAction m_Gameplay_Hotkey8;
+    private readonly InputAction m_Gameplay_Hotkey9;
+    private readonly InputAction m_Gameplay_Hotkey0;
     /// <summary>
     /// Provides access to input actions defined in input action map "Gameplay".
     /// </summary>
@@ -786,6 +1072,58 @@ public partial class @Player: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Gameplay/Interact".
         /// </summary>
         public InputAction @Interact => m_Wrapper.m_Gameplay_Interact;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/LeftClick".
+        /// </summary>
+        public InputAction @LeftClick => m_Wrapper.m_Gameplay_LeftClick;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/RightClick".
+        /// </summary>
+        public InputAction @RightClick => m_Wrapper.m_Gameplay_RightClick;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/ScrollWheel".
+        /// </summary>
+        public InputAction @ScrollWheel => m_Wrapper.m_Gameplay_ScrollWheel;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey1".
+        /// </summary>
+        public InputAction @Hotkey1 => m_Wrapper.m_Gameplay_Hotkey1;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey2".
+        /// </summary>
+        public InputAction @Hotkey2 => m_Wrapper.m_Gameplay_Hotkey2;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey3".
+        /// </summary>
+        public InputAction @Hotkey3 => m_Wrapper.m_Gameplay_Hotkey3;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey4".
+        /// </summary>
+        public InputAction @Hotkey4 => m_Wrapper.m_Gameplay_Hotkey4;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey5".
+        /// </summary>
+        public InputAction @Hotkey5 => m_Wrapper.m_Gameplay_Hotkey5;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey6".
+        /// </summary>
+        public InputAction @Hotkey6 => m_Wrapper.m_Gameplay_Hotkey6;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey7".
+        /// </summary>
+        public InputAction @Hotkey7 => m_Wrapper.m_Gameplay_Hotkey7;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey8".
+        /// </summary>
+        public InputAction @Hotkey8 => m_Wrapper.m_Gameplay_Hotkey8;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey9".
+        /// </summary>
+        public InputAction @Hotkey9 => m_Wrapper.m_Gameplay_Hotkey9;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Hotkey0".
+        /// </summary>
+        public InputAction @Hotkey0 => m_Wrapper.m_Gameplay_Hotkey0;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -815,6 +1153,45 @@ public partial class @Player: IInputActionCollection2, IDisposable
             @Interact.started += instance.OnInteract;
             @Interact.performed += instance.OnInteract;
             @Interact.canceled += instance.OnInteract;
+            @LeftClick.started += instance.OnLeftClick;
+            @LeftClick.performed += instance.OnLeftClick;
+            @LeftClick.canceled += instance.OnLeftClick;
+            @RightClick.started += instance.OnRightClick;
+            @RightClick.performed += instance.OnRightClick;
+            @RightClick.canceled += instance.OnRightClick;
+            @ScrollWheel.started += instance.OnScrollWheel;
+            @ScrollWheel.performed += instance.OnScrollWheel;
+            @ScrollWheel.canceled += instance.OnScrollWheel;
+            @Hotkey1.started += instance.OnHotkey1;
+            @Hotkey1.performed += instance.OnHotkey1;
+            @Hotkey1.canceled += instance.OnHotkey1;
+            @Hotkey2.started += instance.OnHotkey2;
+            @Hotkey2.performed += instance.OnHotkey2;
+            @Hotkey2.canceled += instance.OnHotkey2;
+            @Hotkey3.started += instance.OnHotkey3;
+            @Hotkey3.performed += instance.OnHotkey3;
+            @Hotkey3.canceled += instance.OnHotkey3;
+            @Hotkey4.started += instance.OnHotkey4;
+            @Hotkey4.performed += instance.OnHotkey4;
+            @Hotkey4.canceled += instance.OnHotkey4;
+            @Hotkey5.started += instance.OnHotkey5;
+            @Hotkey5.performed += instance.OnHotkey5;
+            @Hotkey5.canceled += instance.OnHotkey5;
+            @Hotkey6.started += instance.OnHotkey6;
+            @Hotkey6.performed += instance.OnHotkey6;
+            @Hotkey6.canceled += instance.OnHotkey6;
+            @Hotkey7.started += instance.OnHotkey7;
+            @Hotkey7.performed += instance.OnHotkey7;
+            @Hotkey7.canceled += instance.OnHotkey7;
+            @Hotkey8.started += instance.OnHotkey8;
+            @Hotkey8.performed += instance.OnHotkey8;
+            @Hotkey8.canceled += instance.OnHotkey8;
+            @Hotkey9.started += instance.OnHotkey9;
+            @Hotkey9.performed += instance.OnHotkey9;
+            @Hotkey9.canceled += instance.OnHotkey9;
+            @Hotkey0.started += instance.OnHotkey0;
+            @Hotkey0.performed += instance.OnHotkey0;
+            @Hotkey0.canceled += instance.OnHotkey0;
         }
 
         /// <summary>
@@ -829,6 +1206,45 @@ public partial class @Player: IInputActionCollection2, IDisposable
             @Interact.started -= instance.OnInteract;
             @Interact.performed -= instance.OnInteract;
             @Interact.canceled -= instance.OnInteract;
+            @LeftClick.started -= instance.OnLeftClick;
+            @LeftClick.performed -= instance.OnLeftClick;
+            @LeftClick.canceled -= instance.OnLeftClick;
+            @RightClick.started -= instance.OnRightClick;
+            @RightClick.performed -= instance.OnRightClick;
+            @RightClick.canceled -= instance.OnRightClick;
+            @ScrollWheel.started -= instance.OnScrollWheel;
+            @ScrollWheel.performed -= instance.OnScrollWheel;
+            @ScrollWheel.canceled -= instance.OnScrollWheel;
+            @Hotkey1.started -= instance.OnHotkey1;
+            @Hotkey1.performed -= instance.OnHotkey1;
+            @Hotkey1.canceled -= instance.OnHotkey1;
+            @Hotkey2.started -= instance.OnHotkey2;
+            @Hotkey2.performed -= instance.OnHotkey2;
+            @Hotkey2.canceled -= instance.OnHotkey2;
+            @Hotkey3.started -= instance.OnHotkey3;
+            @Hotkey3.performed -= instance.OnHotkey3;
+            @Hotkey3.canceled -= instance.OnHotkey3;
+            @Hotkey4.started -= instance.OnHotkey4;
+            @Hotkey4.performed -= instance.OnHotkey4;
+            @Hotkey4.canceled -= instance.OnHotkey4;
+            @Hotkey5.started -= instance.OnHotkey5;
+            @Hotkey5.performed -= instance.OnHotkey5;
+            @Hotkey5.canceled -= instance.OnHotkey5;
+            @Hotkey6.started -= instance.OnHotkey6;
+            @Hotkey6.performed -= instance.OnHotkey6;
+            @Hotkey6.canceled -= instance.OnHotkey6;
+            @Hotkey7.started -= instance.OnHotkey7;
+            @Hotkey7.performed -= instance.OnHotkey7;
+            @Hotkey7.canceled -= instance.OnHotkey7;
+            @Hotkey8.started -= instance.OnHotkey8;
+            @Hotkey8.performed -= instance.OnHotkey8;
+            @Hotkey8.canceled -= instance.OnHotkey8;
+            @Hotkey9.started -= instance.OnHotkey9;
+            @Hotkey9.performed -= instance.OnHotkey9;
+            @Hotkey9.canceled -= instance.OnHotkey9;
+            @Hotkey0.started -= instance.OnHotkey0;
+            @Hotkey0.performed -= instance.OnHotkey0;
+            @Hotkey0.canceled -= instance.OnHotkey0;
         }
 
         /// <summary>
@@ -948,5 +1364,96 @@ public partial class @Player: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnInteract(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "LeftClick" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnLeftClick(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "RightClick" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnRightClick(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ScrollWheel" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnScrollWheel(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey1" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey1(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey2" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey2(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey3" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey3(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey4" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey4(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey5" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey5(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey6" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey6(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey7" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey7(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey8" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey8(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey9" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey9(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Hotkey0" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnHotkey0(InputAction.CallbackContext context);
     }
 }

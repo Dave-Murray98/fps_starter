@@ -356,7 +356,7 @@ public class PersistentInventoryManager : MonoBehaviour
             ClearInventory();
         }
 
-        if (Input.GetKeyDown(KeyCode.Alpha1))
+        if (Input.GetKeyDown(KeyCode.N))
         {
             AddTestItem();
         }
