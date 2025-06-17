@@ -33,8 +33,12 @@ public class InventoryHotkeyIndicator : MonoBehaviour
             EquippedItemManager.Instance.OnHotkeyCleared += OnHotkeyCleared;
         }
 
+        //GameEvents.OnInventoryOpened += RefreshDisplay;
+
+        //Debug.Log("InventoryHotkeyIndicator started");
+
         // Start hidden
-        SetIndicatorVisible(false);
+        //SetIndicatorVisible(false);
     }
 
     /// <summary>
@@ -48,6 +52,8 @@ public class InventoryHotkeyIndicator : MonoBehaviour
 
     public void RefreshDisplay()
     {
+        //  Debug.Log($"Refreshing hotkey indicator display on {itemData.ItemData.itemName}");
+
         if (itemData?.ID == null)
         {
             Debug.LogWarning("Cannot refresh display - no item data");
@@ -63,11 +69,13 @@ public class InventoryHotkeyIndicator : MonoBehaviour
         // Update display
         if (assignedHotkeySlot != -1 || isCurrentlyEquipped)
         {
+            //  Debug.Log($"Found hotkey assignment for {itemData.ItemData.itemName}");
             UpdateIndicatorDisplay();
             SetIndicatorVisible(true);
         }
         else
         {
+            //            Debug.Log($"No hotkey assignment found for {itemData.ItemData.itemName}");
             SetIndicatorVisible(false);
         }
 
@@ -164,5 +172,8 @@ public class InventoryHotkeyIndicator : MonoBehaviour
             EquippedItemManager.Instance.OnHotkeyAssigned -= OnHotkeyAssigned;
             EquippedItemManager.Instance.OnHotkeyCleared -= OnHotkeyCleared;
         }
+
+        //GameEvents.OnInventoryOpened -= RefreshDisplay;
+        //Debug.Log("InventoryHotkeyIndicator destroyed");
     }
 }

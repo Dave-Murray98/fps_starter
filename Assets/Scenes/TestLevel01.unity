@@ -149,7 +149,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   saveFileName: GameSave
-  showDebugLogs: 1
+  showDebugLogs: 0
   itemDataPath: Data/Items/
 --- !u!4 &94847456
 Transform:
@@ -247,7 +247,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   saveID: SceneItemStateManager
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!4 &317266307
 Transform:
   m_ObjectHideFlags: 0
@@ -1084,13 +1084,12 @@ MonoBehaviour:
         stackedItemIds: []
         currentStackIndex: 0
       equippedItem:
-        equippedItemId: 
-        itemDataName: 
-        itemType: 0
-        sourceHotkeySlot: -1
-        isEquippedFromHotkey: 0
         isEquipped: 0
-  showDebugLogs: 1
+        equippedItemId: 
+        equippedItemDataName: 
+        isEquippedFromHotkey: 0
+        sourceHotkeySlot: -1
+  showDebugLogs: 0
 --- !u!4 &1070227893
 Transform:
   m_ObjectHideFlags: 0
@@ -1840,14 +1839,12 @@ MonoBehaviour:
       stackedItemIds: []
       currentStackIndex: 0
     equippedItem:
-      equippedItemId: 
-      itemDataName: 
-      itemType: 0
-      sourceHotkeySlot: -1
-      isEquippedFromHotkey: 0
       isEquipped: 0
-  enableDebugLogs: 1
-  saveID: EquippedItemManager
+      equippedItemId: 
+      equippedItemDataName: 
+      isEquippedFromHotkey: 0
+      sourceHotkeySlot: -1
+  enableDebugLogs: 0
   scrollCooldown: 0.1
   equipSound: {fileID: 0}
   hotkeySound: {fileID: 0}
@@ -2101,7 +2098,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveID: Inventory_Main
   autoGenerateID: 0
-  enableDebugLogs: 1
+  enableDebugLogs: 0
 --- !u!114 &1848890816
 MonoBehaviour:
   m_ObjectHideFlags: 0
