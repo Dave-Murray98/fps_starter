@@ -151,10 +151,21 @@ public class ItemStatsDisplay : MonoBehaviour
 
     /// <summary>
     /// FIXED: When a new item is added, register its drag handler after a small delay
-    /// Only if GameObject is active
+    /// Added null check to prevent MissingReferenceException
     /// </summary>
     private void OnInventoryItemAdded(InventoryItemData item)
     {
+        // Null check to prevent MissingReferenceException during scene transitions
+        if (this == null || gameObject == null)
+        {
+            Debug.LogWarning("[ItemStatsDisplay] OnInventoryItemAdded called on destroyed object - unsubscribing");
+            if (InventoryManager.Instance != null)
+            {
+                InventoryManager.Instance.OnItemAdded -= OnInventoryItemAdded;
+            }
+            return;
+        }
+
         // Only try to register if GameObject is active
         if (gameObject.activeInHierarchy)
         {
@@ -544,6 +555,13 @@ public class ItemStatsDisplay : MonoBehaviour
 
     private void OnDisable()
     {
+        // Also unsubscribe when disabled (before destruction)
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.Instance.OnItemAdded -= OnInventoryItemAdded;
+            Debug.Log("[ItemStatsDisplay] Unsubscribed from InventoryManager.OnItemAdded in OnDisable");
+        }
+
         if (Instance == this)
         {
             Instance = null;
@@ -586,16 +604,48 @@ public class ItemStatsDisplay : MonoBehaviour
         // Clean up any lingering tweens
         DOTween.Kill(this);
 
-        // Unsubscribe from events
+        // CRITICAL: Unsubscribe from all events to prevent MissingReferenceException
+        UnsubscribeFromAllEvents();
+
+        // Clear static instance if this was it
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
+        Debug.Log("[ItemStatsDisplay] OnDestroy called - all events unsubscribed");
+    }
+
+    /// <summary>
+    /// Comprehensive event cleanup to prevent MissingReferenceException during scene transitions
+    /// </summary>
+    private void UnsubscribeFromAllEvents()
+    {
+        // Unsubscribe from InventoryManager events (persistent across scenes)
         if (InventoryManager.Instance != null)
         {
             InventoryManager.Instance.OnItemAdded -= OnInventoryItemAdded;
             InventoryManager.Instance.OnItemRemoved -= OnInventoryItemRemoved;
             InventoryManager.Instance.OnInventoryCleared -= OnInventoryCleared;
+            Debug.Log("[ItemStatsDisplay] Unsubscribed from InventoryManager events");
         }
 
+        // Unsubscribe from GameEvents (static events)
         GameEvents.OnInventoryClosed -= OnInventoryClosed;
         GameEvents.OnInventoryOpened -= OnInventoryOpened;
+        Debug.Log("[ItemStatsDisplay] Unsubscribed from GameEvents");
+
+        // Unsubscribe from any drag handlers that might still reference this
+        var dragHandlers = FindObjectsByType<InventoryItemDragHandler>(FindObjectsSortMode.None);
+        foreach (var handler in dragHandlers)
+        {
+            if (handler != null)
+            {
+                handler.OnItemSelected -= DisplayItemStats;
+                handler.OnItemDeselected -= ClearDisplay;
+            }
+        }
+        Debug.Log($"[ItemStatsDisplay] Unsubscribed from {dragHandlers.Length} drag handlers");
     }
 
     #region Setup and Testing Methods

@@ -333,6 +333,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     /// <summary>
     /// NEW: Handle dropping item outside inventory (triggers item drop)
+    /// FIXED: Properly restore item to inventory before dropping
     /// </summary>
     private void HandleDropOutsideInventory()
     {
@@ -346,7 +347,35 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             return;
         }
 
-        // Use the ItemDropSystem to drop the item into the scene
+        // CRITICAL FIX: Restore item to inventory first if it was removed during drag
+        if (itemRemovedFromGrid)
+        {
+            Debug.Log($"[DragHandler] Restoring item {itemData.ID} to inventory before dropping");
+
+            // Restore to original position temporarily
+            itemData.SetGridPosition(originalGridPosition);
+            itemData.SetRotation(originalRotation);
+
+            if (gridVisual.GridData.PlaceItem(itemData))
+            {
+                itemRemovedFromGrid = false;
+                Debug.Log($"[DragHandler] Item {itemData.ID} restored to inventory successfully");
+            }
+            else
+            {
+                Debug.LogError($"[DragHandler] Failed to restore item {itemData.ID} to inventory before dropping!");
+                // Try to force it back anyway
+                gridVisual.GridData.RemoveItem(itemData.ID); // Clear any conflicts
+                if (!gridVisual.GridData.PlaceItem(itemData))
+                {
+                    Debug.LogError($"[DragHandler] Could not restore item to inventory - aborting drop");
+                    return;
+                }
+                itemRemovedFromGrid = false;
+            }
+        }
+
+        // Now try to drop the item using ItemDropSystem
         bool success = ItemDropSystem.DropItemFromInventory(itemData.ID);
 
         if (success)
