@@ -32,7 +32,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     private bool itemRemovedFromGrid = false; // Track if item is temporarily removed
 
     private InputManager inputManager;
-    private PersistentInventoryManager persistentInventory;
+    private InventoryManager persistentInventory;
 
     private void Awake()
     {
@@ -50,7 +50,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     private void Start()
     {
         inputManager = FindFirstObjectByType<InputManager>();
-        persistentInventory = PersistentInventoryManager.Instance;
+        persistentInventory = InventoryManager.Instance;
 
         // Get dropdown menu from the InventoryDropdownManager instead of trying to find the inactive menu
         GetDropdownMenuFromManager();

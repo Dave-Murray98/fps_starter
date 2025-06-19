@@ -151,7 +151,7 @@ public class HotkeySelectionUI : MonoBehaviour
 
     private void UpdateSlotButtonStates()
     {
-        if (EquippedItemManager.Instance == null || PersistentInventoryManager.Instance == null) return;
+        if (EquippedItemManager.Instance == null || InventoryManager.Instance == null) return;
 
         var bindings = EquippedItemManager.Instance.GetAllHotkeyBindings();
 
@@ -169,7 +169,7 @@ public class HotkeySelectionUI : MonoBehaviour
             if (binding.isAssigned)
             {
                 // Get the actual inventory item instead of loading from Resources
-                var inventoryItem = PersistentInventoryManager.Instance.InventoryData.GetItem(binding.itemId);
+                var inventoryItem = InventoryManager.Instance.InventoryData.GetItem(binding.itemId);
                 if (inventoryItem?.ItemData != null)
                 {
                     var itemData = inventoryItem.ItemData;

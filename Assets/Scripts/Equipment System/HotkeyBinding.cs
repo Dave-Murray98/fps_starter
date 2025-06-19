@@ -115,14 +115,14 @@ public class HotkeyBinding
     /// </summary>
     private void FindAndStackIdenticalConsumables()
     {
-        if (PersistentInventoryManager.Instance == null) return;
+        if (InventoryManager.Instance == null) return;
 
         // Get the ItemData to check if it's a consumable
         var itemData = GetCurrentItemData();
         if (itemData == null || itemData.itemType != ItemType.Consumable) return;
 
         // Find all items in inventory with the same ItemData name
-        var inventoryItems = PersistentInventoryManager.Instance.InventoryData.GetAllItems();
+        var inventoryItems = InventoryManager.Instance.InventoryData.GetAllItems();
 
         foreach (var inventoryItem in inventoryItems)
         {
@@ -203,7 +203,7 @@ public class HotkeyBinding
 
         foreach (string stackedId in stackedItemIds)
         {
-            if (PersistentInventoryManager.Instance?.InventoryData.GetItem(stackedId) == null)
+            if (InventoryManager.Instance?.InventoryData.GetItem(stackedId) == null)
             {
                 itemsToRemove.Add(stackedId);
             }
@@ -226,9 +226,9 @@ public class HotkeyBinding
         }
 
         // First try to get from current inventory item
-        if (PersistentInventoryManager.Instance != null)
+        if (InventoryManager.Instance != null)
         {
-            var inventoryItem = PersistentInventoryManager.Instance.InventoryData.GetItem(itemId);
+            var inventoryItem = InventoryManager.Instance.InventoryData.GetItem(itemId);
             if (inventoryItem?.ItemData != null)
             {
                 return inventoryItem.ItemData;

@@ -23,7 +23,7 @@ public class EquippedItemManager : MonoBehaviour
     [SerializeField] private AudioClip hotkeySound;
 
     // Components
-    private PersistentInventoryManager inventoryManager;
+    private InventoryManager inventoryManager;
     private InputManager inputManager;
 
     // Input timing
@@ -64,7 +64,7 @@ public class EquippedItemManager : MonoBehaviour
     private void Start()
     {
         // Get component references
-        inventoryManager = PersistentInventoryManager.Instance;
+        inventoryManager = InventoryManager.Instance;
 
         // Subscribe to manager events
         GameManager.OnManagersRefreshed += RefreshReferences;
@@ -86,7 +86,7 @@ public class EquippedItemManager : MonoBehaviour
         inputManager = GameManager.Instance?.inputManager;
         if (inventoryManager == null)
         {
-            inventoryManager = PersistentInventoryManager.Instance;
+            inventoryManager = InventoryManager.Instance;
         }
     }
 
@@ -478,61 +478,30 @@ public class EquippedItemManager : MonoBehaviour
             }
         }
 
-        return equipmentData;
+        return new EquipmentSaveData(equipmentData); // Return a copy of the equipmentData, so if it's a doorway transition, we don't clear it when we load;
     }
 
     /// <summary>
     /// Load equipment data from save (called by EquipmentSaveComponent)
-    /// FIXED: Create a copy of savedData to prevent clearing the original during doorway transitions
     /// </summary>
     public void LoadSaveData(EquipmentSaveData savedData)
     {
-        DebugLog("=== LOADING EQUIPMENT DATA ===");
+        // DebugLog("=== LOADING EQUIPMENT DATA ===");
 
         if (savedData != null && savedData.IsValid())
         {
-            DebugLog($"Loading equipment data, saved data first itemname is {savedData.hotkeyBindings[0].itemDataName}");
-
-            // Debug what we're loading
-            if (savedData.hotkeyBindings != null)
-            {
-                foreach (var binding in savedData.hotkeyBindings)
-                {
-                    if (binding.isAssigned)
-                    {
-                        DebugLog($"Loading Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}) - Stack: {binding.stackedItemIds?.Count ?? 0} items");
-                    }
-                    else
-                    {
-                        DebugLog($"Loading Hotkey {binding.slotNumber}: Empty");
-                    }
-                }
-            }
-            else
-            {
-                DebugLog("No hotkey bindings found in saved data");
-            }
-
-            // CRITICAL FIX: Create a copy of the saved data BEFORE clearing current state
-            // This prevents clearing the original data during doorway transitions where savedData might be the same reference
-            DebugLog("Creating copy of saved data to prevent reference issues...");
-            var dataCopy = new EquipmentSaveData(savedData);
-
-            // Now clear current state (safe because we have a copy)
-            DebugLog("Clearing current equipment state before loading...");
+            // DebugLog("Clearing current equipment state before loading...");
             ClearCurrentEquipmentState();
 
             // Load the copied data
-            equipmentData = dataCopy;
-
-            DebugLog($"After creating copy, equipment data first itemname is {equipmentData.hotkeyBindings[0].itemDataName}");
+            equipmentData = savedData;
 
             // Validate loaded data against current inventory
             ValidateLoadedHotkeys();
 
-            DebugLog($"After validation, equipment data first itemname is {equipmentData.hotkeyBindings[0].itemDataName}");
+            // DebugLog($"After validation, equipment data first itemname is {equipmentData.hotkeyBindings[0].itemDataName}");
 
-            DebugLog("Equipment data loaded from save");
+            // DebugLog("Equipment data loaded from save");
 
             // Refresh UI for all hotkeys
             RefreshAllHotkeyUI();

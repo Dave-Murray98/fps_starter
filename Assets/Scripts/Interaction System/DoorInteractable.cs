@@ -110,7 +110,7 @@ public class DoorInteractable : InteractableBase, IConditionalInteractable
             return true;
 
         // You can integrate this with your inventory system
-        var inventory = PersistentInventoryManager.Instance;
+        var inventory = InventoryManager.Instance;
         if (inventory != null)
         {
             // Check if player has the key item

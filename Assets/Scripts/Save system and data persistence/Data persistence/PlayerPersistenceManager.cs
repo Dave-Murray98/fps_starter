@@ -20,7 +20,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     private bool saveManagerIsHandlingRestore = false;
 
     // Reference to persistent inventory
-    private PersistentInventoryManager persistentInventory;
+    private InventoryManager persistentInventory;
     private InventorySaveComponent inventorySaveComponent;
 
     private void Awake()
@@ -47,10 +47,10 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     private void RefreshInventoryReferences()
     {
-        persistentInventory = PersistentInventoryManager.Instance;
+        persistentInventory = InventoryManager.Instance;
         if (persistentInventory == null)
         {
-            persistentInventory = FindFirstObjectByType<PersistentInventoryManager>();
+            persistentInventory = FindFirstObjectByType<InventoryManager>();
         }
 
         inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();

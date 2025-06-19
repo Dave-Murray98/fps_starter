@@ -11,10 +11,10 @@ public class HotkeyBarUI : MonoBehaviour
     [SerializeField] private Transform hotkeyContainer;
     [SerializeField] private GameObject hotkeySlotPrefab;
 
-    [Header("Settings")]
-    [SerializeField] private bool showEmptySlots = true;
-    [SerializeField] private bool autoHideWhenEmpty = false;
-    [SerializeField] private float slotSpacing = 5f;
+    // [Header("Settings")]
+    // [SerializeField] private bool showEmptySlots = true;
+    // [SerializeField] private bool autoHideWhenEmpty = false;
+    // [SerializeField] private float slotSpacing = 5f;
 
     private Dictionary<int, HotkeySlotUI> hotkeySlots = new Dictionary<int, HotkeySlotUI>();
 
@@ -56,7 +56,7 @@ public class HotkeyBarUI : MonoBehaviour
 
     private void RefreshAllSlots()
     {
-        if (EquippedItemManager.Instance == null || PersistentInventoryManager.Instance == null) return;
+        if (EquippedItemManager.Instance == null || InventoryManager.Instance == null) return;
 
         var bindings = EquippedItemManager.Instance.GetAllHotkeyBindings();
 
@@ -67,7 +67,7 @@ public class HotkeyBarUI : MonoBehaviour
                 if (binding.isAssigned)
                 {
                     // Get the actual inventory item instead of loading from Resources
-                    var inventoryItem = PersistentInventoryManager.Instance.InventoryData.GetItem(binding.itemId);
+                    var inventoryItem = InventoryManager.Instance.InventoryData.GetItem(binding.itemId);
                     if (inventoryItem?.ItemData != null)
                     {
                         slotUI.SetAssignedItem(binding, inventoryItem.ItemData);
@@ -92,9 +92,9 @@ public class HotkeyBarUI : MonoBehaviour
     {
         if (hotkeySlots.TryGetValue(slotNumber, out var slotUI))
         {
-            if (PersistentInventoryManager.Instance != null)
+            if (InventoryManager.Instance != null)
             {
-                var inventoryItem = PersistentInventoryManager.Instance.InventoryData.GetItem(binding.itemId);
+                var inventoryItem = InventoryManager.Instance.InventoryData.GetItem(binding.itemId);
                 if (inventoryItem?.ItemData != null)
                 {
                     slotUI.SetAssignedItem(binding, inventoryItem.ItemData);

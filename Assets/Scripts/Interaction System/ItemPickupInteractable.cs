@@ -79,7 +79,7 @@ public class ItemPickupInteractable : MonoBehaviour, IInteractable
         }
 
         // Try to add to inventory
-        var inventory = PersistentInventoryManager.Instance;
+        var inventory = InventoryManager.Instance;
         if (inventory == null)
         {
             DebugLog("No PersistentInventoryManager found");

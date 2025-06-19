@@ -83,9 +83,9 @@ public class EquippedItemData
             return null;
 
         // First try to get from current inventory item
-        if (PersistentInventoryManager.Instance != null)
+        if (InventoryManager.Instance != null)
         {
-            var inventoryItem = PersistentInventoryManager.Instance.InventoryData.GetItem(equippedItemId);
+            var inventoryItem = InventoryManager.Instance.InventoryData.GetItem(equippedItemId);
             if (inventoryItem?.ItemData != null)
             {
                 return inventoryItem.ItemData;

@@ -8,9 +8,9 @@ using Sirenix.OdinInspector;
 /// This is a singleton that persists across scenes
 /// FIXED: Improved rotation handling to prevent cell occupation issues
 /// </summary>
-public class PersistentInventoryManager : MonoBehaviour
+public class InventoryManager : MonoBehaviour
 {
-    public static PersistentInventoryManager Instance { get; private set; }
+    public static InventoryManager Instance { get; private set; }
 
     [Header("Grid Settings")]
     [SerializeField] private int gridWidth = 10;
@@ -231,7 +231,7 @@ public class PersistentInventoryManager : MonoBehaviour
     /// </summary>
     public InventorySaveData GetSaveData()
     {
-        var saveData = new InventorySaveData(gridWidth, gridHeight);
+        var saveData = new InventorySaveData(gridWidth, gridHeight); // Return a copy of the data, so if it's a doorway transition, we don't clear it when we load;
         saveData.nextItemId = nextItemId;
 
         foreach (var item in inventoryData.GetAllItems())

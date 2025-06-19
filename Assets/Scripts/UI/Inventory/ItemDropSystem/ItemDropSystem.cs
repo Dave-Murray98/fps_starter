@@ -128,7 +128,7 @@ public class ItemDropSystem : MonoBehaviour
         }
 
         // Get the item from inventory
-        var inventory = PersistentInventoryManager.Instance;
+        var inventory = InventoryManager.Instance;
         if (inventory == null)
         {
             Debug.LogError("PersistentInventoryManager not found");

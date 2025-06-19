@@ -2,11 +2,11 @@ using UnityEngine;
 
 /// <summary>
 /// Updated save component that works with the new data-driven inventory system
-/// No longer depends on UI being active - works directly with PersistentInventoryManager
+/// No longer depends on UI being active - works directly with InventoryManager
 /// </summary>
 public class InventorySaveComponent : SaveComponentBase
 {
-    private PersistentInventoryManager persistentInventory;
+    private InventoryManager inventoryManager;
 
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
@@ -19,32 +19,32 @@ public class InventorySaveComponent : SaveComponentBase
         autoGenerateID = false;
 
         // Get reference to persistent inventory
-        persistentInventory = PersistentInventoryManager.Instance;
-        if (persistentInventory == null)
+        inventoryManager = InventoryManager.Instance;
+        if (inventoryManager == null)
         {
             // Try to find it in the scene
-            persistentInventory = FindFirstObjectByType<PersistentInventoryManager>();
+            inventoryManager = FindFirstObjectByType<InventoryManager>();
         }
     }
 
     private void Start()
     {
         // Ensure we have the persistent inventory reference
-        if (persistentInventory == null)
+        if (inventoryManager == null)
         {
-            persistentInventory = PersistentInventoryManager.Instance;
+            inventoryManager = InventoryManager.Instance;
         }
     }
 
     public override object GetDataToSave()
     {
-        if (persistentInventory == null)
+        if (inventoryManager == null)
         {
             DebugLog("Cannot save inventory - PersistentInventoryManager not found");
             return null;
         }
 
-        var saveData = persistentInventory.GetSaveData();
+        var saveData = inventoryManager.GetSaveData();
         DebugLog($"Saved inventory: {saveData.ItemCount} items in {saveData.gridWidth}x{saveData.gridHeight} grid");
         return saveData;
     }
@@ -94,10 +94,10 @@ public class InventorySaveComponent : SaveComponentBase
             return;
         }
 
-        if (persistentInventory == null)
+        if (inventoryManager == null)
         {
-            persistentInventory = PersistentInventoryManager.Instance;
-            if (persistentInventory == null)
+            inventoryManager = InventoryManager.Instance;
+            if (inventoryManager == null)
             {
                 DebugLog("Cannot load inventory - PersistentInventoryManager not found");
                 return;
@@ -109,7 +109,7 @@ public class InventorySaveComponent : SaveComponentBase
         try
         {
             // Load directly into persistent inventory - no UI dependencies!
-            persistentInventory.LoadFromSaveData(inventoryData);
+            inventoryManager.LoadFromSaveData(inventoryData);
             DebugLog("Inventory loaded successfully");
         }
         catch (System.Exception e)
@@ -151,13 +151,13 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     public InventorySaveData GetInventorySaveData()
     {
-        if (persistentInventory == null)
+        if (inventoryManager == null)
         {
             DebugLog("PersistentInventoryManager not found - returning empty inventory data");
             return new InventorySaveData();
         }
 
-        return persistentInventory.GetSaveData();
+        return inventoryManager.GetSaveData();
     }
 
     /// <summary>
@@ -173,7 +173,7 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     public bool IsPersistentInventoryAvailable()
     {
-        return persistentInventory != null;
+        return inventoryManager != null;
     }
 
     /// <summary>
@@ -181,11 +181,11 @@ public class InventorySaveComponent : SaveComponentBase
     /// </summary>
     public void RefreshPersistentInventoryReference()
     {
-        persistentInventory = PersistentInventoryManager.Instance;
-        if (persistentInventory == null)
+        inventoryManager = InventoryManager.Instance;
+        if (inventoryManager == null)
         {
-            persistentInventory = FindFirstObjectByType<PersistentInventoryManager>();
+            inventoryManager = FindFirstObjectByType<InventoryManager>();
         }
-        DebugLog($"Persistent inventory reference refreshed: {persistentInventory != null}");
+        DebugLog($"Persistent inventory reference refreshed: {inventoryManager != null}");
     }
 }

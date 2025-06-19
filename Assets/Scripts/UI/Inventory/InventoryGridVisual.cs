@@ -26,7 +26,7 @@ public class InventoryGridVisual : MonoBehaviour
     private List<Image> gridLines = new List<Image>();
 
     // Reference to persistent data
-    private PersistentInventoryManager persistentInventory;
+    private InventoryManager persistentInventory;
     private InventoryGridData currentGridData;
 
     public float CellSize => cellSize;
@@ -58,7 +58,7 @@ public class InventoryGridVisual : MonoBehaviour
 
     private void InitializeFromPersistentData()
     {
-        persistentInventory = PersistentInventoryManager.Instance;
+        persistentInventory = InventoryManager.Instance;
         if (persistentInventory == null)
         {
             Debug.LogError("PersistentInventoryManager not found! Make sure it exists in the scene.");

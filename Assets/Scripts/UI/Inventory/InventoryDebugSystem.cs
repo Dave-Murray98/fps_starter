@@ -31,7 +31,7 @@ public class InventoryDebugSystem : MonoBehaviour
     [SerializeField] private Color freeCellColor = Color.green;
     [SerializeField] private Color invalidCellColor = Color.magenta;
 
-    private PersistentInventoryManager persistentInventory;
+    private InventoryManager persistentInventory;
     private InventoryGridVisual gridVisual;
     private List<GameObject> debugCells = new List<GameObject>();
     private StringBuilder debugStringBuilder = new StringBuilder();
@@ -43,13 +43,13 @@ public class InventoryDebugSystem : MonoBehaviour
     private void Awake()
     {
         CreateDebugUI();
-        persistentInventory = PersistentInventoryManager.Instance;
+        persistentInventory = InventoryManager.Instance;
     }
 
     private void Start()
     {
         if (persistentInventory == null)
-            persistentInventory = FindFirstObjectByType<PersistentInventoryManager>();
+            persistentInventory = FindFirstObjectByType<InventoryManager>();
 
         gridVisual = FindFirstObjectByType<InventoryGridVisual>();
 
