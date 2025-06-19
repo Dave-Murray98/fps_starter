@@ -9,7 +9,8 @@ public enum ItemType
     Weapon,     // Guns, knives, grenades - combat items
     Equipment,  // Lock-picks, scanners - interaction tools
     KeyItem,    // Quest items, keys - cannot be dropped
-    Ammo        // Ammunition - stackable
+    Ammo,        // Ammunition - stackable
+    Clothing   // Clothing items - can be worn
 }
 
 /// <summary>
