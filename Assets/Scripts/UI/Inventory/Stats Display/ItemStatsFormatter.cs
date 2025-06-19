@@ -61,9 +61,6 @@ public static class ItemStatsFormatter
                 break;
         }
 
-        // Add general properties
-        AddGeneralStats(stats, itemData);
-
         return stats.ToString().TrimEnd();
     }
 
@@ -109,15 +106,6 @@ public static class ItemStatsFormatter
             stats.AppendLine($"  • Thirst: {POSITIVE_STAT_COLOR}+{consumableData.thirstRestore:F0}{COLOR_END}");
         }
 
-        if (consumableData.consumeTime > 0)
-        {
-            stats.AppendLine($"<b>Consume Time:</b> {STAT_VALUE_COLOR}{consumableData.consumeTime:F1}s{COLOR_END}");
-        }
-
-        if (consumableData.multiUse)
-        {
-            stats.AppendLine($"<b>Uses:</b> {STAT_VALUE_COLOR}{consumableData.maxUses} remaining{COLOR_END}");
-        }
     }
 
     private static void AddWeaponStats(StringBuilder stats, WeaponData weaponData)
@@ -142,18 +130,9 @@ public static class ItemStatsFormatter
     {
         if (equipmentData == null) return;
 
-        stats.AppendLine("<b>Equipment Properties:</b>");
-        stats.AppendLine($"  • Use Range: {STAT_VALUE_COLOR}{equipmentData.useRange:F1}m{COLOR_END}");
-        stats.AppendLine($"  • Use Time: {STAT_VALUE_COLOR}{equipmentData.useTime:F1}s{COLOR_END}");
-
         if (equipmentData.hasLimitedUses)
         {
             stats.AppendLine($"  • Uses: {STAT_VALUE_COLOR}{equipmentData.maxUses} remaining{COLOR_END}");
-        }
-
-        if (equipmentData.compatibleInteractionTags != null && equipmentData.compatibleInteractionTags.Length > 0)
-        {
-            stats.AppendLine($"  • Compatible: {STAT_VALUE_COLOR}{string.Join(", ", equipmentData.compatibleInteractionTags)}{COLOR_END}");
         }
     }
 
@@ -169,7 +148,6 @@ public static class ItemStatsFormatter
 
         // Note: This will be replaced with actual ClothingData when implemented
         stats.AppendLine();
-        stats.AppendLine("<i>Full clothing system coming soon...</i>");
     }
 
     private static void AddAmmoStats(StringBuilder stats, AmmoData ammoData)
@@ -178,25 +156,12 @@ public static class ItemStatsFormatter
 
         stats.AppendLine("<b>Ammunition Properties:</b>");
         stats.AppendLine($"  • Damage Modifier: {GetModifierColor(ammoData.damageModifier)}{FormatModifier(ammoData.damageModifier)}{COLOR_END}");
-
-        if (ammoData.compatibleWeapons != null && ammoData.compatibleWeapons.Length > 0)
-        {
-            stats.AppendLine($"  • Compatible Weapons:");
-            foreach (var weapon in ammoData.compatibleWeapons)
-            {
-                if (weapon != null)
-                {
-                    stats.AppendLine($"    - {STAT_VALUE_COLOR}{weapon.itemName}{COLOR_END}");
-                }
-            }
-        }
     }
 
     private static void AddKeyItemStats(StringBuilder stats, ItemData itemData)
     {
         stats.AppendLine("<b>Key Item Properties:</b>");
         stats.AppendLine($"  • Cannot be dropped");
-        stats.AppendLine($"  • Quest/Story item");
 
         if (!string.IsNullOrEmpty(itemData.description))
         {
@@ -204,38 +169,6 @@ public static class ItemStatsFormatter
             stats.AppendLine("<b>Special Notes:</b>");
             stats.AppendLine($"  {itemData.description}");
         }
-    }
-
-    private static void AddGeneralStats(StringBuilder stats, ItemData itemData)
-    {
-        stats.AppendLine();
-        stats.AppendLine("<b>General Properties:</b>");
-
-        // Stack information
-        if (itemData.IsStackable)
-        {
-            stats.AppendLine($"  • Max Stack: {STAT_VALUE_COLOR}{itemData.stackSize}{COLOR_END}");
-        }
-        else
-        {
-            stats.AppendLine($"  • Cannot be stacked");
-        }
-
-        // Rotation
-        if (itemData.isRotatable)
-        {
-            stats.AppendLine($"  • Can be rotated");
-        }
-
-        // Drop restrictions
-        if (!itemData.CanDrop)
-        {
-            stats.AppendLine($"  • {NEGATIVE_STAT_COLOR}Cannot be dropped{COLOR_END}");
-        }
-
-        // Shape information
-        Vector2Int boundingSize = itemData.GetBoundingSize();
-        stats.AppendLine($"  • Size: {STAT_VALUE_COLOR}{boundingSize.x}×{boundingSize.y} cells{COLOR_END}");
     }
 
     #region Helper Methods

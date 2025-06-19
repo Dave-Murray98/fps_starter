@@ -366,7 +366,7 @@ GameObject:
   - component: {fileID: 5685291056423843666}
   - component: {fileID: 8956148248751137114}
   m_Layer: 5
-  m_Name: ItemStatsUI
+  m_Name: ItemStatsPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -579,6 +579,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2913453788535744125}
   - component: {fileID: 1705389574613698530}
+  - component: {fileID: 4158615972319005620}
   m_Layer: 5
   m_Name: ItemStatsUI
   m_TagString: Untagged
@@ -634,6 +635,18 @@ MonoBehaviour:
   fadeInDuration: 0.2
   fadeOutDuration: 0.15
   testItem: {fileID: 0}
+--- !u!225 &4158615972319005620
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7603312505695226561}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &8116559367504787544
 GameObject:
   m_ObjectHideFlags: 0

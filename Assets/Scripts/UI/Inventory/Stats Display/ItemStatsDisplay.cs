@@ -7,7 +7,7 @@ using Sirenix.OdinInspector;
 /// <summary>
 /// Displays detailed stats for selected inventory items
 /// Shows stats when items are clicked, hovered, or being dragged
-/// All-in-one component - no additional setup scripts needed
+/// FIXED: Better timing for drag handler registration and proper initialization
 /// </summary>
 public class ItemStatsDisplay : MonoBehaviour
 {
@@ -38,6 +38,7 @@ public class ItemStatsDisplay : MonoBehaviour
     private CanvasGroup canvasGroup;
     private RectTransform rectTransform;
     private bool isVisible = false;
+    private bool hasInitialized = false;
 
     // Events
     public System.Action<InventoryItemData> OnItemDisplayed;
@@ -53,20 +54,138 @@ public class ItemStatsDisplay : MonoBehaviour
             canvasGroup = gameObject.AddComponent<CanvasGroup>();
         }
 
-        // Start hidden
+        // IMPORTANT: Keep GameObject active so child panels can be controlled
+        gameObject.SetActive(true);
+
+        // Initialize child panels properly
+        InitializeChildPanels();
+
+        // Start with "no item selected" state
         SetVisible(false, true);
+    }
+
+    /// <summary>
+    /// Initialize child panels and ensure they're properly set up
+    /// </summary>
+    private void InitializeChildPanels()
+    {
+        // Make sure child panels are properly initialized
+        if (statsPanel != null)
+        {
+            statsPanel.SetActive(false);
+        }
+
+        if (noItemSelectedPanel != null)
+        {
+            noItemSelectedPanel.SetActive(true);
+        }
+
+        // If panels aren't assigned, try to find them automatically
+        if (statsPanel == null)
+        {
+            statsPanel = transform.Find("StatsPanel")?.gameObject;
+            if (statsPanel != null)
+            {
+                Debug.Log("[ItemStatsDisplay] Auto-found StatsPanel");
+            }
+        }
+
+        if (noItemSelectedPanel == null)
+        {
+            noItemSelectedPanel = transform.Find("NoItemSelectedPanel")?.gameObject;
+            if (noItemSelectedPanel != null)
+            {
+                Debug.Log("[ItemStatsDisplay] Auto-found NoItemSelectedPanel");
+            }
+        }
     }
 
     private void Start()
     {
+        // Setup initial UI state first
+        SetupInitialUI();
+
         // Subscribe to inventory system events
         SubscribeToInventoryEvents();
 
-        // Setup initial UI state
-        SetupInitialUI();
+        // FIXED: Use a more robust registration approach
+        StartCoroutine(DelayedInitialization());
+    }
 
-        // IMPORTANT: Auto-register with existing drag handlers
+    /// <summary>
+    /// FIXED: Better initialization timing that waits for inventory system to be ready
+    /// </summary>
+    private System.Collections.IEnumerator DelayedInitialization()
+    {
+        // Wait for inventory manager to be fully ready
+        while (InventoryManager.Instance == null)
+        {
+            yield return new WaitForEndOfFrame();
+        }
+
+        // Wait an additional frame for inventory UI to initialize
+        yield return new WaitForEndOfFrame();
+        yield return new WaitForEndOfFrame();
+
+        // Now try to register existing drag handlers
         RegisterExistingDragHandlers();
+
+        // Set up event listeners for new drag handlers being created
+        SetupDragHandlerCreationListeners();
+
+        hasInitialized = true;
+        Debug.Log("[ItemStatsDisplay] Initialization complete");
+    }
+
+    /// <summary>
+    /// FIXED: Better event listening for when new drag handlers are created
+    /// </summary>
+    private void SetupDragHandlerCreationListeners()
+    {
+        if (InventoryManager.Instance != null)
+        {
+            // Listen for when items are added to inventory (which creates new drag handlers)
+            InventoryManager.Instance.OnItemAdded += OnInventoryItemAdded;
+        }
+    }
+
+    /// <summary>
+    /// FIXED: When a new item is added, register its drag handler after a small delay
+    /// Only if GameObject is active
+    /// </summary>
+    private void OnInventoryItemAdded(InventoryItemData item)
+    {
+        // Only try to register if GameObject is active
+        if (gameObject.activeInHierarchy)
+        {
+            // Give the visual system time to create the drag handler
+            StartCoroutine(RegisterNewDragHandlerAfterDelay(item.ID));
+        }
+        else
+        {
+            Debug.Log($"[ItemStatsDisplay] Item {item.ID} added but GameObject inactive - will register when activated");
+        }
+    }
+
+    private System.Collections.IEnumerator RegisterNewDragHandlerAfterDelay(string itemId)
+    {
+        // Wait a few frames for the visual to be created
+        for (int i = 0; i < 3; i++)
+        {
+            yield return new WaitForEndOfFrame();
+        }
+
+        // Find and register the new drag handler
+        var dragHandlers = FindObjectsByType<InventoryItemDragHandler>(FindObjectsSortMode.None);
+        foreach (var handler in dragHandlers)
+        {
+            if (handler.GetComponent<InventoryItemVisualRenderer>()?.ItemData?.ID == itemId)
+            {
+                RegisterDragHandler(handler);
+                Debug.Log($"[ItemStatsDisplay] Auto-registered new drag handler for item {itemId}");
+                break;
+            }
+        }
     }
 
     private void SubscribeToInventoryEvents()
@@ -80,21 +199,62 @@ public class ItemStatsDisplay : MonoBehaviour
 
         // Subscribe to game events
         GameEvents.OnInventoryClosed += OnInventoryClosed;
+        GameEvents.OnInventoryOpened += OnInventoryOpened; // NEW: Listen for inventory opening
     }
 
     private void SetupInitialUI()
     {
-        // Show "no item selected" state initially
+        // Ensure child panels are in correct state
         ShowNoItemSelected();
+
+        // FIXED: Make sure the main GameObject is visible and the "no item selected" panel is shown
+        SetVisible(true, true);
+
+        Debug.Log("[ItemStatsDisplay] Initial UI setup complete - showing 'no item selected' state");
+    }
+
+    /// <summary>
+    /// FIXED: When inventory opens, check if GameObject is active before starting coroutines
+    /// </summary>
+    private void OnInventoryOpened()
+    {
+        // Since this is called via events, the GameObject might not be active yet
+        // We need to delay the initialization until the GameObject becomes active
+        if (!gameObject.activeInHierarchy)
+        {
+            Debug.Log("[ItemStatsDisplay] GameObject not active yet - will initialize when enabled");
+            return; // OnEnable will handle initialization when the GameObject becomes active
+        }
+
+        PerformInventoryOpenedActions();
+    }
+
+    /// <summary>
+    /// Perform the actual inventory opened logic
+    /// </summary>
+    private void PerformInventoryOpenedActions()
+    {
+        if (!hasInitialized)
+        {
+            StartCoroutine(DelayedInitialization());
+        }
+        else
+        {
+            // Re-register in case we missed any
+            StartCoroutine(RegisterExistingDragHandlersCoroutine());
+        }
+
+        // Make sure we're visible when inventory opens
+        SetVisible(true);
+        ShowNoItemSelected(); // Start with "no item selected" state
     }
 
     /// <summary>
     /// Automatically register with any existing drag handlers in the scene
-    /// This ensures the stats display works immediately, even with pre-existing items
+    /// FIXED: Better error handling and logging
     /// </summary>
     private void RegisterExistingDragHandlers()
     {
-        // Wait a frame to ensure all inventory items are fully initialized
         StartCoroutine(RegisterExistingDragHandlersCoroutine());
     }
 
@@ -102,7 +262,7 @@ public class ItemStatsDisplay : MonoBehaviour
     {
         // Wait for inventory items to be fully set up
         yield return new WaitForEndOfFrame();
-        yield return new WaitForEndOfFrame(); // Extra frame for safety
+        yield return new WaitForEndOfFrame();
 
         var dragHandlers = FindObjectsByType<InventoryItemDragHandler>(FindObjectsSortMode.None);
 
@@ -116,11 +276,9 @@ public class ItemStatsDisplay : MonoBehaviour
             }
         }
 
-        if (registeredCount > 0)
-        {
-            Debug.Log($"[ItemStatsDisplay] Auto-registered {registeredCount} existing drag handlers");
-        }
-        else
+        Debug.Log($"[ItemStatsDisplay] Registered {registeredCount} existing drag handlers");
+
+        if (registeredCount == 0)
         {
             Debug.Log("[ItemStatsDisplay] No existing drag handlers found - will register new ones as they're created");
         }
@@ -172,6 +330,8 @@ public class ItemStatsDisplay : MonoBehaviour
 
         // Fire event
         OnItemDisplayed?.Invoke(itemData);
+
+        Debug.Log($"[ItemStatsDisplay] Displaying stats for: {itemData.ItemData.itemName}");
     }
 
     /// <summary>
@@ -188,11 +348,14 @@ public class ItemStatsDisplay : MonoBehaviour
 
     /// <summary>
     /// Hide the entire stats display
+    /// FIXED: Never deactivate the GameObject - just make it transparent
     /// </summary>
     public void HideDisplay()
     {
         currentDisplayedItem = null;
-        SetVisible(false);
+        // Don't actually hide - just make transparent and show "no item selected"
+        ShowNoItemSelected();
+        SetVisible(true); // Keep it visible but with "no item selected"
     }
 
     private void ShowStatsPanel()
@@ -223,6 +386,13 @@ public class ItemStatsDisplay : MonoBehaviour
 
     private void SetVisible(bool visible, bool immediate = false)
     {
+        // Don't try to change visibility if GameObject isn't active
+        if (!gameObject.activeInHierarchy)
+        {
+            Debug.Log("[ItemStatsDisplay] SetVisible called but GameObject inactive - ignoring");
+            return;
+        }
+
         if (isVisible == visible && !immediate) return;
 
         isVisible = visible;
@@ -230,19 +400,28 @@ public class ItemStatsDisplay : MonoBehaviour
         if (immediate)
         {
             canvasGroup.alpha = visible ? 1f : 0f;
-            gameObject.SetActive(visible);
+            canvasGroup.interactable = visible;
+            canvasGroup.blocksRaycasts = visible;
         }
         else
         {
             if (visible)
             {
-                gameObject.SetActive(true);
+                canvasGroup.interactable = true;
+                canvasGroup.blocksRaycasts = true;
                 canvasGroup.DOFade(1f, fadeInDuration);
             }
             else
             {
                 canvasGroup.DOFade(0f, fadeOutDuration)
-                    .OnComplete(() => gameObject.SetActive(false));
+                    .OnComplete(() =>
+                    {
+                        if (gameObject.activeInHierarchy) // Safety check
+                        {
+                            canvasGroup.interactable = false;
+                            canvasGroup.blocksRaycasts = false;
+                        }
+                    });
             }
         }
     }
@@ -255,14 +434,21 @@ public class ItemStatsDisplay : MonoBehaviour
 
     /// <summary>
     /// Register a drag handler to send events to this stats display
-    /// Called by inventory drag handlers when they're created
+    /// FIXED: Better validation and error handling
     /// </summary>
     public void RegisterDragHandler(InventoryItemDragHandler dragHandler)
     {
         if (dragHandler != null)
         {
+            // Unregister first to prevent duplicate registrations
+            dragHandler.OnItemSelected -= DisplayItemStats;
+            dragHandler.OnItemDeselected -= ClearDisplay;
+
+            // Then register
             dragHandler.OnItemSelected += DisplayItemStats;
             dragHandler.OnItemDeselected += ClearDisplay;
+
+            Debug.Log($"[ItemStatsDisplay] Registered drag handler for item");
         }
     }
 
@@ -296,7 +482,6 @@ public class ItemStatsDisplay : MonoBehaviour
 
     /// <summary>
     /// Update the display if the current item's data has changed
-    /// (e.g., condition changed due to use/repair)
     /// </summary>
     public void RefreshCurrentItem()
     {
@@ -317,6 +502,44 @@ public class ItemStatsDisplay : MonoBehaviour
         {
             Instance = this;
         }
+
+        // IMPORTANT: Handle initialization when GameObject becomes active
+        // This covers the case where OnInventoryOpened was called before GameObject was active
+        if (hasInitialized)
+        {
+            // If we're already initialized, just refresh the display
+            ShowNoItemSelected();
+            SetVisible(true);
+        }
+        else
+        {
+            // If not initialized yet, do a quick check if we should initialize now
+            if (gameObject.activeInHierarchy)
+            {
+                // Start initialization process when GameObject becomes active
+                StartCoroutine(OnEnableInitialization());
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handle initialization when OnEnable is called (GameObject becomes active)
+    /// </summary>
+    private System.Collections.IEnumerator OnEnableInitialization()
+    {
+        // Wait a frame to ensure everything is properly activated
+        yield return new WaitForEndOfFrame();
+
+        // Check if we should perform inventory opened actions
+        if (GameManager.Instance?.uiManager?.isInventoryOpen == true)
+        {
+            PerformInventoryOpenedActions();
+        }
+        else if (!hasInitialized)
+        {
+            // Still do basic initialization even if inventory isn't open
+            StartCoroutine(DelayedInitialization());
+        }
     }
 
     private void OnDisable()
@@ -329,7 +552,6 @@ public class ItemStatsDisplay : MonoBehaviour
 
     /// <summary>
     /// Handle when an item is removed from inventory
-    /// Clear display if we're showing the removed item
     /// </summary>
     private void OnInventoryItemRemoved(string itemId)
     {
@@ -349,10 +571,14 @@ public class ItemStatsDisplay : MonoBehaviour
 
     /// <summary>
     /// Handle when inventory UI is closed
+    /// FIXED: Just clear the current item since GameObject will be deactivated anyway
     /// </summary>
     private void OnInventoryClosed()
     {
-        HideDisplay();
+        // Clear the current item
+        currentDisplayedItem = null;
+        // Don't try to do UI updates since the GameObject will be deactivated
+        Debug.Log("[ItemStatsDisplay] Inventory closed - cleared current item");
     }
 
     private void OnDestroy()
@@ -363,11 +589,13 @@ public class ItemStatsDisplay : MonoBehaviour
         // Unsubscribe from events
         if (InventoryManager.Instance != null)
         {
+            InventoryManager.Instance.OnItemAdded -= OnInventoryItemAdded;
             InventoryManager.Instance.OnItemRemoved -= OnInventoryItemRemoved;
             InventoryManager.Instance.OnInventoryCleared -= OnInventoryCleared;
         }
 
         GameEvents.OnInventoryClosed -= OnInventoryClosed;
+        GameEvents.OnInventoryOpened -= OnInventoryOpened;
     }
 
     #region Setup and Testing Methods
@@ -384,18 +612,11 @@ public class ItemStatsDisplay : MonoBehaviour
             return;
         }
 
-        // Create a test inventory item
         var testInventoryItem = new InventoryItemData("test_item", testItem, Vector2Int.zero);
-
-        // Display its stats
         DisplayItemStats(testInventoryItem);
-
         Debug.Log($"Displaying stats for: {testItem.itemName}");
     }
 
-    /// <summary>
-    /// Clear the stats display
-    /// </summary>
     [Button("Clear Display")]
     private void TestClearDisplay()
     {
@@ -403,9 +624,6 @@ public class ItemStatsDisplay : MonoBehaviour
         Debug.Log("Stats display cleared");
     }
 
-    /// <summary>
-    /// Hide the stats display completely
-    /// </summary>
     [Button("Hide Display")]
     private void TestHideDisplay()
     {
@@ -414,8 +632,7 @@ public class ItemStatsDisplay : MonoBehaviour
     }
 
     /// <summary>
-    /// Manually register all existing drag handlers with the stats display
-    /// Useful if items are created after the stats display initializes
+    /// IMPROVED: Better manual registration with more detailed feedback
     /// </summary>
     [Button("Re-Register All Drag Handlers")]
     public void RegisterAllDragHandlers()
@@ -432,17 +649,27 @@ public class ItemStatsDisplay : MonoBehaviour
             }
         }
 
-        Debug.Log($"[ItemStatsDisplay] Manually registered {registeredCount} drag handlers with stats display");
+        Debug.Log($"[ItemStatsDisplay] Manually registered {registeredCount} drag handlers");
 
         if (registeredCount == 0)
         {
             Debug.LogWarning("No drag handlers found in scene. Make sure your inventory items have InventoryItemDragHandler components.");
+
+            // Check if inventory is even open
+            if (GameManager.Instance?.uiManager?.isInventoryOpen == false)
+            {
+                Debug.LogWarning("Inventory appears to be closed. Try opening the inventory first.");
+            }
+        }
+        else
+        {
+            // Show the panel after successful registration
+            SetVisible(true);
         }
     }
 
     /// <summary>
     /// Static method to auto-register new drag handlers as they're created
-    /// Call this from your InventoryGridVisual when it creates item visuals
     /// </summary>
     public static void AutoRegisterNewDragHandler(InventoryItemDragHandler dragHandler)
     {
@@ -460,10 +687,31 @@ public class ItemStatsDisplay : MonoBehaviour
     {
         bool allValid = true;
 
+        Debug.Log("=== ItemStatsDisplay UI Validation ===");
+
+        // Check main GameObject
+        Debug.Log($"Main GameObject active: {gameObject.activeInHierarchy}");
+        Debug.Log($"CanvasGroup present: {canvasGroup != null}");
+        Debug.Log($"CanvasGroup alpha: {canvasGroup?.alpha ?? -1}");
+
         if (statsPanel == null)
         {
             Debug.LogError("Stats Panel is not assigned!");
             allValid = false;
+        }
+        else
+        {
+            Debug.Log($"Stats Panel: {statsPanel.name} (Active: {statsPanel.activeInHierarchy})");
+        }
+
+        if (noItemSelectedPanel == null)
+        {
+            Debug.LogError("No Item Selected Panel is not assigned!");
+            allValid = false;
+        }
+        else
+        {
+            Debug.Log($"No Item Selected Panel: {noItemSelectedPanel.name} (Active: {noItemSelectedPanel.activeInHierarchy})");
         }
 
         if (itemNameText == null)
@@ -489,15 +737,20 @@ public class ItemStatsDisplay : MonoBehaviour
             Debug.LogWarning("Item Icon Image is not assigned (optional)");
         }
 
-        if (noItemSelectedPanel == null)
+        // Check child hierarchy
+        Debug.Log("=== Child Hierarchy ===");
+        for (int i = 0; i < transform.childCount; i++)
         {
-            Debug.LogWarning("No Item Selected Panel is not assigned (optional)");
+            var child = transform.GetChild(i);
+            Debug.Log($"Child {i}: {child.name} (Active: {child.gameObject.activeInHierarchy})");
         }
 
         if (allValid)
         {
             Debug.Log("✓ All essential UI references are properly assigned!");
         }
+
+        Debug.Log("=== End Validation ===");
     }
 
     #endregion
