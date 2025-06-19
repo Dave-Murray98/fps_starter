@@ -4,8 +4,8 @@ using UnityEngine.EventSystems;
 using DG.Tweening;
 
 /// <summary>
-/// Handles dragging of inventory items and dropdown menu interactions
-/// UPDATED: Now shows dropdown menu on right-click instead of immediate drop
+/// Enhanced drag handler with stats display integration and drop-outside-inventory functionality
+/// UPDATED: Now triggers stats display on click/drag and handles dropping outside inventory
 /// </summary>
 public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
@@ -16,6 +16,9 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     [Header("Dropdown Menu")]
     [SerializeField] private InventoryDropdownMenu dropdownMenu;
+
+    [Header("Drop Outside Settings")]
+    [SerializeField] private float dropOutsideBuffer = 50f; // How far outside inventory counts as "drop outside"
 
     private InventoryItemData itemData;
     private InventoryGridVisual gridVisual;
@@ -29,10 +32,17 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     private int originalRotation;
     private bool isDragging = false;
     private bool wasValidPlacement = false;
-    private bool itemRemovedFromGrid = false; // Track if item is temporarily removed
+    private bool itemRemovedFromGrid = false;
 
     private InputManager inputManager;
     private InventoryManager persistentInventory;
+
+    // NEW: Events for stats display
+    public System.Action<InventoryItemData> OnItemSelected;
+    public System.Action OnItemDeselected;
+
+    // NEW: Track if we're outside inventory bounds during drag
+    private bool isDraggedOutsideInventory = false;
 
     private void Awake()
     {
@@ -52,17 +62,23 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         inputManager = FindFirstObjectByType<InputManager>();
         persistentInventory = InventoryManager.Instance;
 
-        // Get dropdown menu from the InventoryDropdownManager instead of trying to find the inactive menu
         GetDropdownMenuFromManager();
-
         SetupRotationInput();
         SetupDropdownEvents();
+        RegisterWithStatsDisplay();
     }
 
     /// <summary>
-    /// Get the dropdown menu from the InventoryDropdownManager
-    /// This works even when the dropdown menu is initially inactive
+    /// Register this drag handler with the stats display system
     /// </summary>
+    private void RegisterWithStatsDisplay()
+    {
+        if (ItemStatsDisplay.Instance != null)
+        {
+            ItemStatsDisplay.Instance.RegisterDragHandler(this);
+        }
+    }
+
     private void GetDropdownMenuFromManager()
     {
         if (dropdownMenu == null)
@@ -70,9 +86,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             var dropdownManager = FindFirstObjectByType<InventoryDropdownManager>();
             if (dropdownManager != null)
             {
-                // Use the public property which ensures the dropdown menu is created
                 dropdownMenu = dropdownManager.DropdownMenu;
-                // Debug.Log($"[DragHandler] Got dropdown menu from manager: {dropdownMenu != null}");
             }
             else
             {
@@ -108,6 +122,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     {
         CleanupInput();
         CleanupDropdownEvents();
+        UnregisterFromStatsDisplay();
     }
 
     private void CleanupInput()
@@ -123,6 +138,17 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         if (dropdownMenu != null)
         {
             dropdownMenu.OnActionSelected -= OnDropdownActionSelected;
+        }
+    }
+
+    /// <summary>
+    /// Unregister from the stats display system
+    /// </summary>
+    private void UnregisterFromStatsDisplay()
+    {
+        if (ItemStatsDisplay.Instance != null)
+        {
+            ItemStatsDisplay.Instance.UnregisterDragHandler(this);
         }
     }
 
@@ -143,26 +169,42 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         }
     }
 
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.button == PointerEventData.InputButton.Left)
+        {
+            // NEW: Trigger stats display on left click
+            TriggerStatsDisplay();
+        }
+        else if (eventData.button == PointerEventData.InputButton.Right)
+        {
+            // Show dropdown menu on right click
+            ShowDropdownMenu(eventData.position);
+        }
+    }
+
     public void OnBeginDrag(PointerEventData eventData)
     {
-        // Only allow dragging with left mouse button
         if (eventData.button != PointerEventData.InputButton.Left)
             return;
 
         if (!canDrag || itemData == null || persistentInventory == null) return;
 
         isDragging = true;
+        isDraggedOutsideInventory = false; // Reset flag
         originalPosition = rectTransform.localPosition;
         originalGridPosition = itemData.GridPosition;
         originalRotation = itemData.currentRotation;
         itemRemovedFromGrid = false;
+
+        // NEW: Show stats display while dragging
+        TriggerStatsDisplay();
 
         // Remove the item from grid to prevent self-collision during drag
         if (gridVisual.GridData.GetItem(itemData.ID) != null)
         {
             gridVisual.GridData.RemoveItem(itemData.ID);
             itemRemovedFromGrid = true;
-            //            Debug.Log($"[DragHandler] Removed item {itemData.ID} from grid for dragging");
         }
 
         // Visual feedback
@@ -172,7 +214,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
     public void OnDrag(PointerEventData eventData)
     {
-        // Only allow dragging with left mouse button
         if (eventData.button != PointerEventData.InputButton.Left)
             return;
 
@@ -181,23 +222,33 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         // Move the visual with the mouse
         rectTransform.localPosition += (Vector3)(eventData.delta / canvas.scaleFactor);
 
+        // NEW: Check if we're outside inventory bounds
+        CheckIfOutsideInventoryBounds();
+
         // Get grid position under mouse
         Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
 
-        // Create temporary item for testing position (use current rotation state)
+        // Create temporary item for testing position
         var tempItem = new InventoryItemData(itemData.ID + "_temp", itemData.ItemData, gridPos);
         tempItem.SetRotation(itemData.currentRotation);
 
-        bool isValid = gridVisual.GridData.IsValidPosition(gridPos, tempItem);
+        bool isValid = !isDraggedOutsideInventory && gridVisual.GridData.IsValidPosition(gridPos, tempItem);
 
         // Show placement preview
-        gridVisual.ShowPlacementPreview(gridPos, tempItem, isValid);
+        if (!isDraggedOutsideInventory)
+        {
+            gridVisual.ShowPlacementPreview(gridPos, tempItem, isValid);
+        }
+        else
+        {
+            gridVisual.ClearPlacementPreview();
+        }
+
         wasValidPlacement = isValid;
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        // Only handle end drag for left mouse button
         if (eventData.button != PointerEventData.InputButton.Left)
             return;
 
@@ -205,6 +256,13 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         isDragging = false;
         canvasGroup.alpha = 1f;
+
+        // NEW: Handle drop outside inventory
+        if (isDraggedOutsideInventory)
+        {
+            HandleDropOutsideInventory();
+            return;
+        }
 
         Vector2Int targetGridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
 
@@ -217,7 +275,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             {
                 itemRemovedFromGrid = false;
                 AnimateToGridPosition();
-                // Debug.Log($"[DragHandler] Successfully placed item {itemData.ID} at {targetGridPos}");
             }
             else
             {
@@ -234,29 +291,107 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         gridVisual.ClearPlacementPreview();
     }
 
+    /// <summary>
+    /// NEW: Check if the item is being dragged outside inventory bounds
+    /// </summary>
+    private void CheckIfOutsideInventoryBounds()
+    {
+        if (gridVisual == null) return;
+
+        // Get the inventory grid's world bounds
+        RectTransform gridRect = gridVisual.GetComponent<RectTransform>();
+        if (gridRect == null) return;
+
+        // Convert item position to grid's local space
+        Vector2 localPosition;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            gridRect,
+            RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, rectTransform.position),
+            canvas.worldCamera,
+            out localPosition);
+
+        // Check if position is outside grid bounds (with buffer)
+        Rect gridBounds = gridRect.rect;
+        gridBounds.xMin -= dropOutsideBuffer;
+        gridBounds.xMax += dropOutsideBuffer;
+        gridBounds.yMin -= dropOutsideBuffer;
+        gridBounds.yMax += dropOutsideBuffer;
+
+        isDraggedOutsideInventory = !gridBounds.Contains(localPosition);
+
+        // Visual feedback for dragging outside
+        if (isDraggedOutsideInventory)
+        {
+            // Make item slightly more transparent when outside
+            canvasGroup.alpha = 0.6f;
+        }
+        else
+        {
+            canvasGroup.alpha = 0.8f;
+        }
+    }
+
+    /// <summary>
+    /// NEW: Handle dropping item outside inventory (triggers item drop)
+    /// </summary>
+    private void HandleDropOutsideInventory()
+    {
+        Debug.Log($"[DragHandler] Item {itemData.ItemData?.itemName} dropped outside inventory - attempting to drop into scene");
+
+        // Check if item can be dropped
+        if (itemData?.ItemData?.CanDrop != true)
+        {
+            Debug.LogWarning($"Cannot drop {itemData.ItemData?.itemName} - it's a key item");
+            RevertToOriginalState();
+            return;
+        }
+
+        // Use the ItemDropSystem to drop the item into the scene
+        bool success = ItemDropSystem.DropItemFromInventory(itemData.ID);
+
+        if (success)
+        {
+            Debug.Log($"Successfully dropped {itemData.ItemData?.itemName} into scene");
+
+            // Clear stats display since item is no longer in inventory
+            OnItemDeselected?.Invoke();
+
+            // Item has been removed from inventory and spawned in scene
+            // The visual will be destroyed by the inventory system
+        }
+        else
+        {
+            Debug.LogWarning($"Failed to drop {itemData.ItemData?.itemName} - reverting to original position");
+            RevertToOriginalState();
+        }
+    }
+
+    /// <summary>
+    /// NEW: Trigger stats display for this item
+    /// </summary>
+    private void TriggerStatsDisplay()
+    {
+        OnItemSelected?.Invoke(itemData);
+    }
+
     private void RevertToOriginalState()
     {
-        // IMPORTANT: This method reverts BOTH position AND rotation to the state before dragging started
-        // Debug.Log($"[DragHandler] Reverting item {itemData.ID} to original state - Position: {originalGridPosition}, Rotation: {originalRotation}");
-
-        // Revert rotation if changed (this happens BEFORE placing the item back)
+        // Revert rotation if changed
         if (itemData.currentRotation != originalRotation)
         {
             itemData.SetRotation(originalRotation);
             visualRenderer?.RefreshVisual();
-            // Debug.Log($"[DragHandler] Reverted rotation for item {itemData.ID} from {itemData.currentRotation} to {originalRotation}");
         }
 
         // Restore original position
         itemData.SetGridPosition(originalGridPosition);
 
-        // Place item back in grid at original position with original rotation
+        // Place item back in grid at original position
         if (itemRemovedFromGrid)
         {
             if (gridVisual.GridData.PlaceItem(itemData))
             {
                 itemRemovedFromGrid = false;
-                //Debug.Log($"[DragHandler] Restored item {itemData.ID} to original position {originalGridPosition} with rotation {originalRotation}");
             }
             else
             {
@@ -266,23 +401,11 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         // Animate back to original position
         AnimateToOriginalPosition();
-
         visualRenderer.RefreshHotkeyIndicatorVisuals();
-    }
-
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        // Handle right-click for dropdown menu
-        if (eventData.button == PointerEventData.InputButton.Right)
-        {
-            // Use the actual mouse position from the event data
-            ShowDropdownMenu(eventData.position);
-        }
     }
 
     private void ShowDropdownMenu(Vector2 screenPosition)
     {
-        // Try to get dropdown menu if we don't have it
         if (dropdownMenu == null)
         {
             GetDropdownMenuFromManager();
@@ -291,7 +414,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         if (dropdownMenu == null)
         {
             Debug.LogWarning("No dropdown menu available - falling back to direct drop");
-            Debug.LogWarning("Make sure InventoryDropdownManager is added to your inventory UI!");
             DropItem();
             return;
         }
@@ -302,19 +424,12 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             return;
         }
 
-        //Debug.Log($"Showing dropdown menu for {itemData.ItemData.itemName} at screen position {screenPosition}");
         dropdownMenu.ShowMenu(itemData, screenPosition);
     }
 
     private void OnDropdownActionSelected(InventoryItemData selectedItem, string actionId)
     {
-        if (selectedItem != itemData)
-        {
-            //            Debug.LogWarning("Dropdown action for different item - ignoring");
-            return;
-        }
-
-        //Debug.Log($"Processing dropdown action: {actionId} for item {itemData.ItemData.itemName}");
+        if (selectedItem != itemData) return;
 
         switch (actionId)
         {
@@ -351,24 +466,18 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         Debug.Log($"Consuming {itemData.ItemData.itemName}");
 
-        // TODO: Implement consumption logic when you add player stats
-        // For now, just remove the item from inventory
-
         var consumableData = itemData.ItemData.ConsumableData;
         if (consumableData != null)
         {
             Debug.Log($"Would restore: Health +{consumableData.healthRestore}, Hunger +{consumableData.hungerRestore}, Thirst +{consumableData.thirstRestore}");
-
-            // Placeholder for actual consumption effects:
-            // PlayerStatsManager.Instance.ModifyHealth(consumableData.healthRestore);
-            // PlayerStatsManager.Instance.ModifyHunger(consumableData.hungerRestore);
-            // PlayerStatsManager.Instance.ModifyThirst(consumableData.thirstRestore);
         }
 
         // Remove item from inventory after consumption
         if (persistentInventory != null)
         {
             persistentInventory.RemoveItem(itemData.ID);
+            // Clear stats display since item no longer exists
+            OnItemDeselected?.Invoke();
         }
     }
 
@@ -382,7 +491,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         Debug.Log($"Equipping {itemData.ItemData.itemName}");
 
-        // Use the new equipment system
         if (EquippedItemManager.Instance != null)
         {
             bool success = EquippedItemManager.Instance.EquipItemFromInventory(itemData.ID);
@@ -410,14 +518,9 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         }
 
         Debug.Log($"Assigning hotkey for {itemData.ItemData.itemName}");
-
-        // Show hotkey selection UI
         ShowHotkeySelectionUI();
     }
 
-    /// <summary>
-    /// Show UI for selecting which hotkey slot to assign this item to
-    /// </summary>
     private void ShowHotkeySelectionUI()
     {
         if (HotkeySelectionUI.Instance != null)
@@ -426,21 +529,17 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         }
         else
         {
-            // Fallback: auto-assign to first available slot
             AutoAssignToAvailableSlot();
         }
     }
 
-    /// <summary>
-    /// Auto-assign item to the first available hotkey slot
-    /// </summary>
     private void AutoAssignToAvailableSlot()
     {
         if (EquippedItemManager.Instance == null) return;
 
         var bindings = EquippedItemManager.Instance.GetAllHotkeyBindings();
 
-        // First, check if this item type is already assigned somewhere
+        // Check if this item type is already assigned somewhere
         foreach (var binding in bindings)
         {
             if (binding.isAssigned)
@@ -448,7 +547,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
                 var assignedItemData = binding.GetCurrentItemData();
                 if (assignedItemData != null && assignedItemData.name == itemData.ItemData.name)
                 {
-                    // Same item type already assigned - add to that stack
                     bool success = EquippedItemManager.Instance.AssignItemToHotkey(itemData.ID, binding.slotNumber);
                     if (success)
                     {
@@ -459,7 +557,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             }
         }
 
-        // No existing assignment, find first empty slot
+        // Find first empty slot
         foreach (var binding in bindings)
         {
             if (!binding.isAssigned)
@@ -475,8 +573,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         Debug.LogWarning("All hotkey slots are occupied - cannot auto-assign");
     }
-
-
 
     private void UnloadWeapon()
     {
@@ -495,21 +591,9 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         Debug.Log($"Unloading {weaponData.currentAmmo} rounds from {itemData.ItemData.itemName}");
 
-        // TODO: Implement ammo unloading when you add the weapon system
-        // This should:
-        // 1. Get the ammo type from weaponData.requiredAmmoType
-        // 2. Try to add the ammo to existing stacks in inventory
-        // 3. Create new ammo items if needed
-        // 4. Set weaponData.currentAmmo to 0
-
-        // Placeholder logic:
         if (weaponData.requiredAmmoType != null)
         {
             Debug.Log($"Would add {weaponData.currentAmmo} {weaponData.requiredAmmoType.itemName} to inventory");
-
-            // AmmoManager.Instance.UnloadWeapon(itemData);
-            // persistentInventory.AddAmmo(weaponData.requiredAmmoType, weaponData.currentAmmo);
-            // weaponData.currentAmmo = 0;
         }
     }
 
@@ -519,7 +603,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         if (itemData?.ItemData?.CanDrop != true)
         {
             Debug.LogWarning($"Cannot drop {itemData.ItemData.itemName} - it's a key item");
-            // Could show a message to the player here
             return;
         }
 
@@ -529,14 +612,13 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             return;
         }
 
-        //        Debug.Log($"Dropping item: {itemData.ItemData?.itemName}");
-
-        // Use the updated ItemDropSystem with unified state management
+        // Use the ItemDropSystem
         bool success = ItemDropSystem.DropItemFromInventory(itemData.ID);
 
         if (success)
         {
-            //            Debug.Log($"Successfully dropped {itemData.ItemData?.itemName} into scene");
+            // Clear stats display since item no longer exists in inventory
+            OnItemDeselected?.Invoke();
         }
         else
         {
@@ -550,34 +632,27 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     {
         if (!canRotate || !isDragging || itemData?.CanRotate != true) return;
 
-        // Debug.Log($"[DragHandler] Attempting to rotate item {itemData.ID} from rotation {itemData.currentRotation}");
-
-        // Store current state
         var currentRotation = itemData.currentRotation;
         var currentCenter = GetVisualCenter();
 
-        // Calculate next rotation
         int maxRotations = TetrominoDefinitions.GetRotationCount(itemData.shapeType);
         int newRotation = (currentRotation + 1) % maxRotations;
 
-        // ALWAYS apply the rotation - player should be able to rotate freely during drag
         itemData.SetRotation(newRotation);
-
-        // Update visual immediately
         visualRenderer?.RefreshVisual();
 
-        // Adjust position to keep center in same place
         Vector2 newCenter = GetVisualCenter();
         Vector2 offset = currentCenter - newCenter;
         rectTransform.localPosition += (Vector3)offset;
 
-        // Update preview with new rotation and adjusted position
-        Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
-        bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos, itemData);
-        gridVisual.ShowPlacementPreview(gridPos, itemData, isValidPlacement);
-        wasValidPlacement = isValidPlacement;
-
-        // Debug.Log($"[DragHandler] Rotated item {itemData.ID} to rotation {newRotation} (placement valid: {isValidPlacement})");
+        // Update preview with new rotation
+        if (!isDraggedOutsideInventory)
+        {
+            Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
+            bool isValidPlacement = gridVisual.GridData.IsValidPosition(gridPos, itemData);
+            gridVisual.ShowPlacementPreview(gridPos, itemData, isValidPlacement);
+            wasValidPlacement = isValidPlacement;
+        }
     }
 
     private Vector2 GetVisualCenter()
@@ -610,7 +685,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         rectTransform.DOLocalMove(originalPosition, snapAnimationDuration).SetEase(Ease.OutQuad);
     }
 
-    // Public methods for external control
     public void SetDraggable(bool draggable)
     {
         canDrag = draggable;

@@ -272,6 +272,9 @@ public class InventoryGridVisual : MonoBehaviour
         if (dragHandler != null)
         {
             dragHandler.Initialize(item, this);
+
+            // NEW: Auto-register with stats display (single line addition)
+            ItemStatsDisplay.AutoRegisterNewDragHandler(dragHandler);
         }
 
         var inventoryHotkeyIndicator = itemObj.GetComponent<InventoryHotkeyIndicator>();
