@@ -458,6 +458,65 @@ public class EquippedItemManager : MonoBehaviour
 
     #region Public API for Save System (Called by EquipmentSaveComponent)
 
+
+    /// <summary>
+    /// Public method to directly set equipment data (for save component)
+    /// ADD THIS to EquippedItemManager
+    /// </summary>
+    public void SetEquipmentData(EquipmentSaveData newData)
+    {
+        if (newData == null || !newData.IsValid())
+        {
+            DebugLog("Invalid equipment data provided - clearing state");
+            ClearEquipmentState();
+            return;
+        }
+
+        // Clear current state first
+        ClearEquipmentState();
+
+        // Set the equipment data directly
+        equipmentData = newData;
+
+        DebugLog("Equipment data set directly via save component");
+    }
+
+    /// <summary>
+    /// Public method to clear all equipment state (for save component)
+    /// ADD THIS to EquippedItemManager
+    /// </summary>
+    public void ClearEquipmentState()
+    {
+        // Clear equipped item
+        if (HasEquippedItem)
+        {
+            equipmentData.equippedItem.Clear();
+            OnItemUnequipped?.Invoke();
+        }
+
+        // Clear all hotkey bindings
+        foreach (var binding in equipmentData.hotkeyBindings)
+        {
+            if (binding.isAssigned)
+            {
+                int slotNumber = binding.slotNumber;
+                binding.ClearSlot();
+                OnHotkeyCleared?.Invoke(slotNumber);
+            }
+        }
+
+        DebugLog("Equipment state cleared");
+    }
+
+    /// <summary>
+    /// Public method to get equipment data directly (for save component)
+    /// ADD THIS to EquippedItemManager
+    /// </summary>
+    public EquipmentSaveData GetEquipmentDataDirect()
+    {
+        // Return a copy of the current equipment data
+        return new EquipmentSaveData(equipmentData);
+    }
     /// <summary>
     /// Get equipment data for saving (called by EquipmentSaveComponent)
     /// </summary>

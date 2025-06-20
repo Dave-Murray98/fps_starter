@@ -1,12 +1,18 @@
 using UnityEngine;
 
 /// <summary>
-/// Updated save component that works with the new data-driven inventory system
-/// No longer depends on UI being active - works directly with InventoryManager
+/// REFACTORED: InventorySaveComponent now handles ALL inventory data management
+/// Extracts data from InventoryManager during saves
+/// Restores data back to InventoryManager during loads
+/// InventoryManager becomes a pure data holder
 /// </summary>
 public class InventorySaveComponent : SaveComponentBase
 {
-    private InventoryManager inventoryManager;
+    [Header("Component References")]
+    [SerializeField] private InventoryManager inventoryManager;
+
+    [Header("Auto-Find Settings")]
+    [SerializeField] private bool autoFindReferences = true;
 
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
@@ -18,45 +24,107 @@ public class InventorySaveComponent : SaveComponentBase
         saveID = "Inventory_Main";
         autoGenerateID = false;
 
-        // Get reference to persistent inventory
-        inventoryManager = InventoryManager.Instance;
-        if (inventoryManager == null)
+        // Auto-find references if enabled
+        if (autoFindReferences)
         {
-            // Try to find it in the scene
-            inventoryManager = FindFirstObjectByType<InventoryManager>();
+            FindInventoryReferences();
         }
     }
 
     private void Start()
     {
-        // Ensure we have the persistent inventory reference
+        // Ensure we have inventory reference
+        ValidateReferences();
+    }
+
+    /// <summary>
+    /// Automatically find inventory-related components
+    /// </summary>
+    private void FindInventoryReferences()
+    {
+        // Try to find on same GameObject first
+        if (inventoryManager == null)
+            inventoryManager = GetComponent<InventoryManager>();
+
+        // If not found on same GameObject, get from Instance
+        if (inventoryManager == null)
+            inventoryManager = InventoryManager.Instance;
+
+        // If still not found, search scene
+        if (inventoryManager == null)
+            inventoryManager = FindFirstObjectByType<InventoryManager>();
+
+        DebugLog($"Auto-found inventory reference: {inventoryManager != null}");
+    }
+
+    /// <summary>
+    /// Validate that we have necessary references
+    /// </summary>
+    private void ValidateReferences()
+    {
         if (inventoryManager == null)
         {
-            inventoryManager = InventoryManager.Instance;
+            Debug.LogError($"[{name}] InventoryManager reference is missing! Inventory won't be saved/loaded.");
+        }
+        else
+        {
+            DebugLog($"InventoryManager reference validated: {inventoryManager.name}");
         }
     }
 
+    /// <summary>
+    /// EXTRACT inventory data from InventoryManager (manager doesn't handle its own saving anymore)
+    /// </summary>
     public override object GetDataToSave()
     {
         if (inventoryManager == null)
         {
-            DebugLog("Cannot save inventory - PersistentInventoryManager not found");
-            return null;
+            DebugLog("Cannot save inventory - InventoryManager not found");
+            return new InventorySaveData(); // Return empty but valid data
         }
 
-        var saveData = inventoryManager.GetSaveData();
-        DebugLog($"Saved inventory: {saveData.ItemCount} items in {saveData.gridWidth}x{saveData.gridHeight} grid");
+        // Extract data from the manager (manager doesn't do this itself anymore)
+        var saveData = ExtractInventoryDataFromManager();
+
+        DebugLog($"Extracted inventory data: {saveData.ItemCount} items in {saveData.gridWidth}x{saveData.gridHeight} grid");
         return saveData;
     }
 
+    /// <summary>
+    /// Extract inventory data from the manager (replaces manager's GetSaveData method)
+    /// </summary>
+    private InventorySaveData ExtractInventoryDataFromManager()
+    {
+        var saveData = new InventorySaveData(inventoryManager.GridWidth, inventoryManager.GridHeight);
+
+        // Get the next item ID using the new public property
+        saveData.nextItemId = inventoryManager.NextItemId;
+
+        // Extract all items from the inventory data
+        var allItems = inventoryManager.InventoryData.GetAllItems();
+        foreach (var item in allItems)
+        {
+            var itemSaveData = item.ToSaveData();
+            if (itemSaveData.IsValid())
+            {
+                saveData.AddItem(itemSaveData);
+            }
+        }
+
+        return saveData;
+    }
+
+    /// <summary>
+    /// For PlayerPersistenceManager - extract only inventory data
+    /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
-        DebugLog("InventorySaveComponent: Extracting inventory save data");
+        DebugLog("InventorySaveComponent: Extracting inventory save data for persistence");
 
         if (saveContainer == null)
         {
-            DebugLog("InventorySaveComponent.ExtractRelevantData(): saveContainer is null");
-            return null;
+            DebugLog("ExtractRelevantData: saveContainer is null");
+            return new InventorySaveData();
         }
 
         if (saveContainer is PlayerSaveData playerSaveData)
@@ -64,28 +132,45 @@ public class InventorySaveComponent : SaveComponentBase
             // Extract inventory data from player save
             if (playerSaveData.inventoryData != null && playerSaveData.inventoryData.ItemCount > 0)
             {
-                DebugLog($"Extracting inventory data from PlayerSaveData: {playerSaveData.inventoryData.ItemCount} items");
+                DebugLog($"Extracted inventory data from PlayerSaveData: {playerSaveData.inventoryData.ItemCount} items");
                 return playerSaveData.inventoryData;
             }
             else
             {
-                DebugLog("No valid inventory data found in PlayerSaveData - creating empty inventory");
-                return new InventorySaveData(); // Return empty but valid data
+                DebugLog("No valid inventory data found in PlayerSaveData - returning empty inventory");
+                return new InventorySaveData();
             }
         }
         else if (saveContainer is InventorySaveData inventorySaveData)
         {
             // Direct inventory save data
-            DebugLog($"Extracting direct InventorySaveData: {inventorySaveData.ItemCount} items");
+            DebugLog($"Extracted direct InventorySaveData: {inventorySaveData.ItemCount} items");
             return inventorySaveData;
+        }
+        else if (saveContainer is PlayerPersistentData persistentData)
+        {
+            // Extract from persistent data structure
+            if (persistentData.inventoryData != null)
+            {
+                DebugLog($"Extracted inventory from persistent data: {persistentData.inventoryData.ItemCount} items");
+                return persistentData.inventoryData;
+            }
+            else
+            {
+                DebugLog("No inventory data in persistent data - returning empty inventory");
+                return new InventorySaveData();
+            }
         }
         else
         {
-            DebugLog($"Invalid save data type - expected PlayerSaveData or InventorySaveData, got {saveContainer.GetType()}");
-            return null;
+            DebugLog($"Invalid save data type - expected PlayerSaveData, InventorySaveData, or PlayerPersistentData, got {saveContainer.GetType()}");
+            return new InventorySaveData();
         }
     }
 
+    /// <summary>
+    /// RESTORE data back to InventoryManager (manager doesn't handle its own loading anymore)
+    /// </summary>
     public override void LoadSaveData(object data)
     {
         if (!(data is InventorySaveData inventoryData))
@@ -94,23 +179,27 @@ public class InventorySaveComponent : SaveComponentBase
             return;
         }
 
+        DebugLog("=== RESTORING INVENTORY DATA TO MANAGER ===");
+
+        // Ensure we have current references (they might have changed after scene load)
+        if (autoFindReferences)
+        {
+            FindInventoryReferences();
+        }
+
         if (inventoryManager == null)
         {
-            inventoryManager = InventoryManager.Instance;
-            if (inventoryManager == null)
-            {
-                DebugLog("Cannot load inventory - PersistentInventoryManager not found");
-                return;
-            }
+            DebugLog("Cannot load inventory - InventoryManager not found");
+            return;
         }
 
         DebugLog($"Loading inventory: {inventoryData.ItemCount} items in {inventoryData.gridWidth}x{inventoryData.gridHeight} grid");
 
         try
         {
-            // Load directly into persistent inventory - no UI dependencies!
-            inventoryManager.LoadFromSaveData(inventoryData);
-            DebugLog("Inventory loaded successfully");
+            // Restore data to the manager (manager doesn't do this itself anymore)
+            RestoreInventoryDataToManager(inventoryData);
+            DebugLog("Inventory restored successfully to manager");
         }
         catch (System.Exception e)
         {
@@ -118,74 +207,130 @@ public class InventorySaveComponent : SaveComponentBase
         }
     }
 
+    /// <summary>
+    /// Restore inventory data to the manager (replaces manager's LoadFromSaveData method call)
+    /// </summary>
+    private void RestoreInventoryDataToManager(InventorySaveData saveData)
+    {
+        if (saveData == null || !saveData.IsValid())
+        {
+            DebugLog("Invalid inventory save data - clearing inventory");
+            inventoryManager.ClearInventory();
+            return;
+        }
+
+        // Create new inventory data
+        var newInventoryData = new InventoryGridData(saveData.gridWidth, saveData.gridHeight);
+
+        // Restore each item to the new inventory data
+        foreach (var itemSaveData in saveData.items)
+        {
+            var item = InventoryItemData.FromSaveData(itemSaveData);
+            if (item != null)
+            {
+                if (!newInventoryData.PlaceItem(item))
+                {
+                    Debug.LogWarning($"Failed to restore item {item.ID} at position {item.GridPosition}");
+                }
+            }
+        }
+
+        // Set the complete data to the manager using the new helper method
+        inventoryManager.SetInventoryData(newInventoryData, saveData.nextItemId);
+
+        DebugLog($"Restored inventory: {newInventoryData.ItemCount} items");
+    }
+
+
+    /// <summary>
+    /// Set the next item ID to the manager using the new public property
+    /// </summary>
+    private void SetNextItemIdToManager(int nextItemId)
+    {
+        inventoryManager.NextItemId = nextItemId;
+        DebugLog($"Set next item ID to: {nextItemId}");
+    }
+
+    /// <summary>
+    /// Called before save operations
+    /// </summary>
     public override void OnBeforeSave()
     {
         DebugLog("Preparing inventory for save");
-        // Any preparation needed before saving
+
+        // Refresh references in case they changed
+        if (autoFindReferences)
+        {
+            FindInventoryReferences();
+        }
     }
 
+    /// <summary>
+    /// Called after load operations
+    /// </summary>
     public override void OnAfterLoad()
     {
         DebugLog("Inventory load completed");
+
         // Any cleanup needed after loading
+        // Inventory UI will automatically update via events
     }
 
     /// <summary>
-    /// Get current inventory save data (useful for testing)
+    /// Public method to manually set inventory manager reference
     /// </summary>
-    public InventorySaveData GetCurrentSaveData()
+    public void SetInventoryManager(InventoryManager manager)
     {
-        return GetDataToSave() as InventorySaveData;
+        inventoryManager = manager;
+        autoFindReferences = false; // Disable auto-find when manually set
+        DebugLog("Inventory manager reference manually set");
     }
 
     /// <summary>
-    /// Manually load inventory data (useful for testing)
+    /// Get current inventory item count (useful for other systems)
     /// </summary>
-    public void LoadInventoryData(InventorySaveData saveData)
+    public int GetCurrentItemCount()
     {
-        LoadSaveData(saveData);
+        return inventoryManager?.InventoryData?.ItemCount ?? 0;
     }
 
     /// <summary>
-    /// Public method to get inventory save data for PlayerPersistenceManager
+    /// Get current inventory stats (useful for other systems)
     /// </summary>
-    public InventorySaveData GetInventorySaveData()
+    public (int itemCount, int occupiedCells, int totalCells) GetInventoryStats()
     {
-        if (inventoryManager == null)
+        if (inventoryManager != null)
         {
-            DebugLog("PersistentInventoryManager not found - returning empty inventory data");
-            return new InventorySaveData();
+            return inventoryManager.GetInventoryStats();
         }
-
-        return inventoryManager.GetSaveData();
+        return (0, 0, 0);
     }
 
     /// <summary>
-    /// Public method to load inventory from save data
+    /// Check if inventory manager reference is valid
     /// </summary>
-    public void LoadInventoryFromSaveData(InventorySaveData saveData)
-    {
-        LoadSaveData(saveData);
-    }
-
-    /// <summary>
-    /// Check if persistent inventory manager is available
-    /// </summary>
-    public bool IsPersistentInventoryAvailable()
+    public bool HasValidReference()
     {
         return inventoryManager != null;
     }
 
     /// <summary>
-    /// Force refresh the persistent inventory reference
+    /// Force refresh of inventory manager reference
     /// </summary>
-    public void RefreshPersistentInventoryReference()
+    public void RefreshReference()
     {
-        inventoryManager = InventoryManager.Instance;
-        if (inventoryManager == null)
+        if (autoFindReferences)
         {
-            inventoryManager = FindFirstObjectByType<InventoryManager>();
+            FindInventoryReferences();
+            ValidateReferences();
         }
-        DebugLog($"Persistent inventory reference refreshed: {inventoryManager != null}");
+    }
+
+    /// <summary>
+    /// Check if inventory has space for an item (useful for other systems)
+    /// </summary>
+    public bool HasSpaceForItem(ItemData itemData)
+    {
+        return inventoryManager?.HasSpaceForItem(itemData) ?? false;
     }
 }

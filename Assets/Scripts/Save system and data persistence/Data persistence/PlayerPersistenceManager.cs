@@ -1,27 +1,28 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
-/// Updated PlayerPersistenceManager that works with the new data-driven inventory system
-/// FIXED: Enhanced debug logging to track equipment data through transitions
+/// REFACTORED: Modular PlayerPersistenceManager that discovers and manages all player-dependent save components
+/// No direct references to specific managers - uses ISaveable discovery pattern
+/// Highly scalable and reusable across projects
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
     public static PlayerPersistenceManager Instance { get; private set; }
 
-    [Header("Persistent Player Data")]
-    [SerializeField] private PlayerPersistentData persistentData;
+    [Header("Settings")]
     [SerializeField] private bool showDebugLogs = true;
 
-    // Flag to track if we have persistent data to restore
+    // Discovered save components (no direct references!)
+    private List<ISaveable> playerDependentSaveables = new List<ISaveable>();
+
+    // Persistent data storage for scene transitions
+    private Dictionary<string, object> persistentPlayerData = new Dictionary<string, object>();
+
+    // State management
     private bool hasPersistentData = false;
-
-    // Flag to prevent restoration when SaveManager is handling it
     private bool saveManagerIsHandlingRestore = false;
-
-    // Reference to persistent inventory
-    private InventoryManager inventoryManager;
-    private InventorySaveComponent inventorySaveComponent;
 
     private void Awake()
     {
@@ -29,7 +30,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            persistentData = new PlayerPersistentData();
+            DebugLog("PlayerPersistenceManager initialized with modular architecture");
         }
         else
         {
@@ -40,288 +41,268 @@ public class PlayerPersistenceManager : MonoBehaviour
     private void Start()
     {
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
-
-        // Get references to inventory systems
-        RefreshInventoryReferences();
+        DiscoverPlayerDependentSaveables();
     }
 
-    private void RefreshInventoryReferences()
+    /// <summary>
+    /// Discover all player-dependent save components in the scene
+    /// This is what makes the system modular - no hardcoded references!
+    /// </summary>
+    private void DiscoverPlayerDependentSaveables()
     {
-        inventoryManager = InventoryManager.Instance;
-        if (inventoryManager == null)
+        // Find all ISaveable components that are player-dependent
+        var allSaveables = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
+            .OfType<ISaveable>()
+            .Where(s => s.SaveCategory == SaveDataCategory.PlayerDependent)
+            .ToList();
+
+        playerDependentSaveables = allSaveables;
+
+        DebugLog($"Discovered {playerDependentSaveables.Count} player-dependent save components:");
+        foreach (var saveable in playerDependentSaveables)
         {
-            inventoryManager = FindFirstObjectByType<InventoryManager>();
+            DebugLog($"  - {saveable.SaveID} ({saveable.GetType().Name})");
         }
-
-        inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
-
-        //DebugLog($"Inventory references refreshed - PersistentInventory: {persistentInventory != null}, SaveComponent: {inventorySaveComponent != null}");
     }
 
+    /// <summary>
+    /// Called when scene loads - restore persistent data if we have any
+    /// </summary>
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
         if (hasPersistentData && !saveManagerIsHandlingRestore)
         {
-            DebugLog("PlayerPersistenceManager.OnSceneLoaded() called, triggering restoration");
-            StartCoroutine(RestorePlayerDataCoroutine());
+            DebugLog("Scene loaded - restoring persistent player data via doorway transition");
+            StartCoroutine(RestorePlayerDataAfterSceneLoad());
         }
     }
 
-    private System.Collections.IEnumerator RestorePlayerDataCoroutine()
+    /// <summary>
+    /// Restore persistent data after scene load (doorway transitions)
+    /// </summary>
+    private System.Collections.IEnumerator RestorePlayerDataAfterSceneLoad()
     {
-        DebugLog("PlayerPersistenceManager.RestorePlayerDataCoroutine() called");
-
+        // Wait for scene to fully initialize
         yield return new WaitForSecondsRealtime(0.1f);
 
-        // Double-check that SaveManager isn't handling this
-        if (!saveManagerIsHandlingRestore)
-        {
-            RestorePlayerDataAfterTransition();
-        }
-        else
-        {
-            DebugLog("Skipping doorway data restoration - SaveManager is handling it");
-        }
+        // Re-discover saveables in the new scene
+        DiscoverPlayerDependentSaveables();
+
+        // Restore data to each component
+        RestoreDataToSaveComponents();
+
+        // Clear persistent data after successful restoration
+        ClearPersistentData();
     }
 
     /// <summary>
-    /// Only called by RestorePlayerDataCoroutine() after a scene transition VIA DOORWAY
-    /// </summary>
-    private void RestorePlayerDataAfterTransition()
-    {
-        if (!hasPersistentData || saveManagerIsHandlingRestore) return;
-
-        var playerManager = FindFirstObjectByType<PlayerManager>();
-        var playerController = FindFirstObjectByType<PlayerController>();
-
-        if (playerManager != null && playerController != null)
-        {
-            // Restore basic player data
-            playerManager.currentHealth = persistentData.currentHealth;
-            playerController.canJump = persistentData.canJump;
-            playerController.canSprint = persistentData.canSprint;
-            playerController.canCrouch = persistentData.canCrouch;
-
-            // Restore inventory data using the new system
-            RestoreInventoryData();
-            RestoreEquipmentData();
-
-            // Trigger UI updates
-            if (GameManager.Instance?.playerData != null)
-            {
-                GameEvents.TriggerPlayerHealthChanged(persistentData.currentHealth, GameManager.Instance.playerData.maxHealth);
-            }
-
-            DebugLog($"Player data restored after doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData?.ItemCount ?? 0} items");
-        }
-    }
-
-    /// <summary>
-    /// Restore inventory data using the new persistent inventory system
-    /// </summary>
-    private void RestoreInventoryData()
-    {
-        if (persistentData.inventoryData == null || persistentData.inventoryData.ItemCount == 0)
-        {
-            DebugLog("No inventory data to restore");
-            return;
-        }
-
-        // Ensure we have inventory system references
-        RefreshInventoryReferences();
-
-        if (inventoryManager != null)
-        {
-            // Load inventory data directly into persistent inventory - no UI required!
-            inventoryManager.LoadFromSaveData(persistentData.inventoryData);
-            DebugLog($"Restored inventory data via PersistentInventoryManager: {persistentData.inventoryData.ItemCount} items");
-        }
-        else
-        {
-            DebugLog("PersistentInventoryManager not found - cannot restore inventory");
-        }
-    }
-
-    private void RestoreEquipmentData()
-    {
-        if (persistentData.equipmentData == null)
-        {
-            DebugLog("No equipment data to restore");
-            return;
-        }
-
-        // ENHANCED: Debug log what we have BEFORE restoration
-        var assignedCount = persistentData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-        DebugLog($"Restoring equipment data: first hotkeybinding name is {persistentData.equipmentData.hotkeyBindings?[0]?.itemDataName ?? "None"}");
-
-        // Debug each assigned hotkey
-        if (persistentData.equipmentData.hotkeyBindings != null)
-        {
-            foreach (var binding in persistentData.equipmentData.hotkeyBindings)
-            {
-                if (binding.isAssigned)
-                {
-                    DebugLog($"  - Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}, Stack: {binding.stackedItemIds?.Count ?? 0})");
-                }
-                else
-                {
-                    DebugLog($"  - Hotkey {binding.slotNumber}: isAssigned == false");
-                }
-            }
-        }
-        else
-        {
-            DebugLog("persistentData.equipmentData.hotkeyBindings is null");
-        }
-
-        if (EquippedItemManager.Instance != null)
-        {
-            EquippedItemManager.Instance.LoadSaveData(persistentData.equipmentData);
-            DebugLog($"Equipment data restored successfully");
-        }
-        else
-        {
-            DebugLog("EquippedItemManager not found - equipment not restored");
-        }
-    }
-
-    /// <summary>
-    /// Get current persistent data for save system
-    /// </summary>
-    public PlayerPersistentData GetPersistentDataForSave()
-    {
-        UpdatePersistentPlayerDataForTransition(); // Update with current values
-        return new PlayerPersistentData(persistentData); // Return copy
-    }
-
-    /// <summary>
-    /// Update current player data before scene transition (called by doorway)
+    /// MODULAR: Update persistent data before scene transition (called by doorways)
+    /// This method discovers and calls all player-dependent save components automatically
     /// </summary>
     public void UpdatePersistentPlayerDataForTransition()
     {
-        var playerManager = FindFirstObjectByType<PlayerManager>();
-        var playerController = FindFirstObjectByType<PlayerController>();
+        DebugLog("=== PREPARING PLAYER DATA FOR TRANSITION ===");
 
-        if (playerManager != null && playerController != null)
+        // Re-discover saveables in case new ones were added
+        DiscoverPlayerDependentSaveables();
+
+        // Clear previous data
+        persistentPlayerData.Clear();
+
+        // Let each save component prepare its data
+        foreach (var saveable in playerDependentSaveables)
         {
-            // Save basic player data
-            persistentData.currentHealth = playerManager.currentHealth;
-            persistentData.canJump = playerController.canJump;
-            persistentData.canSprint = playerController.canSprint;
-            persistentData.canCrouch = playerController.canCrouch;
+            try
+            {
+                // Call preparation hook
+                saveable.OnBeforeSave();
 
-            // Save inventory data using the new system
-            SaveInventoryData();
-            SaveEquipmentData();
-
-            hasPersistentData = true;
-            DebugLog($"Player data saved for doorway transition: Health={persistentData.currentHealth}, Inventory={persistentData.inventoryData?.ItemCount ?? 0} items");
+                // Get the component's data
+                var data = saveable.GetDataToSave();
+                if (data != null)
+                {
+                    persistentPlayerData[saveable.SaveID] = data;
+                    DebugLog($"Prepared data for {saveable.SaveID}: {data.GetType().Name}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to prepare data for {saveable.SaveID}: {e.Message}");
+            }
         }
+
+        hasPersistentData = true;
+        DebugLog($"Preparation complete - stored data for {persistentPlayerData.Count} components");
     }
 
     /// <summary>
-    /// Save inventory data using the new persistent inventory system
+    /// MODULAR: Restore data to all discovered save components
     /// </summary>
-    private void SaveInventoryData()
+    private void RestoreDataToSaveComponents()
     {
-        // Ensure we have inventory system references
-        RefreshInventoryReferences();
+        DebugLog("=== RESTORING PLAYER DATA AFTER TRANSITION ===");
 
-        if (inventoryManager != null)
+        foreach (var saveable in playerDependentSaveables)
         {
-            // Get inventory data directly from persistent inventory - no UI required!
-            persistentData.inventoryData = inventoryManager.GetSaveData();
-            DebugLog($"Saved inventory data via PersistentInventoryManager: {persistentData.inventoryData.ItemCount} items");
+            try
+            {
+                // Check if we have data for this component
+                if (persistentPlayerData.TryGetValue(saveable.SaveID, out var data))
+                {
+                    // Let the component handle its own data restoration
+                    saveable.LoadSaveData(data);
+                    saveable.OnAfterLoad();
+
+                    DebugLog($"Restored data for {saveable.SaveID}");
+                }
+                else
+                {
+                    DebugLog($"No persistent data found for {saveable.SaveID}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to restore data for {saveable.SaveID}: {e.Message}");
+            }
         }
-        else if (inventorySaveComponent != null)
-        {
-            // Fallback to save component
-            persistentData.inventoryData = inventorySaveComponent.GetInventorySaveData();
-            DebugLog($"Saved inventory data via InventorySaveComponent: {persistentData.inventoryData.ItemCount} items");
-        }
-        else
-        {
-            DebugLog("No inventory system found - inventory not saved");
-            persistentData.inventoryData = new InventorySaveData(); // Empty but valid
-        }
+
+        DebugLog("Player data restoration complete");
     }
 
-    private void SaveEquipmentData()
+    /// <summary>
+    /// Get current persistent data for save system (called by SaveManager)
+    /// </summary>
+    public PlayerPersistentData GetPersistentDataForSave()
     {
-        if (EquippedItemManager.Instance != null)
+        // Force update with current values
+        UpdatePersistentPlayerDataForTransition();
+
+        // Create save-friendly data structure
+        var saveData = new PlayerPersistentData();
+
+        // Let each save component contribute to the save data
+        foreach (var saveable in playerDependentSaveables)
         {
-            var equipmentDataToSave = EquippedItemManager.Instance.GetDataToSave();
-
-            // ENHANCED: Debug what we're getting from EquippedItemManager
-            if (equipmentDataToSave != null)
+            try
             {
-                var assignedCount = equipmentDataToSave.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-                DebugLog($"Getting equipment data from EquippedItemManager: {assignedCount} hotkey assignments");
-
-                // Debug each assigned hotkey
-                if (equipmentDataToSave.hotkeyBindings != null)
+                var data = saveable.GetDataToSave();
+                if (data != null)
                 {
-                    foreach (var binding in equipmentDataToSave.hotkeyBindings)
-                    {
-                        if (binding.isAssigned)
-                        {
-                            DebugLog($"  - Source Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}, Stack: {binding.stackedItemIds?.Count ?? 0})");
-                        }
-                    }
+                    // Components will populate the save data structure
+                    // This is handled by each component's GetDataToSave method
+                    ContributeToSaveData(saveable, data, saveData);
                 }
             }
-
-            // Assign the data
-            persistentData.equipmentData = equipmentDataToSave;
-
-            // ENHANCED: Debug what we saved to persistentData
-            if (persistentData.equipmentData != null)
+            catch (System.Exception e)
             {
-                var assignedCount = persistentData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-                DebugLog($"Saved equipment data to persistentData: {assignedCount} hotkey assignments");
-                DebugLog($"  - Equipped item: {(persistentData.equipmentData.equippedItem?.isEquipped == true ? persistentData.equipmentData.equippedItem.equippedItemDataName : "None")}");
-
-                // Debug each assigned hotkey in saved data
-                if (persistentData.equipmentData.hotkeyBindings != null)
-                {
-                    foreach (var binding in persistentData.equipmentData.hotkeyBindings)
-                    {
-                        if (binding.isAssigned)
-                        {
-                            DebugLog($"  - Saved Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}, Stack: {binding.stackedItemIds?.Count ?? 0})");
-                        }
-                    }
-                }
+                Debug.LogError($"Failed to get save data from {saveable.SaveID}: {e.Message}");
             }
         }
-        else
+
+        return saveData;
+    }
+
+    /// <summary>
+    /// Helper method to let save components contribute to the unified save data
+    /// </summary>
+    private void ContributeToSaveData(ISaveable saveable, object data, PlayerPersistentData saveData)
+    {
+        // Each save component knows how to contribute to the unified structure
+        switch (saveable.SaveID)
         {
-            DebugLog("EquippedItemManager not found - equipment not saved");
-            persistentData.equipmentData = new EquipmentSaveData();
+            case "Player_Main":
+                if (data is PlayerSaveData playerData)
+                {
+                    saveData.currentHealth = playerData.currentHealth;
+                    saveData.canJump = playerData.canJump;
+                    saveData.canSprint = playerData.canSprint;
+                    saveData.canCrouch = playerData.canCrouch;
+                }
+                break;
+
+            case "Inventory_Main":
+                if (data is InventorySaveData inventoryData)
+                {
+                    saveData.inventoryData = inventoryData;
+                }
+                break;
+
+            case "Equipment_Main":
+                if (data is EquipmentSaveData equipmentData)
+                {
+                    saveData.equipmentData = equipmentData;
+                }
+                break;
+
+            default:
+                DebugLog($"Unknown save component: {saveable.SaveID} - data not included in unified save");
+                break;
         }
     }
 
     /// <summary>
-    /// Load persistent data from save system - Clear doorway data when loading from save to prevent conflicts
+    /// Load persistent data from save system (called by SaveManager)
     /// </summary>
     public void LoadPersistentDataFromSave(PlayerPersistentData saveData)
     {
-        if (saveData != null)
+        if (saveData == null) return;
+
+        DebugLog("Loading persistent data from save file");
+
+        // Clear doorway transition data since we're loading from save
+        ClearPersistentData();
+        saveManagerIsHandlingRestore = true;
+
+        // Re-discover saveables
+        DiscoverPlayerDependentSaveables();
+
+        // Distribute data to appropriate save components
+        foreach (var saveable in playerDependentSaveables)
         {
-            // ENHANCED: Debug what we're loading
-            var assignedCount = saveData.equipmentData?.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-            DebugLog($"Loading persistent data from save: {assignedCount} hotkey assignments, {saveData.inventoryData?.ItemCount ?? 0} inventory items");
+            try
+            {
+                object componentData = ExtractDataForComponent(saveable, saveData);
+                if (componentData != null)
+                {
+                    saveable.LoadSaveData(componentData);
+                    saveable.OnAfterLoad();
+                    DebugLog($"Loaded save data for {saveable.SaveID}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to load save data for {saveable.SaveID}: {e.Message}");
+            }
+        }
 
-            // Clear existing data before loading new
-            persistentData = new PlayerPersistentData(saveData);
+        DebugLog("Save data loading complete");
+    }
 
-            // Clear doorway transition data since we're loading from save
-            hasPersistentData = false;
-            saveManagerIsHandlingRestore = true; // Disables doorway transition data restoration
+    /// <summary>
+    /// Extract appropriate data for each save component from unified save data
+    /// </summary>
+    private object ExtractDataForComponent(ISaveable saveable, PlayerPersistentData saveData)
+    {
+        switch (saveable.SaveID)
+        {
+            case "Player_Main":
+                return new PlayerSaveData
+                {
+                    currentHealth = saveData.currentHealth,
+                    canJump = saveData.canJump,
+                    canSprint = saveData.canSprint,
+                    canCrouch = saveData.canCrouch
+                };
 
-            // ENHANCED: Debug what we have after loading
-            var newAssignedCount = persistentData.equipmentData?.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-            DebugLog($"Player persistent data loaded from save - doorway data cleared. Equipment: {newAssignedCount} hotkeys, Inventory: {persistentData.inventoryData?.ItemCount ?? 0} items");
+            case "Inventory_Main":
+                return saveData.inventoryData;
+
+            case "Equipment_Main":
+                return saveData.equipmentData;
+
+            default:
+                DebugLog($"No data extraction defined for {saveable.SaveID}");
+                return null;
         }
     }
 
@@ -330,14 +311,14 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// </summary>
     public void ClearPersistentData()
     {
-        persistentData = new PlayerPersistentData();
+        persistentPlayerData.Clear();
         hasPersistentData = false;
         saveManagerIsHandlingRestore = false;
-        DebugLog("Player persistent data cleared");
+        DebugLog("Persistent player data cleared");
     }
 
     /// <summary>
-    /// Call this when SaveManager finishes loading to re-enable doorway transitions
+    /// Called when SaveManager finishes loading
     /// </summary>
     public void OnSaveLoadComplete()
     {
@@ -355,64 +336,24 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// </summary>
     public PlayerPersistentData GetCurrentSnapshot()
     {
-        UpdatePersistentPlayerDataForTransition(); // Update with current values
-        return persistentData;
+        return GetPersistentDataForSave();
     }
 
     /// <summary>
-    /// Manually add an item to persistent inventory (useful for pickup systems)
+    /// Manually refresh discovered saveables (useful when components are added/removed)
     /// </summary>
-    public bool AddItemToPersistentInventory(ItemData itemData, Vector2Int? preferredPosition = null)
+    public void RefreshDiscoveredSaveables()
     {
-        RefreshInventoryReferences();
-
-        if (inventoryManager != null)
-        {
-            bool success = inventoryManager.AddItem(itemData, preferredPosition);
-            if (success)
-            {
-                DebugLog($"Added item {itemData.itemName} to persistent inventory");
-                // Update persistent data immediately
-                UpdatePersistentPlayerDataForTransition();
-            }
-            return success;
-        }
-        else
-        {
-            DebugLog("Cannot add item - PersistentInventoryManager not found");
-            return false;
-        }
+        DiscoverPlayerDependentSaveables();
+        DebugLog("Manually refreshed discovered saveables");
     }
 
     /// <summary>
-    /// Check if persistent inventory has space for an item
+    /// DEBUG: Get list of currently discovered saveables
     /// </summary>
-    public bool HasInventorySpaceForItem(ItemData itemData)
+    public List<string> GetDiscoveredSaveableIDs()
     {
-        RefreshInventoryReferences();
-
-        if (inventoryManager != null)
-        {
-            return inventoryManager.HasSpaceForItem(itemData);
-        }
-
-        DebugLog("Cannot check inventory space - PersistentInventoryManager not found");
-        return false;
-    }
-
-    /// <summary>
-    /// Get inventory statistics
-    /// </summary>
-    public (int itemCount, int occupiedCells, int totalCells) GetInventoryStats()
-    {
-        RefreshInventoryReferences();
-
-        if (inventoryManager != null)
-        {
-            return inventoryManager.GetInventoryStats();
-        }
-
-        return (0, 0, 0);
+        return playerDependentSaveables.Select(s => $"{s.SaveID} ({s.GetType().Name})").ToList();
     }
 
     private void DebugLog(string message)

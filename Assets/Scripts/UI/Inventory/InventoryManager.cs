@@ -226,59 +226,59 @@ public class InventoryManager : MonoBehaviour
         Debug.Log("Inventory cleared");
     }
 
-    /// <summary>
-    /// Get save data for persistence system
-    /// </summary>
-    public InventorySaveData GetSaveData()
-    {
-        var saveData = new InventorySaveData(gridWidth, gridHeight); // Return a copy of the data, so if it's a doorway transition, we don't clear it when we load;
-        saveData.nextItemId = nextItemId;
+    // /// <summary>
+    // /// Get save data for persistence system
+    // /// </summary>
+    // public InventorySaveData GetSaveData()
+    // {
+    //     var saveData = new InventorySaveData(gridWidth, gridHeight); // Return a copy of the data, so if it's a doorway transition, we don't clear it when we load;
+    //     saveData.nextItemId = nextItemId;
 
-        foreach (var item in inventoryData.GetAllItems())
-        {
-            var itemSaveData = item.ToSaveData();
-            if (itemSaveData.IsValid())
-            {
-                saveData.AddItem(itemSaveData);
-            }
-        }
+    //     foreach (var item in inventoryData.GetAllItems())
+    //     {
+    //         var itemSaveData = item.ToSaveData();
+    //         if (itemSaveData.IsValid())
+    //         {
+    //             saveData.AddItem(itemSaveData);
+    //         }
+    //     }
 
-        return saveData;
-    }
+    //     return saveData;
+    // }
 
-    /// <summary>
-    /// Load from save data
-    /// </summary>
-    public void LoadFromSaveData(InventorySaveData saveData)
-    {
-        if (saveData == null || !saveData.IsValid())
-        {
-            Debug.LogWarning("Invalid inventory save data");
-            return;
-        }
+    // /// <summary>
+    // /// Load from save data
+    // /// </summary>
+    // public void LoadFromSaveData(InventorySaveData saveData)
+    // {
+    //     if (saveData == null || !saveData.IsValid())
+    //     {
+    //         Debug.LogWarning("Invalid inventory save data");
+    //         return;
+    //     }
 
-        ClearInventory();
-        nextItemId = saveData.nextItemId;
+    //     ClearInventory();
+    //     nextItemId = saveData.nextItemId;
 
-        foreach (var itemSaveData in saveData.items)
-        {
-            var item = InventoryItemData.FromSaveData(itemSaveData);
-            if (item != null)
-            {
-                if (inventoryData.PlaceItem(item))
-                {
-                    OnItemAdded?.Invoke(item);
-                }
-                else
-                {
-                    Debug.LogWarning($"Failed to restore item {item.ID} at position {item.GridPosition}");
-                }
-            }
-        }
+    //     foreach (var itemSaveData in saveData.items)
+    //     {
+    //         var item = InventoryItemData.FromSaveData(itemSaveData);
+    //         if (item != null)
+    //         {
+    //             if (inventoryData.PlaceItem(item))
+    //             {
+    //                 OnItemAdded?.Invoke(item);
+    //             }
+    //             else
+    //             {
+    //                 Debug.LogWarning($"Failed to restore item {item.ID} at position {item.GridPosition}");
+    //             }
+    //         }
+    //     }
 
-        OnInventoryDataChanged?.Invoke(inventoryData);
-        Debug.Log($"Loaded inventory: {inventoryData.ItemCount} items");
-    }
+    //     OnInventoryDataChanged?.Invoke(inventoryData);
+    //     Debug.Log($"Loaded inventory: {inventoryData.ItemCount} items");
+    // }
 
     /// <summary>
     /// Check if inventory has space for an item
@@ -364,6 +364,34 @@ public class InventoryManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.G))
         {
             DebugGridState();
+        }
+    }
+
+    /// <summary>
+    /// Public property to access nextItemId (for save component)
+    /// </summary>
+    public int NextItemId
+    {
+        get => nextItemId;
+        set => nextItemId = value;
+    }
+
+    /// <summary>
+    /// Public method to directly set inventory data (for save component)
+    /// </summary>
+    public void SetInventoryData(InventoryGridData newData, int newNextItemId)
+    {
+        inventoryData = newData;
+        nextItemId = newNextItemId;
+
+        // Trigger events for any listeners
+        OnInventoryDataChanged?.Invoke(inventoryData);
+
+        // Trigger individual item events for UI updates
+        var allItems = inventoryData.GetAllItems();
+        foreach (var item in allItems)
+        {
+            OnItemAdded?.Invoke(item);
         }
     }
 }

@@ -149,7 +149,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   saveFileName: GameSave
-  showDebugLogs: 0
+  showDebugLogs: 1
   itemDataPath: Data/Items/
 --- !u!4 &94847456
 Transform:
@@ -1011,85 +1011,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f04ffbbda60b09c4c9d08cd806f177de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  persistentData:
-    currentHealth: 100
-    canJump: 1
-    canSprint: 1
-    canCrouch: 1
-    inventoryData:
-      gridWidth: 0
-      gridHeight: 0
-      items: []
-      nextItemId: 1
-    equipmentData:
-      hotkeyBindings:
-      - slotNumber: 1
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 2
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 3
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 4
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 5
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 6
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 7
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 8
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 9
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      - slotNumber: 10
-        isAssigned: 0
-        itemId: 
-        itemDataName: 
-        stackedItemIds: []
-        currentStackIndex: 0
-      equippedItem:
-        isEquipped: 0
-        equippedItemId: 
-        equippedItemDataName: 
-        isEquippedFromHotkey: 0
-        sourceHotkeySlot: -1
-  showDebugLogs: 0
+  showDebugLogs: 1
 --- !u!4 &1070227893
 Transform:
   m_ObjectHideFlags: 0
@@ -1827,6 +1749,8 @@ MonoBehaviour:
   saveID: Equipment_Main
   autoGenerateID: 0
   enableDebugLogs: 1
+  equippedItemManager: {fileID: 1618970211}
+  autoFindReferences: 1
 --- !u!1 &1714623904
 GameObject:
   m_ObjectHideFlags: 0
@@ -2048,6 +1972,8 @@ MonoBehaviour:
   saveID: Inventory_Main
   autoGenerateID: 0
   enableDebugLogs: 0
+  inventoryManager: {fileID: 1848890816}
+  autoFindReferences: 1
 --- !u!114 &1848890816
 MonoBehaviour:
   m_ObjectHideFlags: 0
