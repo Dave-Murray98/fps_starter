@@ -1,12 +1,12 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.VisualScripting;
-
+using Sirenix.OdinInspector;
 
 /// <summary>
-/// SIMPLIFIED Save Manager
-/// Only handles save files, delegates scene management to SceneDataManager
+/// REFACTORED: SaveManager now delegates scene loading to SceneTransitionManager
+/// No longer subscribes to OnSceneLoaded - much cleaner separation of concerns
+/// Focuses purely on file I/O and data preparation
 /// </summary>
 public class SaveManager : MonoBehaviour
 {
@@ -16,7 +16,7 @@ public class SaveManager : MonoBehaviour
     [SerializeField] private string saveFileName = "GameSave";
     [SerializeField] private bool showDebugLogs = true;
 
-    private GameSaveData currentSaveData;
+    [ShowInInspector] private GameSaveData currentSaveData;
 
     // Events
     public System.Action<bool> OnSaveComplete;
@@ -128,6 +128,10 @@ public class SaveManager : MonoBehaviour
         LoadingScreenManager.Instance?.HideLoadingScreen();
     }
 
+    /// <summary>
+    /// REFACTORED: LoadGame now delegates to SceneTransitionManager instead of handling OnSceneLoaded
+    /// Much cleaner separation of concerns - SaveManager handles file I/O, SceneTransitionManager handles restoration
+    /// </summary>
     private System.Collections.IEnumerator LoadGameCoroutine()
     {
         DebugLog("Starting load operation...");
@@ -138,162 +142,70 @@ public class SaveManager : MonoBehaviour
             yield break;
         }
 
-        // Tell PlayerPersistenceManager that the savemanager is handling restoration of playerpersistent data
-        // this prevents PlayerPersistenceManager from restoring data when SaveManager is already doing it
-        if (PlayerPersistenceManager.Instance != null && currentSaveData.playerPersistentData != null)
-        {
-            PlayerPersistenceManager.Instance.LoadPersistentDataFromSave(currentSaveData.playerPersistentData);
-        }
+        // Prepare save data for SceneTransitionManager
+        var saveDataForTransition = PrepareSaveDataForTransition();
 
-        //load the scene dependent data for the scene were loading into
-        if (SceneDataManager.Instance != null && currentSaveData.sceneData != null)
-        {
-            SceneDataManager.Instance.LoadSceneDataFromSave(currentSaveData.sceneData);
-        }
-
-        // Load scene if different
+        // Get target scene from save data
         string targetScene = currentSaveData.currentScene;
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
-        //if we're loading into a different scene, wait for the scene to finish loading before restoring save data
-        if (targetScene != currentScene)
-        {
-            // Different scene - let SceneTransitionManager handle loading screen
-            SceneTransitionManager.Instance.LoadSceneFromSave(targetScene);
+        DebugLog($"Load target: {targetScene}, current: {currentScene}");
 
-            // Wait for scene to load
+        // DELEGATE TO SCENETRANSITIONMANAGER: Let it handle everything from here
+        if (SceneTransitionManager.Instance != null)
+        {
+            // SceneTransitionManager will handle the loading screen, scene transition, and data restoration
+            SceneTransitionManager.Instance.LoadSceneFromSave(targetScene, saveDataForTransition);
+
+            // Wait for the transition to complete
             yield return new WaitUntil(() => UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == targetScene);
 
-            yield return new WaitForSecondsRealtime(0.2f);
-
-            RestoreAllDataInScene();
-        }
-        else // if we're loading into the same scene, we can restore data immediately
-        {
-            // Same scene - show our own loading screen
-            LoadingScreenManager.Instance?.ShowLoadingScreenForSaveLoad(currentScene);
-
-            yield return new WaitForSecondsRealtime(0.2f);
-            LoadingScreenManager.Instance?.SetProgress(0.3f);
-
-            yield return new WaitForSecondsRealtime(0.01f);
-            RestoreAllDataInScene();
-
-
-            LoadingScreenManager.Instance?.SetProgress(1f);
+            // Wait a bit more for data restoration to complete
             yield return new WaitForSecondsRealtime(0.5f);
-            LoadingScreenManager.Instance?.HideLoadingScreen();
         }
-
-        // Ensure game is unpaused after loading
-        if (GameManager.Instance != null && GameManager.Instance.isPaused)
+        else
         {
-            GameManager.Instance.ResumeGame();
-            //DebugLog("Game unpaused after load");
+            Debug.LogError("SceneTransitionManager not found - cannot load game!");
+            OnLoadComplete?.Invoke(false);
+            yield break;
         }
 
-        //close the inventory panel (we had to open it to restore inventory)
-        if (GameManager.Instance?.uiManager?.inventoryPanel != null)
-        {
-            GameManager.Instance.uiManager.inventoryPanel.SetActive(false);
-            GameManager.Instance.uiManager.isInventoryOpen = false;
-        }
-
-        DebugLog("Game loaded successfully");
+        DebugLog("Game load operation completed");
         OnLoadComplete?.Invoke(true);
-
-        // Tell PlayerPersistenceManager we're done
-        if (PlayerPersistenceManager.Instance != null)
-        {
-            PlayerPersistenceManager.Instance.OnSaveLoadComplete();
-        }
     }
 
     /// <summary>
-    /// Restores all data in the current scene after loading a save file.
+    /// Prepare save data in a format that SceneTransitionManager can use for restoration
     /// </summary>
-    private void RestoreAllDataInScene()
+    private Dictionary<string, object> PrepareSaveDataForTransition()
     {
-        DebugLog("Restoring all data after scene load...");
-        RestorePlayerData();
-        RestoreSceneData();
-    }
+        var transitionData = new Dictionary<string, object>();
 
-    private void RestorePlayerData()
-    {
-        if (currentSaveData?.playerPersistentData == null) return;
-
-        ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
-           .OfType<ISaveable>()
-           .Where(s => s.SaveCategory == SaveDataCategory.PlayerDependent)
-           .ToArray();
-
-        //Debug.Log($"Restoring {saveableObjects.Length} player-dependent saveables after scene load");
-
-        foreach (var saveable in saveableObjects)
+        // Add player data
+        if (currentSaveData.playerPersistentData != null)
         {
-            try
-            {
-                //from the currentsaveData's playersaveData, extract the relevant data for this saveable - for playersavecomponent, this will return the playerSaveData (which is a PlayerSaveData class), for other saveables, it will return the relevant data for that saveable
-                //ie for the inventorysavecomponent, it will extract the playerSaveData.inventoryData (which is an InventorySaveData class)
-                var data = saveable.ExtractRelevantData(currentSaveData.playersaveData);
-                if (data != null)
-                {
-                    //pass the relevant extracted data to the saveable (each saveable's LoadSaveData method will know how to handle it) and will check that it's the correct type
-                    saveable.LoadSaveData(data);
-                    saveable.OnAfterLoad();
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"Failed to restore {saveable.SaveID} after scene load: {e.Message}");
-            }
+            transitionData["playerPersistentData"] = currentSaveData.playerPersistentData;
         }
 
-        //UPDATE UI
-        if (GameManager.Instance?.uiManager != null)
+        if (currentSaveData.playersaveData != null)
         {
-            GameManager.Instance.uiManager.RefreshReferences();
-        }
-    }
-
-
-
-    private void RestoreSceneData()
-    {
-        if (currentSaveData?.sceneData == null) return;
-
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (!currentSaveData.sceneData.ContainsKey(currentScene)) return;
-
-        var sceneData = currentSaveData.sceneData[currentScene];
-
-        ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
-            .OfType<ISaveable>()
-            .Where(s => s.SaveCategory == SaveDataCategory.SceneDependent)
-            .ToArray();
-
-        foreach (var saveable in saveableObjects)
-        {
-            try
-            {
-                var data = sceneData.GetObjectData<object>(saveable.SaveID);
-                if (data != null)
-                {
-                    saveable.LoadSaveData(data);
-                    saveable.OnAfterLoad();
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"Failed to restore {saveable.SaveID} after scene load: {e.Message}");
-            }
+            transitionData["playerSaveData"] = currentSaveData.playersaveData;
         }
 
-        DebugLog($"Restored scene data after scene load: {currentScene}");
+        if (currentSaveData.playerPositionData != null)
+        {
+            transitionData["playerPositionData"] = currentSaveData.playerPositionData;
+        }
+
+        // Add scene data
+        if (currentSaveData.sceneData != null)
+        {
+            transitionData["sceneData"] = currentSaveData.sceneData;
+        }
+
+        DebugLog($"Prepared transition data with {transitionData.Count} data categories");
+        return transitionData;
     }
-
-
 
     private bool LoadSaveDataFromFile()
     {
@@ -306,6 +218,7 @@ public class SaveManager : MonoBehaviour
         try
         {
             currentSaveData = ES3.Load<GameSaveData>("gameData", saveFileName + ".es3");
+            DebugLog($"Save file loaded successfully - Scene: {currentSaveData.currentScene}");
             return true;
         }
         catch (System.Exception e)
@@ -330,22 +243,89 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    private void RestorePlayerPositionData()
-    {
-        if (currentSaveData?.playerPositionData == null) return;
-
-        var player = FindFirstObjectByType<PlayerController>();
-        if (player != null)
-        {
-            player.transform.position = currentSaveData.playerPositionData.position;
-            player.transform.eulerAngles = currentSaveData.playerPositionData.rotation;
-            DebugLog($"Player position restored from save: {currentSaveData.playerPositionData.position}");
-        }
-    }
-
     public bool SaveExists()
     {
         return ES3.FileExists(saveFileName + ".es3");
+    }
+
+    /// <summary>
+    /// Get save file info for UI display (without loading the full save)
+    /// </summary>
+    public SaveFileInfo GetSaveFileInfo()
+    {
+        if (!SaveExists()) return null;
+
+        try
+        {
+            // Load only the metadata we need for display
+            var saveTime = ES3.Load<System.DateTime>("gameData.saveTime", saveFileName + ".es3");
+            var sceneName = ES3.Load<string>("gameData.currentScene", saveFileName + ".es3");
+
+            // Try to get player level if it exists
+            int playerLevel = 1;
+            if (ES3.KeyExists("gameData.playersaveData.level", saveFileName + ".es3"))
+            {
+                playerLevel = ES3.Load<int>("gameData.playersaveData.level", saveFileName + ".es3");
+            }
+
+            return new SaveFileInfo
+            {
+                saveTime = saveTime,
+                sceneName = sceneName,
+                playerLevel = playerLevel,
+                playTime = 0f // Could calculate this if we track play time
+            };
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to load save file info: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Delete the current save file
+    /// </summary>
+    public bool DeleteSaveFile()
+    {
+        try
+        {
+            if (ES3.FileExists(saveFileName + ".es3"))
+            {
+                ES3.DeleteFile(saveFileName + ".es3");
+                DebugLog("Save file deleted successfully");
+                return true;
+            }
+            return false;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to delete save file: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Create a backup of the current save file
+    /// </summary>
+    public bool BackupSaveFile()
+    {
+        try
+        {
+            if (ES3.FileExists(saveFileName + ".es3"))
+            {
+                string backupName = saveFileName + "_backup.es3";
+                ES3.CopyFile(saveFileName + ".es3", backupName);
+                DebugLog("Save file backed up successfully");
+                return true;
+            }
+            return false;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to backup save file: {e.Message}");
+            return false;
+        }
     }
 
     private void DebugLog(string message)

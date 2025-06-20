@@ -517,28 +517,30 @@ public class EquippedItemManager : MonoBehaviour
         // Return a copy of the current equipment data
         return new EquipmentSaveData(equipmentData);
     }
-    /// <summary>
-    /// Get equipment data for saving (called by EquipmentSaveComponent)
-    /// </summary>
-    public EquipmentSaveData GetDataToSave()
-    {
-        DebugLog("=== SAVING EQUIPMENT DATA ===");
-        DebugLog($"Equipped Item: {(HasEquippedItem ? equipmentData.equippedItem.GetItemData()?.itemName : "None")}");
 
-        foreach (var binding in equipmentData.hotkeyBindings)
-        {
-            if (binding.isAssigned)
-            {
-                DebugLog($"Saving Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}) - Stack: {binding.stackedItemIds.Count} items");
-            }
-            else
-            {
-                DebugLog($"Saving Hotkey {binding.slotNumber}: Empty");
-            }
-        }
 
-        return new EquipmentSaveData(equipmentData); // Return a copy of the equipmentData, so if it's a doorway transition, we don't clear it when we load;
-    }
+    // /// <summary>
+    // /// Get equipment data for saving (called by EquipmentSaveComponent)
+    // /// </summary>
+    // public EquipmentSaveData GetDataToSave()
+    // {
+    //     DebugLog("=== SAVING EQUIPMENT DATA ===");
+    //     DebugLog($"Equipped Item: {(HasEquippedItem ? equipmentData.equippedItem.GetItemData()?.itemName : "None")}");
+
+    //     foreach (var binding in equipmentData.hotkeyBindings)
+    //     {
+    //         if (binding.isAssigned)
+    //         {
+    //             DebugLog($"Saving Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}) - Stack: {binding.stackedItemIds.Count} items");
+    //         }
+    //         else
+    //         {
+    //             DebugLog($"Saving Hotkey {binding.slotNumber}: Empty");
+    //         }
+    //     }
+
+    //     return new EquipmentSaveData(equipmentData); // Return a copy of the equipmentData, so if it's a doorway transition, we don't clear it when we load;
+    // }
 
     /// <summary>
     /// Load equipment data from save (called by EquipmentSaveComponent)

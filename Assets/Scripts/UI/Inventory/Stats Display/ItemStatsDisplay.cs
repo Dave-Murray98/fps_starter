@@ -134,7 +134,7 @@ public class ItemStatsDisplay : MonoBehaviour
         SetupDragHandlerCreationListeners();
 
         hasInitialized = true;
-        Debug.Log("[ItemStatsDisplay] Initialization complete");
+        // Debug.Log("[ItemStatsDisplay] Initialization complete");
     }
 
     /// <summary>
@@ -158,7 +158,7 @@ public class ItemStatsDisplay : MonoBehaviour
         // Null check to prevent MissingReferenceException during scene transitions
         if (this == null || gameObject == null)
         {
-            Debug.LogWarning("[ItemStatsDisplay] OnInventoryItemAdded called on destroyed object - unsubscribing");
+            // Debug.LogWarning("[ItemStatsDisplay] OnInventoryItemAdded called on destroyed object - unsubscribing");
             if (InventoryManager.Instance != null)
             {
                 InventoryManager.Instance.OnItemAdded -= OnInventoryItemAdded;
@@ -172,10 +172,10 @@ public class ItemStatsDisplay : MonoBehaviour
             // Give the visual system time to create the drag handler
             StartCoroutine(RegisterNewDragHandlerAfterDelay(item.ID));
         }
-        else
-        {
-            Debug.Log($"[ItemStatsDisplay] Item {item.ID} added but GameObject inactive - will register when activated");
-        }
+        // else
+        // {
+        //     Debug.Log($"[ItemStatsDisplay] Item {item.ID} added but GameObject inactive - will register when activated");
+        // }
     }
 
     private System.Collections.IEnumerator RegisterNewDragHandlerAfterDelay(string itemId)
@@ -193,7 +193,7 @@ public class ItemStatsDisplay : MonoBehaviour
             if (handler.GetComponent<InventoryItemVisualRenderer>()?.ItemData?.ID == itemId)
             {
                 RegisterDragHandler(handler);
-                Debug.Log($"[ItemStatsDisplay] Auto-registered new drag handler for item {itemId}");
+                //Debug.Log($"[ItemStatsDisplay] Auto-registered new drag handler for item {itemId}");
                 break;
             }
         }
@@ -221,7 +221,7 @@ public class ItemStatsDisplay : MonoBehaviour
         // FIXED: Make sure the main GameObject is visible and the "no item selected" panel is shown
         SetVisible(true, true);
 
-        Debug.Log("[ItemStatsDisplay] Initial UI setup complete - showing 'no item selected' state");
+        // Debug.Log("[ItemStatsDisplay] Initial UI setup complete - showing 'no item selected' state");
     }
 
     /// <summary>
@@ -233,7 +233,7 @@ public class ItemStatsDisplay : MonoBehaviour
         // We need to delay the initialization until the GameObject becomes active
         if (!gameObject.activeInHierarchy)
         {
-            Debug.Log("[ItemStatsDisplay] GameObject not active yet - will initialize when enabled");
+            // Debug.Log("[ItemStatsDisplay] GameObject not active yet - will initialize when enabled");
             return; // OnEnable will handle initialization when the GameObject becomes active
         }
 
@@ -287,12 +287,12 @@ public class ItemStatsDisplay : MonoBehaviour
             }
         }
 
-        Debug.Log($"[ItemStatsDisplay] Registered {registeredCount} existing drag handlers");
+        // Debug.Log($"[ItemStatsDisplay] Registered {registeredCount} existing drag handlers");
 
-        if (registeredCount == 0)
-        {
-            Debug.Log("[ItemStatsDisplay] No existing drag handlers found - will register new ones as they're created");
-        }
+        // if (registeredCount == 0)
+        // {
+        //     Debug.Log("[ItemStatsDisplay] No existing drag handlers found - will register new ones as they're created");
+        // }
     }
 
     /// <summary>
@@ -342,7 +342,7 @@ public class ItemStatsDisplay : MonoBehaviour
         // Fire event
         OnItemDisplayed?.Invoke(itemData);
 
-        Debug.Log($"[ItemStatsDisplay] Displaying stats for: {itemData.ItemData.itemName}");
+        //  Debug.Log($"[ItemStatsDisplay] Displaying stats for: {itemData.ItemData.itemName}");
     }
 
     /// <summary>
@@ -400,7 +400,7 @@ public class ItemStatsDisplay : MonoBehaviour
         // Don't try to change visibility if GameObject isn't active
         if (!gameObject.activeInHierarchy)
         {
-            Debug.Log("[ItemStatsDisplay] SetVisible called but GameObject inactive - ignoring");
+            //  Debug.Log("[ItemStatsDisplay] SetVisible called but GameObject inactive - ignoring");
             return;
         }
 
@@ -559,7 +559,7 @@ public class ItemStatsDisplay : MonoBehaviour
         if (InventoryManager.Instance != null)
         {
             InventoryManager.Instance.OnItemAdded -= OnInventoryItemAdded;
-            Debug.Log("[ItemStatsDisplay] Unsubscribed from InventoryManager.OnItemAdded in OnDisable");
+            // Debug.Log("[ItemStatsDisplay] Unsubscribed from InventoryManager.OnItemAdded in OnDisable");
         }
 
         if (Instance == this)
@@ -596,7 +596,7 @@ public class ItemStatsDisplay : MonoBehaviour
         // Clear the current item
         currentDisplayedItem = null;
         // Don't try to do UI updates since the GameObject will be deactivated
-        Debug.Log("[ItemStatsDisplay] Inventory closed - cleared current item");
+        //  Debug.Log("[ItemStatsDisplay] Inventory closed - cleared current item");
     }
 
     private void OnDestroy()
@@ -613,7 +613,7 @@ public class ItemStatsDisplay : MonoBehaviour
             Instance = null;
         }
 
-        Debug.Log("[ItemStatsDisplay] OnDestroy called - all events unsubscribed");
+        //      Debug.Log("[ItemStatsDisplay] OnDestroy called - all events unsubscribed");
     }
 
     /// <summary>
@@ -627,13 +627,13 @@ public class ItemStatsDisplay : MonoBehaviour
             InventoryManager.Instance.OnItemAdded -= OnInventoryItemAdded;
             InventoryManager.Instance.OnItemRemoved -= OnInventoryItemRemoved;
             InventoryManager.Instance.OnInventoryCleared -= OnInventoryCleared;
-            Debug.Log("[ItemStatsDisplay] Unsubscribed from InventoryManager events");
+            //            Debug.Log("[ItemStatsDisplay] Unsubscribed from InventoryManager events");
         }
 
         // Unsubscribe from GameEvents (static events)
         GameEvents.OnInventoryClosed -= OnInventoryClosed;
         GameEvents.OnInventoryOpened -= OnInventoryOpened;
-        Debug.Log("[ItemStatsDisplay] Unsubscribed from GameEvents");
+        //    Debug.Log("[ItemStatsDisplay] Unsubscribed from GameEvents");
 
         // Unsubscribe from any drag handlers that might still reference this
         var dragHandlers = FindObjectsByType<InventoryItemDragHandler>(FindObjectsSortMode.None);
@@ -645,7 +645,7 @@ public class ItemStatsDisplay : MonoBehaviour
                 handler.OnItemDeselected -= ClearDisplay;
             }
         }
-        Debug.Log($"[ItemStatsDisplay] Unsubscribed from {dragHandlers.Length} drag handlers");
+        //  Debug.Log($"[ItemStatsDisplay] Unsubscribed from {dragHandlers.Length} drag handlers");
     }
 
     #region Setup and Testing Methods
@@ -664,7 +664,7 @@ public class ItemStatsDisplay : MonoBehaviour
 
         var testInventoryItem = new InventoryItemData("test_item", testItem, Vector2Int.zero);
         DisplayItemStats(testInventoryItem);
-        Debug.Log($"Displaying stats for: {testItem.itemName}");
+        // Debug.Log($"Displaying stats for: {testItem.itemName}");
     }
 
     [Button("Clear Display")]

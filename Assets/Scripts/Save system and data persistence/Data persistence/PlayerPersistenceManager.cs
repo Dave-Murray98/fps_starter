@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// REFACTORED: Modular PlayerPersistenceManager that discovers and manages all player-dependent save components
-/// No direct references to specific managers - uses ISaveable discovery pattern
-/// Highly scalable and reusable across projects
+/// REFACTORED: PlayerPersistenceManager now has context-aware restoration methods
+/// No longer subscribes to OnSceneLoaded - SceneTransitionManager calls us when needed
+/// Much cleaner and more predictable restoration flow
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
@@ -22,7 +22,6 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     // State management
     private bool hasPersistentData = false;
-    private bool saveManagerIsHandlingRestore = false;
 
     private void Awake()
     {
@@ -30,7 +29,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            DebugLog("PlayerPersistenceManager initialized with modular architecture");
+            DebugLog("PlayerPersistenceManager initialized with context-aware architecture");
         }
         else
         {
@@ -40,7 +39,7 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     private void Start()
     {
-        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        // REMOVED: No longer subscribe to OnSceneLoaded - SceneTransitionManager handles this
         DiscoverPlayerDependentSaveables();
     }
 
@@ -63,36 +62,6 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             DebugLog($"  - {saveable.SaveID} ({saveable.GetType().Name})");
         }
-    }
-
-    /// <summary>
-    /// Called when scene loads - restore persistent data if we have any
-    /// </summary>
-    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
-    {
-        if (hasPersistentData && !saveManagerIsHandlingRestore)
-        {
-            DebugLog("Scene loaded - restoring persistent player data via doorway transition");
-            StartCoroutine(RestorePlayerDataAfterSceneLoad());
-        }
-    }
-
-    /// <summary>
-    /// Restore persistent data after scene load (doorway transitions)
-    /// </summary>
-    private System.Collections.IEnumerator RestorePlayerDataAfterSceneLoad()
-    {
-        // Wait for scene to fully initialize
-        yield return new WaitForSecondsRealtime(0.1f);
-
-        // Re-discover saveables in the new scene
-        DiscoverPlayerDependentSaveables();
-
-        // Restore data to each component
-        RestoreDataToSaveComponents();
-
-        // Clear persistent data after successful restoration
-        ClearPersistentData();
     }
 
     /// <summary>
@@ -136,24 +105,33 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// MODULAR: Restore data to all discovered save components
+    /// CONTEXT-AWARE: Restore player data for doorway transitions
+    /// This restores player stats, inventory, equipment, abilities but NOT position
+    /// Called by SceneTransitionManager when context is DoorwayTransition
     /// </summary>
-    private void RestoreDataToSaveComponents()
+    public void RestoreForDoorwayTransition()
     {
-        DebugLog("=== RESTORING PLAYER DATA AFTER TRANSITION ===");
+        DebugLog("=== RESTORING PLAYER DATA FOR DOORWAY TRANSITION ===");
 
+        if (!hasPersistentData)
+        {
+            DebugLog("No persistent data available for doorway transition");
+            return;
+        }
+
+        // Re-discover saveables in the new scene
+        DiscoverPlayerDependentSaveables();
+
+        // Restore data to each component with DOORWAY context
         foreach (var saveable in playerDependentSaveables)
         {
             try
             {
-                // Check if we have data for this component
                 if (persistentPlayerData.TryGetValue(saveable.SaveID, out var data))
                 {
-                    // Let the component handle its own data restoration
-                    saveable.LoadSaveData(data);
-                    saveable.OnAfterLoad();
-
-                    DebugLog($"Restored data for {saveable.SaveID}");
+                    // Load data with doorway context (no position restore)
+                    LoadSaveableWithContext(saveable, data, RestoreContext.DoorwayTransition);
+                    DebugLog($"Restored doorway data for {saveable.SaveID}");
                 }
                 else
                 {
@@ -162,11 +140,222 @@ public class PlayerPersistenceManager : MonoBehaviour
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Failed to restore data for {saveable.SaveID}: {e.Message}");
+                Debug.LogError($"Failed to restore doorway data for {saveable.SaveID}: {e.Message}");
             }
         }
 
-        DebugLog("Player data restoration complete");
+        // Clear persistent data after successful restoration
+        ClearPersistentData();
+        DebugLog("Doorway transition player data restoration complete");
+    }
+
+    /// <summary>
+    /// CONTEXT-AWARE: Restore player data from save file
+    /// This restores ALL player data INCLUDING position
+    /// Called by SceneTransitionManager when context is SaveFileLoad
+    /// </summary>
+    public void RestoreFromSaveFile(Dictionary<string, object> saveData)
+    {
+        DebugLog("=== RESTORING PLAYER DATA FROM SAVE FILE ===");
+
+        if (saveData == null)
+        {
+            DebugLog("No save data provided");
+            return;
+        }
+
+        // Clear doorway transition data since we're loading from save
+        ClearPersistentData();
+
+        // Re-discover saveables
+        DiscoverPlayerDependentSaveables();
+
+        // Restore data to each component with SAVE LOAD context
+        foreach (var saveable in playerDependentSaveables)
+        {
+            try
+            {
+                // Extract data for this specific component from the save file
+                var componentData = ExtractComponentDataFromSave(saveable, saveData);
+                if (componentData != null)
+                {
+                    // Load data with save file context (includes position restore)
+                    LoadSaveableWithContext(saveable, componentData, RestoreContext.SaveFileLoad);
+                    DebugLog($"Restored save file data for {saveable.SaveID}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to restore save file data for {saveable.SaveID}: {e.Message}");
+            }
+        }
+
+        DebugLog("Save file player data restoration complete");
+    }
+
+    /// <summary>
+    /// CONTEXT-AWARE: Initialize player data for new game
+    /// Called by SceneTransitionManager when context is NewGame
+    /// </summary>
+    public void InitializeForNewGame()
+    {
+        DebugLog("=== INITIALIZING PLAYER DATA FOR NEW GAME ===");
+
+        // Clear any existing data
+        ClearPersistentData();
+
+        // Re-discover saveables
+        DiscoverPlayerDependentSaveables();
+
+        // Initialize each component with default values
+        foreach (var saveable in playerDependentSaveables)
+        {
+            try
+            {
+                // Create default data for this component
+                var defaultData = CreateDefaultDataForComponent(saveable);
+                if (defaultData != null)
+                {
+                    LoadSaveableWithContext(saveable, defaultData, RestoreContext.NewGame);
+                    DebugLog($"Initialized default data for {saveable.SaveID}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to initialize {saveable.SaveID} for new game: {e.Message}");
+            }
+        }
+
+        DebugLog("New game player data initialization complete");
+    }
+
+    /// <summary>
+    /// Load saveable component with specific context information
+    /// This allows components to make context-aware decisions about what to restore
+    /// </summary>
+    private void LoadSaveableWithContext(ISaveable saveable, object data, RestoreContext context)
+    {
+        // If the saveable component supports context-aware loading, use it
+        if (saveable is IContextAwareSaveable contextAware)
+        {
+            contextAware.LoadSaveDataWithContext(data, context);
+        }
+        else
+        {
+            // Fallback to standard loading
+            saveable.LoadSaveData(data);
+        }
+
+        saveable.OnAfterLoad();
+    }
+
+    /// <summary>
+    /// Extract component-specific data from a save file
+    /// </summary>
+    private object ExtractComponentDataFromSave(ISaveable saveable, Dictionary<string, object> saveData)
+    {
+        DebugLog($"Extracting data for component: {saveable.SaveID}");
+
+        // The save data might contain different structures depending on how it's saved
+        // This method handles extracting the right data for each component
+
+        // PRIORITY 1: Check for direct PlayerSaveData (this contains position data)
+        if (saveData.ContainsKey("playerSaveData"))
+        {
+            var playerSaveData = saveData["playerSaveData"] as PlayerSaveData;
+            if (playerSaveData != null)
+            {
+                DebugLog($"Found playerSaveData with position: {playerSaveData.position}");
+                var extracted = saveable.ExtractRelevantData(playerSaveData);
+                DebugLog($"Extracted data type: {extracted?.GetType().Name ?? "null"}");
+                return extracted;
+            }
+        }
+
+        // PRIORITY 2: Check for PlayerPersistentData
+        if (saveData.ContainsKey("playerPersistentData"))
+        {
+            var persistentData = saveData["playerPersistentData"] as PlayerPersistentData;
+            if (persistentData != null)
+            {
+                DebugLog($"Found playerPersistentData");
+                return ExtractFromPlayerPersistentData(saveable, persistentData);
+            }
+        }
+
+        // PRIORITY 3: Direct component lookup
+        if (saveData.ContainsKey(saveable.SaveID))
+        {
+            DebugLog($"Found direct component data for: {saveable.SaveID}");
+            return saveData[saveable.SaveID];
+        }
+
+        DebugLog($"No save data found for component: {saveable.SaveID}");
+        return null;
+    }
+
+    /// <summary>
+    /// Extract data for a specific component from PlayerPersistentData
+    /// </summary>
+    private object ExtractFromPlayerPersistentData(ISaveable saveable, PlayerPersistentData persistentData)
+    {
+        if (persistentData == null) return null;
+
+        switch (saveable.SaveID)
+        {
+            case "Player_Main":
+                return new PlayerSaveData
+                {
+                    currentHealth = persistentData.currentHealth,
+                    canJump = persistentData.canJump,
+                    canSprint = persistentData.canSprint,
+                    canCrouch = persistentData.canCrouch,
+                    inventoryData = persistentData.inventoryData,
+                    equipmentData = persistentData.equipmentData
+                };
+
+            case "Inventory_Main":
+                return persistentData.inventoryData;
+
+            case "Equipment_Main":
+                return persistentData.equipmentData;
+
+            default:
+                DebugLog($"No extraction mapping for component: {saveable.SaveID}");
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Create default data for a component (new game initialization)
+    /// </summary>
+    private object CreateDefaultDataForComponent(ISaveable saveable)
+    {
+        switch (saveable.SaveID)
+        {
+            case "Player_Main":
+                var playerData = GameManager.Instance?.playerData;
+                return new PlayerSaveData
+                {
+                    currentHealth = playerData?.maxHealth ?? 100f,
+                    maxHealth = playerData?.maxHealth ?? 100f,
+                    canJump = true,
+                    canSprint = true,
+                    canCrouch = true,
+                    inventoryData = new InventorySaveData(),
+                    equipmentData = new EquipmentSaveData()
+                };
+
+            case "Inventory_Main":
+                return new InventorySaveData();
+
+            case "Equipment_Main":
+                return new EquipmentSaveData();
+
+            default:
+                DebugLog($"No default data creation for component: {saveable.SaveID}");
+                return null;
+        }
     }
 
     /// <summary>
@@ -188,8 +377,6 @@ public class PlayerPersistenceManager : MonoBehaviour
                 var data = saveable.GetDataToSave();
                 if (data != null)
                 {
-                    // Components will populate the save data structure
-                    // This is handled by each component's GetDataToSave method
                     ContributeToSaveData(saveable, data, saveData);
                 }
             }
@@ -207,7 +394,6 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// </summary>
     private void ContributeToSaveData(ISaveable saveable, object data, PlayerPersistentData saveData)
     {
-        // Each save component knows how to contribute to the unified structure
         switch (saveable.SaveID)
         {
             case "Player_Main":
@@ -241,95 +427,19 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Load persistent data from save system (called by SaveManager)
-    /// </summary>
-    public void LoadPersistentDataFromSave(PlayerPersistentData saveData)
-    {
-        if (saveData == null) return;
-
-        DebugLog("Loading persistent data from save file");
-
-        // Clear doorway transition data since we're loading from save
-        ClearPersistentData();
-        saveManagerIsHandlingRestore = true;
-
-        // Re-discover saveables
-        DiscoverPlayerDependentSaveables();
-
-        // Distribute data to appropriate save components
-        foreach (var saveable in playerDependentSaveables)
-        {
-            try
-            {
-                object componentData = ExtractDataForComponent(saveable, saveData);
-                if (componentData != null)
-                {
-                    saveable.LoadSaveData(componentData);
-                    saveable.OnAfterLoad();
-                    DebugLog($"Loaded save data for {saveable.SaveID}");
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"Failed to load save data for {saveable.SaveID}: {e.Message}");
-            }
-        }
-
-        DebugLog("Save data loading complete");
-    }
-
-    /// <summary>
-    /// Extract appropriate data for each save component from unified save data
-    /// </summary>
-    private object ExtractDataForComponent(ISaveable saveable, PlayerPersistentData saveData)
-    {
-        switch (saveable.SaveID)
-        {
-            case "Player_Main":
-                return new PlayerSaveData
-                {
-                    currentHealth = saveData.currentHealth,
-                    canJump = saveData.canJump,
-                    canSprint = saveData.canSprint,
-                    canCrouch = saveData.canCrouch
-                };
-
-            case "Inventory_Main":
-                return saveData.inventoryData;
-
-            case "Equipment_Main":
-                return saveData.equipmentData;
-
-            default:
-                DebugLog($"No data extraction defined for {saveable.SaveID}");
-                return null;
-        }
-    }
-
-    /// <summary>
     /// Clear persistent data (useful for new game)
     /// </summary>
     public void ClearPersistentData()
     {
         persistentPlayerData.Clear();
         hasPersistentData = false;
-        saveManagerIsHandlingRestore = false;
         DebugLog("Persistent player data cleared");
-    }
-
-    /// <summary>
-    /// Called when SaveManager finishes loading
-    /// </summary>
-    public void OnSaveLoadComplete()
-    {
-        saveManagerIsHandlingRestore = false;
-        DebugLog("Save load complete - doorway transitions re-enabled");
     }
 
     /// <summary>
     /// Check if we have persistent data waiting to be restored
     /// </summary>
-    public bool HasPersistentData => hasPersistentData && !saveManagerIsHandlingRestore;
+    public bool HasPersistentData => hasPersistentData;
 
     /// <summary>
     /// Get current player data snapshot (useful for debugging)
@@ -362,10 +472,5 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             Debug.Log($"[PlayerPersistence] {message}");
         }
-    }
-
-    private void OnDestroy()
-    {
-        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 }

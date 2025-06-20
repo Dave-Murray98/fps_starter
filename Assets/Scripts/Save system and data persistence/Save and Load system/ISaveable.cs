@@ -62,3 +62,24 @@ public enum SaveDataCategory
     /// </summary>
     PlayerDependent
 }
+
+/// <summary>
+/// Optional interface for saveable components that need context-aware restoration
+/// This allows components to handle restoration differently based on the context
+/// (doorway transition vs save file load vs new game)
+/// </summary>
+public interface IContextAwareSaveable : ISaveable
+{
+    /// <summary>
+    /// Load save data with awareness of the restoration context
+    /// This allows components to make context-specific decisions about what to restore
+    /// 
+    /// Examples:
+    /// - PlayerSaveComponent: Don't restore position during doorway transitions
+    /// - InventoryComponent: Always restore inventory regardless of context
+    /// - QuestComponent: Reset active quests on new game but preserve on transitions
+    /// </summary>
+    /// <param name="data">The data to load</param>
+    /// <param name="context">The context for this restoration operation</param>
+    void LoadSaveDataWithContext(object data, RestoreContext context);
+}

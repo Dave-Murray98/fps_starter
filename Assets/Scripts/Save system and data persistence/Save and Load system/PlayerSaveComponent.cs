@@ -1,12 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// REFACTORED: PlayerSaveComponent now handles ALL player data management
-/// Extracts data from PlayerManager and PlayerController during saves
-/// Restores data back to managers during loads
-/// PlayerManager and PlayerController become pure data holders
+/// REFACTORED: PlayerSaveComponent now implements context-aware restoration
+/// Can distinguish between doorway transitions (no position restore) and save loads (full restore)
+/// Much cleaner and more predictable than the previous IsFullSaveLoad method
 /// </summary>
-public class PlayerSaveComponent : SaveComponentBase
+public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable
 {
     [Header("Component References")]
     [SerializeField] private PlayerController playerController;
@@ -142,42 +141,48 @@ public class PlayerSaveComponent : SaveComponentBase
 
         if (saveContainer is PlayerSaveData playerSaveData)
         {
-            // Return the player data directly
+            // Return the player data directly - this preserves position information
             DebugLog($"Extracted player save data: Pos={playerSaveData.position}, Health={playerSaveData.currentHealth}");
             return playerSaveData;
         }
         else if (saveContainer is PlayerPersistentData persistentData)
         {
-            // Extract from persistent data structure
+            // Extract from persistent data structure (this typically doesn't have position)
             var extractedData = new PlayerSaveData
             {
                 currentHealth = persistentData.currentHealth,
                 canJump = persistentData.canJump,
                 canSprint = persistentData.canSprint,
-                canCrouch = persistentData.canCrouch
+                canCrouch = persistentData.canCrouch,
+                position = Vector3.zero, // Persistent data doesn't contain position
+                rotation = Vector3.zero,
+                inventoryData = persistentData.inventoryData,
+                equipmentData = persistentData.equipmentData
             };
-            DebugLog($"Extracted from persistent data: Health={extractedData.currentHealth}");
+            DebugLog($"Extracted from persistent data: Health={extractedData.currentHealth}, Pos={extractedData.position}");
             return extractedData;
         }
         else
         {
-            DebugLog("Invalid save data type - expected PlayerSaveData or PlayerPersistentData");
+            DebugLog($"Invalid save data type - expected PlayerSaveData or PlayerPersistentData, got {saveContainer?.GetType().Name ?? "null"}");
             return null;
         }
     }
 
     /// <summary>
-    /// RESTORE data back to managers (managers don't handle their own loading anymore)
+    /// CONTEXT-AWARE: Load data with awareness of restoration context
+    /// This is the key improvement - we know WHY we're being restored
     /// </summary>
-    public override void LoadSaveData(object data)
+    public void LoadSaveDataWithContext(object data, RestoreContext context)
     {
         if (!(data is PlayerSaveData playerSaveData))
         {
-            DebugLog($"Invalid save data type - expected PlayerSaveData, got {data?.GetType()}");
+            DebugLog($"Invalid save data type - expected PlayerSaveData, got {data?.GetType().Name ?? "null"}");
             return;
         }
 
-        DebugLog("=== RESTORING PLAYER DATA TO MANAGERS ===");
+        DebugLog($"=== RESTORING PLAYER DATA (Context: {context}) ===");
+        DebugLog($"Received data - Position: {playerSaveData.position}, Health: {playerSaveData.currentHealth}");
 
         // Ensure we have current references (they might have changed after scene load)
         if (autoFindReferences)
@@ -185,18 +190,48 @@ public class PlayerSaveComponent : SaveComponentBase
             FindPlayerReferences();
         }
 
-        // Restore position and abilities to PlayerController
+        // Restore abilities and health regardless of context
+        RestorePlayerStats(playerSaveData);
+
+        // CONTEXT-AWARE: Only restore position for save file loads
+        switch (context)
+        {
+            case RestoreContext.SaveFileLoad:
+                DebugLog("Save file load - restoring position");
+                RestorePlayerPosition(playerSaveData);
+                break;
+
+            case RestoreContext.DoorwayTransition:
+                DebugLog("Doorway transition - NOT restoring position (doorway will set it)");
+                break;
+
+            case RestoreContext.NewGame:
+                DebugLog("New game - setting default position");
+                SetDefaultPosition();
+                break;
+        }
+
+        DebugLog($"Player data restoration complete for context: {context}");
+    }
+
+    /// <summary>
+    /// FALLBACK: Standard LoadSaveData method for non-context-aware systems
+    /// Defaults to full restoration (including position)
+    /// </summary>
+    public override void LoadSaveData(object data)
+    {
+        DebugLog("Using fallback LoadSaveData - defaulting to full restoration");
+        LoadSaveDataWithContext(data, RestoreContext.SaveFileLoad);
+    }
+
+    /// <summary>
+    /// Restore player stats, abilities, and health (common to all contexts)
+    /// </summary>
+    private void RestorePlayerStats(PlayerSaveData playerSaveData)
+    {
+        // Restore abilities to PlayerController
         if (playerController != null)
         {
-            // Restore position (only for save/load, not doorway transitions)
-            if (IsFullSaveLoad(playerSaveData))
-            {
-                playerController.transform.position = playerSaveData.position;
-                playerController.transform.eulerAngles = playerSaveData.rotation;
-                DebugLog($"Restored position: {playerSaveData.position}");
-            }
-
-            // Restore abilities
             playerController.canJump = playerSaveData.canJump;
             playerController.canSprint = playerSaveData.canSprint;
             playerController.canCrouch = playerSaveData.canCrouch;
@@ -205,7 +240,7 @@ public class PlayerSaveComponent : SaveComponentBase
         }
         else
         {
-            DebugLog("PlayerController not found - position and abilities not restored");
+            DebugLog("PlayerController not found - abilities not restored");
         }
 
         // Restore health to PlayerManager
@@ -231,18 +266,47 @@ public class PlayerSaveComponent : SaveComponentBase
             playerData.lookSensitivity = playerSaveData.lookSensitivity;
             DebugLog($"Restored look sensitivity: {playerSaveData.lookSensitivity}");
         }
-
-        DebugLog("Player data restoration complete");
     }
 
     /// <summary>
-    /// Determine if this is a full save/load (restore position) or just data persistence (don't restore position)
+    /// Restore player position (only for save file loads)
     /// </summary>
-    private bool IsFullSaveLoad(PlayerSaveData saveData)
+    private void RestorePlayerPosition(PlayerSaveData playerSaveData)
     {
-        // If scene name is set, this is likely from a save file
-        // If scene name is empty/null, this is likely from PlayerPersistenceManager doorway transition
-        return !string.IsNullOrEmpty(saveData.currentScene);
+        if (playerController != null)
+        {
+            playerController.transform.position = playerSaveData.position;
+            playerController.transform.eulerAngles = playerSaveData.rotation;
+            DebugLog($"Restored position: {playerSaveData.position}, rotation: {playerSaveData.rotation}");
+        }
+        else
+        {
+            DebugLog("PlayerController not found - position not restored");
+        }
+    }
+
+    /// <summary>
+    /// Set default position for new game
+    /// </summary>
+    private void SetDefaultPosition()
+    {
+        if (playerController != null)
+        {
+            // Find a spawn point or use world origin
+            var spawnPoint = FindFirstObjectByType<PlayerSpawnPoint>();
+            if (spawnPoint != null)
+            {
+                playerController.transform.position = spawnPoint.transform.position;
+                playerController.transform.rotation = spawnPoint.transform.rotation;
+                DebugLog($"Set default position to spawn point: {spawnPoint.transform.position}");
+            }
+            else
+            {
+                playerController.transform.position = Vector3.zero;
+                playerController.transform.rotation = Quaternion.identity;
+                DebugLog("Set default position to world origin");
+            }
+        }
     }
 
     /// <summary>
@@ -320,5 +384,22 @@ public class PlayerSaveComponent : SaveComponentBase
             FindPlayerReferences();
             ValidateReferences();
         }
+    }
+}
+
+/// <summary>
+/// Optional component to mark player spawn points for new game initialization
+/// </summary>
+public class PlayerSpawnPoint : MonoBehaviour
+{
+    [Header("Spawn Point Settings")]
+    public bool isDefaultSpawn = true;
+    public string spawnPointID = "default";
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = isDefaultSpawn ? Color.green : Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, 0.5f);
+        Gizmos.DrawRay(transform.position, transform.forward * 2f);
     }
 }
