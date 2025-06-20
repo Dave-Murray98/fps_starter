@@ -205,14 +205,14 @@ public class SceneDataManager : MonoBehaviour
             var sceneData = sceneDataContainer.sceneData[currentScene];
             // DebugLog($"IMMEDIATE: Current scene '{currentScene}' found with {sceneData.objectData.Count} objects");
 
-            if (sceneData.objectData.ContainsKey("SceneItemStateManager"))
-            {
-                // DebugLog("IMMEDIATE: SceneItemStateManager data confirmed in scene data");
-            }
-            else
-            {
-                DebugLog("WARNING - SceneItemStateManager data missing!");
-            }
+            // if (sceneData.objectData.ContainsKey("SceneItemStateManager"))
+            // {
+            //     // DebugLog("IMMEDIATE: SceneItemStateManager data confirmed in scene data");
+            // }
+            // else
+            // {
+            //     DebugLog("WARNING - SceneItemStateManager data missing!");
+            // }
         }
         else
         {

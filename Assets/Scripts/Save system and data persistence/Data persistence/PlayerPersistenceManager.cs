@@ -20,7 +20,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     private bool saveManagerIsHandlingRestore = false;
 
     // Reference to persistent inventory
-    private InventoryManager persistentInventory;
+    private InventoryManager inventoryManager;
     private InventorySaveComponent inventorySaveComponent;
 
     private void Awake()
@@ -47,10 +47,10 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     private void RefreshInventoryReferences()
     {
-        persistentInventory = InventoryManager.Instance;
-        if (persistentInventory == null)
+        inventoryManager = InventoryManager.Instance;
+        if (inventoryManager == null)
         {
-            persistentInventory = FindFirstObjectByType<InventoryManager>();
+            inventoryManager = FindFirstObjectByType<InventoryManager>();
         }
 
         inventorySaveComponent = FindFirstObjectByType<InventorySaveComponent>();
@@ -130,10 +130,10 @@ public class PlayerPersistenceManager : MonoBehaviour
         // Ensure we have inventory system references
         RefreshInventoryReferences();
 
-        if (persistentInventory != null)
+        if (inventoryManager != null)
         {
             // Load inventory data directly into persistent inventory - no UI required!
-            persistentInventory.LoadFromSaveData(persistentData.inventoryData);
+            inventoryManager.LoadFromSaveData(persistentData.inventoryData);
             DebugLog($"Restored inventory data via PersistentInventoryManager: {persistentData.inventoryData.ItemCount} items");
         }
         else
@@ -227,10 +227,10 @@ public class PlayerPersistenceManager : MonoBehaviour
         // Ensure we have inventory system references
         RefreshInventoryReferences();
 
-        if (persistentInventory != null)
+        if (inventoryManager != null)
         {
             // Get inventory data directly from persistent inventory - no UI required!
-            persistentData.inventoryData = persistentInventory.GetSaveData();
+            persistentData.inventoryData = inventoryManager.GetSaveData();
             DebugLog($"Saved inventory data via PersistentInventoryManager: {persistentData.inventoryData.ItemCount} items");
         }
         else if (inventorySaveComponent != null)
@@ -366,9 +366,9 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         RefreshInventoryReferences();
 
-        if (persistentInventory != null)
+        if (inventoryManager != null)
         {
-            bool success = persistentInventory.AddItem(itemData, preferredPosition);
+            bool success = inventoryManager.AddItem(itemData, preferredPosition);
             if (success)
             {
                 DebugLog($"Added item {itemData.itemName} to persistent inventory");
@@ -391,9 +391,9 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         RefreshInventoryReferences();
 
-        if (persistentInventory != null)
+        if (inventoryManager != null)
         {
-            return persistentInventory.HasSpaceForItem(itemData);
+            return inventoryManager.HasSpaceForItem(itemData);
         }
 
         DebugLog("Cannot check inventory space - PersistentInventoryManager not found");
@@ -407,9 +407,9 @@ public class PlayerPersistenceManager : MonoBehaviour
     {
         RefreshInventoryReferences();
 
-        if (persistentInventory != null)
+        if (inventoryManager != null)
         {
-            return persistentInventory.GetInventoryStats();
+            return inventoryManager.GetInventoryStats();
         }
 
         return (0, 0, 0);
