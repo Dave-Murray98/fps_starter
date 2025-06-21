@@ -5,7 +5,6 @@ using UnityEngine.EventSystems;
 using TMPro;
 using DG.Tweening;
 using System.Collections;
-using System.Linq;
 
 /// <summary>
 /// Fixed dropdown menu system for inventory items
@@ -386,7 +385,6 @@ public class InventoryDropdownMenu : MonoBehaviour
 
     /// <summary>
     /// Get available actions for the specified item type
-    /// UPDATED: Now includes clothing support
     /// </summary>
     private List<DropdownAction> GetActionsForItemType(ItemType itemType)
     {
@@ -425,115 +423,9 @@ public class InventoryDropdownMenu : MonoBehaviour
                 actions.Add(new DropdownAction("Assign Hotkey", "assign_hotkey", true));
                 actions.Add(new DropdownAction("Drop", "drop", true));
                 break;
-
-            case ItemType.Clothing:
-                // NEW: Clothing-specific actions
-                AddClothingActions(actions);
-                break;
         }
 
         return actions;
-    }
-
-    /// <summary>
-    /// Add clothing-specific actions to the dropdown menu
-    /// NEW: Handles clothing equipping options
-    /// </summary>
-    private void AddClothingActions(List<DropdownAction> actions)
-    {
-        if (currentItem?.ItemData?.ClothingData == null || ClothingManager.Instance == null)
-        {
-            // Fallback actions if clothing system not available
-            actions.Add(new DropdownAction("Drop", "drop", true));
-            return;
-        }
-
-        var clothingData = currentItem.ItemData.ClothingData;
-        var availableSlots = ClothingManager.Instance.GetAvailableSlotsForItem(currentItem);
-
-        if (availableSlots.Count > 0)
-        {
-            if (availableSlots.Count == 1)
-            {
-                // Only one slot available - show simple "Equip" option
-                var slot = availableSlots[0];
-                string displayName = GetClothingSlotDisplayName(slot.slotID);
-                string statusText = slot.isOccupied ? " (Replace)" : "";
-
-                actions.Add(new DropdownAction($"Equip to {displayName}{statusText}", $"equip_to_{slot.slotID}", true));
-            }
-            else
-            {
-                // Multiple slots available - show options for each
-                foreach (var slot in availableSlots.OrderBy(s => s.slotID))
-                {
-                    string displayName = GetClothingSlotDisplayName(slot.slotID);
-                    string statusText = slot.isOccupied ? " (Replace)" : "";
-
-                    actions.Add(new DropdownAction($"Equip to {displayName}{statusText}", $"equip_to_{slot.slotID}", true));
-                }
-            }
-        }
-
-        // Check if this item is currently equipped
-        if (IsClothingCurrentlyEquipped(currentItem))
-        {
-            actions.Add(new DropdownAction("Unequip", "unequip_clothing", true));
-        }
-
-        // Add repair option if item needs repair
-        if (clothingData.NeedsRepair && ClothingDegradationSystem.Instance != null)
-        {
-            var repairToolId = ClothingDegradationSystem.Instance.FindRepairToolInInventory();
-            bool hasRepairTool = !string.IsNullOrEmpty(repairToolId);
-
-            actions.Add(new DropdownAction("Repair", "repair_clothing", hasRepairTool));
-        }
-
-        // Standard actions
-        actions.Add(new DropdownAction("Drop", "drop", true));
-    }
-
-    /// <summary>
-    /// Get display name for a clothing slot ID
-    /// NEW: Helper method for clothing slot names
-    /// </summary>
-    private string GetClothingSlotDisplayName(string slotId)
-    {
-        var slotDisplayNames = new Dictionary<string, string>
-    {
-        { "head_upper", "Head (Upper)" },
-        { "head_lower", "Head (Lower)" },
-        { "torso_inner", "Torso (Inner)" },
-        { "torso_outer", "Torso (Outer)" },
-        { "hands", "Hands" },
-        { "legs_inner", "Legs (Inner)" },
-        { "legs_outer", "Legs (Outer)" },
-        { "socks", "Socks" },
-        { "shoes", "Shoes" }
-    };
-
-        return slotDisplayNames.TryGetValue(slotId, out string displayName) ? displayName : slotId;
-    }
-
-    /// <summary>
-    /// Check if a clothing item is currently equipped
-    /// NEW: Helper method for clothing state checking
-    /// </summary>
-    private bool IsClothingCurrentlyEquipped(InventoryItemData item)
-    {
-        if (ClothingManager.Instance == null || item?.ID == null)
-            return false;
-
-        foreach (var slot in ClothingManager.Instance.AllClothingSlots)
-        {
-            if (slot.isOccupied && slot.equippedItemID == item.ID)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

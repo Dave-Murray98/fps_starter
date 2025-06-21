@@ -71,9 +71,6 @@ public class ItemData : ScriptableObject
     [Header("Ammo Settings")]
     [SerializeField] private AmmoData ammoData;
 
-    [Header("Clothing Settings")]
-    [SerializeField] private ClothingData clothingData;
-
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = false;
 
@@ -82,9 +79,6 @@ public class ItemData : ScriptableObject
     public WeaponData WeaponData => weaponData;
     public EquipmentData EquipmentData => equipmentData;
     public AmmoData AmmoData => ammoData;
-
-    public ClothingData ClothingData => clothingData;
-
 
     // Get the color for this item (custom color instead of shape-based)
     public Color CellColor => cellColor;
@@ -136,45 +130,6 @@ public class ItemData : ScriptableObject
         {
             // Only ammo should be stackable for now
             stackSize = 1;
-        }
-
-        // Clothing-specific validation
-        if (itemType == ItemType.Clothing)
-        {
-            if (clothingData == null)
-            {
-                Debug.LogWarning($"Clothing item {itemName} has no ClothingData assigned!");
-            }
-            else
-            {
-                // Initialize durability if not set
-                if (clothingData.currentDurability <= 0)
-                {
-                    clothingData.InitializeDurability();
-                }
-
-                // Validate clothing configuration
-                if (clothingData.maxDurability <= 0)
-                {
-                    clothingData.maxDurability = 100f;
-                }
-
-                if (clothingData.damagePerHit <= 0)
-                {
-                    clothingData.damagePerHit = 2f;
-                }
-            }
-        }
-        else
-        {
-            // Clear clothing data for non-clothing items
-            if (clothingData != null && (
-                clothingData.warmthProtection > 0 ||
-                clothingData.defenseProtection > 0 ||
-                clothingData.rainProtection > 0))
-            {
-                Debug.LogWarning($"Non-clothing item {itemName} has clothing data - consider clearing it");
-            }
         }
 
         // Validate degradation settings

@@ -459,7 +459,7 @@ public class ItemStatsDisplay : MonoBehaviour
             dragHandler.OnItemSelected += DisplayItemStats;
             dragHandler.OnItemDeselected += ClearDisplay;
 
-            //            Debug.Log($"[ItemStatsDisplay] Registered drag handler for item");
+            Debug.Log($"[ItemStatsDisplay] Registered drag handler for item");
         }
     }
 

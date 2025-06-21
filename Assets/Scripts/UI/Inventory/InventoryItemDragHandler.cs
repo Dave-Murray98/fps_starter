@@ -462,7 +462,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         switch (actionId)
         {
-            // Existing actions
             case "consume":
                 ConsumeItem();
                 break;
@@ -478,19 +477,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             case "drop":
                 DropItem();
                 break;
-
-            // NEW: Clothing-specific actions
-            case var action when action.StartsWith("equip_to_"):
-                string slotId = action.Substring("equip_to_".Length);
-                EquipClothingToSlot(slotId);
-                break;
-            case "unequip_clothing":
-                UnequipClothing();
-                break;
-            case "repair_clothing":
-                RepairClothing();
-                break;
-
             default:
                 Debug.LogWarning($"Unknown dropdown action: {actionId}");
                 break;
@@ -668,143 +654,6 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
             Debug.LogWarning($"Failed to drop {itemData.ItemData?.itemName}");
         }
     }
-
-    /// <summary>
-    /// Equip clothing to a specific slot
-    /// NEW: Handles clothing equipping to specific slots
-    /// </summary>
-    private void EquipClothingToSlot(string slotId)
-    {
-        if (itemData?.ItemData?.itemType != ItemType.Clothing)
-        {
-            Debug.LogWarning("Cannot equip clothing - item is not clothing type");
-            return;
-        }
-
-        if (ClothingManager.Instance == null)
-        {
-            Debug.LogWarning("ClothingManager not found - cannot equip clothing");
-            return;
-        }
-
-        bool success = ClothingManager.Instance.EquipClothingToSlot(itemData.ID, slotId);
-
-        if (success)
-        {
-            Debug.Log($"Successfully equipped {itemData.ItemData.itemName} to slot {slotId}");
-        }
-        else
-        {
-            Debug.LogWarning($"Failed to equip {itemData.ItemData.itemName} to slot {slotId}");
-        }
-    }
-
-    /// <summary>
-    /// Unequip currently equipped clothing
-    /// NEW: Handles clothing unequipping
-    /// </summary>
-    private void UnequipClothing()
-    {
-        if (itemData?.ItemData?.itemType != ItemType.Clothing)
-        {
-            Debug.LogWarning("Cannot unequip - item is not clothing type");
-            return;
-        }
-
-        if (ClothingManager.Instance == null)
-        {
-            Debug.LogWarning("ClothingManager not found - cannot unequip clothing");
-            return;
-        }
-
-        // Find which slot this item is equipped in
-        foreach (var slot in ClothingManager.Instance.AllClothingSlots)
-        {
-            if (slot.isOccupied && slot.equippedItemID == itemData.ID)
-            {
-                bool success = ClothingManager.Instance.UnequipClothingFromSlot(slot.slotID);
-
-                if (success)
-                {
-                    Debug.Log($"Successfully unequipped {itemData.ItemData.itemName} from {slot.slotName}");
-                }
-                else
-                {
-                    Debug.LogWarning($"Failed to unequip {itemData.ItemData.itemName}");
-                }
-                return;
-            }
-        }
-
-        Debug.LogWarning($"Could not find equipped clothing {itemData.ItemData.itemName} to unequip");
-    }
-
-    /// <summary>
-    /// Repair clothing item
-    /// NEW: Handles clothing repair using repair tools
-    /// </summary>
-    private void RepairClothing()
-    {
-        if (itemData?.ItemData?.itemType != ItemType.Clothing)
-        {
-            Debug.LogWarning("Cannot repair - item is not clothing type");
-            return;
-        }
-
-        if (ClothingDegradationSystem.Instance == null)
-        {
-            Debug.LogWarning("ClothingDegradationSystem not found - cannot repair clothing");
-            return;
-        }
-
-        // Find repair tool in inventory
-        string repairToolId = ClothingDegradationSystem.Instance.FindRepairToolInInventory();
-        if (string.IsNullOrEmpty(repairToolId))
-        {
-            Debug.LogWarning("No repair tool found in inventory");
-            return;
-        }
-
-        // Check if item is equipped (can only repair equipped clothing)
-        string slotId = FindClothingSlotId();
-        if (string.IsNullOrEmpty(slotId))
-        {
-            Debug.LogWarning("Can only repair equipped clothing items");
-            return;
-        }
-
-        bool success = ClothingDegradationSystem.Instance.RepairClothing(slotId, repairToolId);
-
-        if (success)
-        {
-            Debug.Log($"Successfully repaired {itemData.ItemData.itemName}");
-        }
-        else
-        {
-            Debug.LogWarning($"Failed to repair {itemData.ItemData.itemName}");
-        }
-    }
-
-    /// <summary>
-    /// Find which clothing slot this item is equipped in
-    /// NEW: Helper method to find clothing slot
-    /// </summary>
-    private string FindClothingSlotId()
-    {
-        if (ClothingManager.Instance == null || itemData?.ID == null)
-            return null;
-
-        foreach (var slot in ClothingManager.Instance.AllClothingSlots)
-        {
-            if (slot.isOccupied && slot.equippedItemID == itemData.ID)
-            {
-                return slot.slotID;
-            }
-        }
-
-        return null;
-    }
-
 
     #endregion
 
