@@ -4,6 +4,7 @@ using UnityEngine;
 /// ENHANCED: InventorySaveComponent now implements IPlayerDependentSaveable for true modularity
 /// Handles its own data extraction, default creation, and contribution to unified saves
 /// No longer requires hardcoded knowledge in PlayerPersistenceManager
+/// UPDATED: Simplified to use only context-aware loading
 /// </summary>
 public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -179,8 +180,9 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
     /// <summary>
     /// RESTORE data back to InventoryManager (manager doesn't handle its own loading anymore)
+    /// UPDATED: Now uses context-aware loading
     /// </summary>
-    public override void LoadSaveData(object data)
+    public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
         if (!(data is InventorySaveData inventoryData))
         {
@@ -188,7 +190,7 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return;
         }
 
-        DebugLog("=== RESTORING INVENTORY DATA TO MANAGER ===");
+        DebugLog($"=== RESTORING INVENTORY DATA TO MANAGER (Context: {context}) ===");
 
         // Ensure we have current references (they might have changed after scene load)
         if (autoFindReferences)
@@ -207,6 +209,7 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         try
         {
             // Restore data to the manager (manager doesn't do this itself anymore)
+            // Inventory restoration is the same regardless of context
             RestoreInventoryDataToManager(inventoryData);
             DebugLog("Inventory restored successfully to manager");
         }

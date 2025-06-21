@@ -2,6 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Interface for any object that can be saved and loaded
+/// UPDATED: Now all saveable objects are context-aware by default
 /// </summary>
 public interface ISaveable
 {
@@ -28,9 +29,17 @@ public interface ISaveable
     object ExtractRelevantData(object saveContainer);
 
     /// <summary>
-    /// Loads the provided data into this object
+    /// Loads the provided data into this object with awareness of the restoration context
+    /// This allows components to make context-specific decisions about what to restore
+    /// 
+    /// Examples:
+    /// - PlayerSaveComponent: Don't restore position during doorway transitions
+    /// - InventoryComponent: Always restore inventory regardless of context
+    /// - QuestComponent: Reset active quests on new game but preserve on transitions
     /// </summary>
-    void LoadSaveData(object data);
+    /// <param name="data">The data to load</param>
+    /// <param name="context">The context for this restoration operation</param>
+    void LoadSaveDataWithContext(object data, RestoreContext context);
 
     /// <summary>
     /// Optional: Called before save data is collected
@@ -91,27 +100,6 @@ public enum SaveDataCategory
     /// Examples: Player health, inventory, stats, quest progress
     /// </summary>
     PlayerDependent
-}
-
-/// <summary>
-/// Optional interface for saveable components that need context-aware restoration
-/// This allows components to handle restoration differently based on the context
-/// (doorway transition vs save file load vs new game)
-/// </summary>
-public interface IContextAwareSaveable : ISaveable
-{
-    /// <summary>
-    /// Load save data with awareness of the restoration context
-    /// This allows components to make context-specific decisions about what to restore
-    /// 
-    /// Examples:
-    /// - PlayerSaveComponent: Don't restore position during doorway transitions
-    /// - InventoryComponent: Always restore inventory regardless of context
-    /// - QuestComponent: Reset active quests on new game but preserve on transitions
-    /// </summary>
-    /// <param name="data">The data to load</param>
-    /// <param name="context">The context for this restoration operation</param>
-    void LoadSaveDataWithContext(object data, RestoreContext context);
 }
 
 /// <summary>

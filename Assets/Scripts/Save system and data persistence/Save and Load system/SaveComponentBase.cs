@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Base class for all save components
 /// Provides common functionality and enforces consistent patterns
+/// UPDATED: Now uses context-aware loading by default
 /// </summary>
 public abstract class SaveComponentBase : MonoBehaviour, ISaveable
 {
@@ -28,7 +29,7 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
     [ShowInInspector] public virtual SaveDataCategory SaveCategory => SaveDataCategory.SceneDependent;
 
     public abstract object GetDataToSave();
-    public abstract void LoadSaveData(object data);
+    public abstract void LoadSaveDataWithContext(object data, RestoreContext context);
 
     public virtual void OnBeforeSave()
     {

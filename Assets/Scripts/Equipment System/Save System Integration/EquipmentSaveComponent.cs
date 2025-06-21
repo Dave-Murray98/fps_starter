@@ -5,6 +5,7 @@ using System.Collections;
 /// ENHANCED: EquipmentSaveComponent now implements IPlayerDependentSaveable for true modularity
 /// Handles its own data extraction, default creation, and contribution to unified saves
 /// No longer requires hardcoded knowledge in PlayerPersistenceManager
+/// UPDATED: Simplified to use only context-aware loading
 /// </summary>
 public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -178,8 +179,9 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
     /// <summary>
     /// RESTORE data back to EquippedItemManager (manager doesn't handle its own loading anymore)
+    /// UPDATED: Now uses context-aware loading
     /// </summary>
-    public override void LoadSaveData(object data)
+    public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
         if (!(data is EquipmentSaveData equipmentData))
         {
@@ -187,7 +189,7 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return;
         }
 
-        DebugLog("=== RESTORING EQUIPMENT DATA TO MANAGER ===");
+        DebugLog($"=== RESTORING EQUIPMENT DATA TO MANAGER (Context: {context}) ===");
 
         // Ensure we have current references (they might have changed after scene load)
         if (autoFindReferences)
@@ -208,6 +210,7 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         try
         {
             // Restore data to the manager (manager doesn't do this itself anymore)
+            // Equipment restoration is the same regardless of context
             RestoreEquipmentDataToManager(equipmentData);
             DebugLog("Equipment restored successfully to manager");
         }

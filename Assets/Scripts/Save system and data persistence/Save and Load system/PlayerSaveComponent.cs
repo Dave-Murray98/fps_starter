@@ -4,8 +4,9 @@ using UnityEngine;
 /// ENHANCED: PlayerSaveComponent now implements IPlayerDependentSaveable for true modularity
 /// Handles its own data extraction, default creation, and contribution to unified saves
 /// No longer requires hardcoded knowledge in PlayerPersistenceManager
+/// UPDATED: Simplified to use only context-aware loading
 /// </summary>
-public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPlayerDependentSaveable
+public class PlayerSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
     [Header("Component References")]
     [SerializeField] private PlayerController playerController;
@@ -315,13 +316,14 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
 
     #endregion
 
-    #region IContextAwareSaveable Implementation
+    #region Context-Aware Loading
 
     /// <summary>
     /// CONTEXT-AWARE: Load data with awareness of restoration context
     /// This is the key improvement - we know WHY we're being restored
+    /// UPDATED: This is now the primary (and only) loading method
     /// </summary>
-    public void LoadSaveDataWithContext(object data, RestoreContext context)
+    public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
         if (!(data is PlayerSaveData playerSaveData))
         {
@@ -358,16 +360,6 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
         }
 
         DebugLog($"Player data restoration complete for context: {context}");
-    }
-
-    /// <summary>
-    /// FALLBACK: Standard LoadSaveData method for non-context-aware systems
-    /// Defaults to full restoration (including position)
-    /// </summary>
-    public override void LoadSaveData(object data)
-    {
-        DebugLog("Using fallback LoadSaveData - defaulting to full restoration");
-        LoadSaveDataWithContext(data, RestoreContext.SaveFileLoad);
     }
 
     #endregion
@@ -469,4 +461,3 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
 
     #endregion
 }
-

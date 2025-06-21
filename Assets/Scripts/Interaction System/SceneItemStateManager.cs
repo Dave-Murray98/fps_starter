@@ -7,6 +7,7 @@ using Sirenix.OdinInspector;
 /// Scene Item State Management System
 /// Single source of truth for all item states in scenes
 /// Eliminates memory waste and synchronization issues
+/// UPDATED: Now uses context-aware loading
 /// </summary>
 public class SceneItemStateManager : MonoBehaviour, ISaveable
 {
@@ -359,16 +360,48 @@ public class SceneItemStateManager : MonoBehaviour, ISaveable
         return saveContainer;
     }
 
-    public void LoadSaveData(object data)
+    /// <summary>
+    /// UPDATED: Now uses context-aware loading
+    /// Context affects how we apply the loaded state to the scene
+    /// </summary>
+    public void LoadSaveDataWithContext(object data, RestoreContext context)
     {
         if (data is SceneItemStateSaveData saveData)
         {
+            DebugLog($"Loading item state data (Context: {context})");
+
             collectedOriginalItems = new HashSet<string>(saveData.collectedOriginalItems ?? new List<string>());
             droppedInventoryItems = (saveData.droppedInventoryItems ?? new List<DroppedItemData>())
                 .ToDictionary(item => item.id, item => item);
             nextDroppedItemId = saveData.nextDroppedItemId;
 
-            // DebugLog($"Loaded state: {collectedOriginalItems.Count} collected items, {droppedInventoryItems.Count} dropped items");
+            DebugLog($"Loaded state: {collectedOriginalItems.Count} collected items, {droppedInventoryItems.Count} dropped items");
+
+            // Context-aware state application
+            switch (context)
+            {
+                case RestoreContext.SaveFileLoad:
+                    DebugLog("Save file load - will apply complete state after delay");
+                    // For save file loads, apply the complete saved state
+                    break;
+
+                case RestoreContext.DoorwayTransition:
+                    DebugLog("Doorway transition - will apply state immediately");
+                    // For doorway transitions, apply state normally
+                    break;
+
+                case RestoreContext.NewGame:
+                    DebugLog("New game - clearing all item states");
+                    // For new game, clear everything
+                    collectedOriginalItems.Clear();
+                    droppedInventoryItems.Clear();
+                    nextDroppedItemId = 1;
+                    break;
+            }
+        }
+        else
+        {
+            DebugLog($"LoadSaveDataWithContext called with invalid data type: {data?.GetType()}");
         }
     }
 
@@ -585,3 +618,4 @@ public class SceneItemStateSaveData
     public List<DroppedItemData> droppedInventoryItems;
     public int nextDroppedItemId;
 }
+

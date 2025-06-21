@@ -4,6 +4,7 @@ using Sirenix.OdinInspector;
 /// <summary>
 /// Base class for all interactable objects
 /// Provides common functionality and integrates with the save system
+/// UPDATED: Now uses context-aware loading
 /// </summary>
 public abstract class InteractableBase : MonoBehaviour, IPersistentInteractable
 {
@@ -169,11 +170,15 @@ public abstract class InteractableBase : MonoBehaviour, IPersistentInteractable
         return saveContainer;
     }
 
-    public virtual void LoadSaveData(object data)
+    /// <summary>
+    /// UPDATED: Now uses context-aware loading
+    /// Context doesn't matter much for interactables - they behave the same regardless
+    /// </summary>
+    public virtual void LoadSaveDataWithContext(object data, RestoreContext context)
     {
         if (data is InteractableSaveData saveData)
         {
-            DebugLog($"Loading save data - old state: hasBeenUsed={hasBeenUsed}, canInteract={canInteract}");
+            DebugLog($"Loading save data (Context: {context}) - old state: hasBeenUsed={hasBeenUsed}, canInteract={canInteract}");
 
             hasBeenUsed = saveData.hasBeenUsed;
             canInteract = saveData.canInteract;
@@ -183,7 +188,7 @@ public abstract class InteractableBase : MonoBehaviour, IPersistentInteractable
         }
         else
         {
-            DebugLog($"LoadSaveData called with invalid data type: {data?.GetType()}");
+            DebugLog($"LoadSaveDataWithContext called with invalid data type: {data?.GetType()}");
         }
     }
 

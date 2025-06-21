@@ -7,6 +7,7 @@ using Sirenix.OdinInspector;
 /// REFACTORED: SceneDataManager no longer subscribes to OnSceneLoaded
 /// SceneTransitionManager calls us when needed - much cleaner separation of concerns
 /// Focuses purely on scene data persistence without scene transition management
+/// UPDATED: Simplified with unified context-aware loading
 /// </summary>
 public class SceneDataManager : MonoBehaviour
 {
@@ -55,7 +56,7 @@ public class SceneDataManager : MonoBehaviour
     public void RestoreSceneDataForTransition(string sceneName)
     {
         DebugLog($"Restoring scene data for doorway transition: {sceneName}");
-        RestoreSceneData(sceneName);
+        RestoreSceneData(sceneName, RestoreContext.DoorwayTransition);
     }
 
     /// <summary>
@@ -74,7 +75,7 @@ public class SceneDataManager : MonoBehaviour
 
                 // Restore current scene data
                 string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-                RestoreSceneData(currentScene);
+                RestoreSceneData(currentScene, RestoreContext.SaveFileLoad);
             }
             else
             {
@@ -145,8 +146,9 @@ public class SceneDataManager : MonoBehaviour
 
     /// <summary>
     /// Restore scene data (EXCLUDING player data)
+    /// UPDATED: Now uses context-aware loading for all saveables
     /// </summary>
-    private void RestoreSceneData(string sceneName)
+    private void RestoreSceneData(string sceneName, RestoreContext context)
     {
         var sceneData = sceneDataContainer.GetSceneData(sceneName);
         if (sceneData == null)
@@ -155,7 +157,7 @@ public class SceneDataManager : MonoBehaviour
             return;
         }
 
-        DebugLog($"Restoring scene data for: {sceneName} ({sceneData.objectData.Count} objects)");
+        DebugLog($"Restoring scene data for: {sceneName} ({sceneData.objectData.Count} objects) with context: {context}");
 
         // Restore all objects EXCEPT player-related
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
@@ -173,18 +175,8 @@ public class SceneDataManager : MonoBehaviour
                 var data = sceneData.GetObjectData<object>(saveable.SaveID);
                 if (data != null)
                 {
-                    // Use context-aware loading if available
-                    if (saveable is IContextAwareSaveable contextAware)
-                    {
-                        // Scene data restoration could be either doorway transition or save load
-                        // We'll default to doorway transition context for scene objects
-                        contextAware.LoadSaveDataWithContext(data, RestoreContext.DoorwayTransition);
-                    }
-                    else
-                    {
-                        saveable.LoadSaveData(data);
-                    }
-
+                    // Use context-aware loading - all saveables now support this
+                    saveable.LoadSaveDataWithContext(data, context);
                     saveable.OnAfterLoad();
                     restoredCount++;
                     DebugLog($"Restored scene object: {saveable.SaveID}");

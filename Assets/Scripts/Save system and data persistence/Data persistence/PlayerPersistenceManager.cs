@@ -8,6 +8,7 @@ using Sirenix.OdinInspector;
 /// No longer has hardcoded knowledge of specific save components
 /// Components handle their own data extraction, default creation, and contribution
 /// This makes the system scalable - add/remove components without touching this manager
+/// UPDATED: Simplified with unified context-aware loading
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
@@ -110,6 +111,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// CONTEXT-AWARE: Restore player data for doorway transitions
     /// This restores player stats, inventory, equipment but NOT position
     /// Called by SceneTransitionManager when context is DoorwayTransition
+    /// UPDATED: Simplified without context-aware checking
     /// </summary>
     public void RestoreForDoorwayTransition()
     {
@@ -132,7 +134,8 @@ public class PlayerPersistenceManager : MonoBehaviour
                 if (persistentPlayerData.TryGetValue(saveable.SaveID, out var data))
                 {
                     // Load data with doorway context (no position restore)
-                    LoadSaveableWithContext(saveable, data, RestoreContext.DoorwayTransition);
+                    saveable.LoadSaveDataWithContext(data, RestoreContext.DoorwayTransition);
+                    saveable.OnAfterLoad();
                     DebugLog($"Restored doorway data for {saveable.SaveID}");
                 }
                 else
@@ -155,6 +158,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// CONTEXT-AWARE: Restore player data from save file
     /// This restores ALL player data INCLUDING position
     /// Called by SceneTransitionManager when context is SaveFileLoad
+    /// UPDATED: Simplified without context-aware checking
     /// </summary>
     public void RestoreFromSaveFile(Dictionary<string, object> saveData)
     {
@@ -182,7 +186,8 @@ public class PlayerPersistenceManager : MonoBehaviour
                 if (componentData != null)
                 {
                     // Load data with save file context (includes position restore)
-                    LoadSaveableWithContext(saveable, componentData, RestoreContext.SaveFileLoad);
+                    saveable.LoadSaveDataWithContext(componentData, RestoreContext.SaveFileLoad);
+                    saveable.OnAfterLoad();
                     DebugLog($"Restored save file data for {saveable.SaveID}");
                 }
             }
@@ -198,6 +203,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     /// <summary>
     /// CONTEXT-AWARE: Initialize player data for new game
     /// Called by SceneTransitionManager when context is NewGame
+    /// UPDATED: Simplified without context-aware checking
     /// </summary>
     public void InitializeForNewGame()
     {
@@ -218,7 +224,8 @@ public class PlayerPersistenceManager : MonoBehaviour
                 var defaultData = CreateDefaultDataForComponent(saveable);
                 if (defaultData != null)
                 {
-                    LoadSaveableWithContext(saveable, defaultData, RestoreContext.NewGame);
+                    saveable.LoadSaveDataWithContext(defaultData, RestoreContext.NewGame);
+                    saveable.OnAfterLoad();
                     DebugLog($"Initialized default data for {saveable.SaveID}");
                 }
             }
@@ -229,26 +236,6 @@ public class PlayerPersistenceManager : MonoBehaviour
         }
 
         DebugLog("New game player data initialization complete");
-    }
-
-    /// <summary>
-    /// Load saveable component with specific context information
-    /// This allows components to make context-aware decisions about what to restore
-    /// </summary>
-    private void LoadSaveableWithContext(ISaveable saveable, object data, RestoreContext context)
-    {
-        // If the saveable component supports context-aware loading, use it
-        if (saveable is IContextAwareSaveable contextAware)
-        {
-            contextAware.LoadSaveDataWithContext(data, context);
-        }
-        else
-        {
-            // Fallback to standard loading
-            saveable.LoadSaveData(data);
-        }
-
-        saveable.OnAfterLoad();
     }
 
     /// <summary>
@@ -461,7 +448,6 @@ public class PlayerPersistenceManager : MonoBehaviour
 public class ComponentCapabilities
 {
     public bool IsEnhanced;
-    public bool IsContextAware;
     public string ComponentType;
     public SaveDataCategory SaveCategory;
 
@@ -469,7 +455,6 @@ public class ComponentCapabilities
     {
         var features = new List<string>();
         if (IsEnhanced) features.Add("Enhanced");
-        if (IsContextAware) features.Add("ContextAware");
         return $"{ComponentType} ({SaveCategory}) [{string.Join(", ", features)}]";
     }
 }
@@ -482,7 +467,6 @@ public class SaveSystemStats
 {
     public int TotalComponents;
     public int EnhancedComponents;
-    public int ContextAwareComponents;
     public int LegacyComponents;
     public bool HasPersistentData;
     public int PersistentDataCount;
