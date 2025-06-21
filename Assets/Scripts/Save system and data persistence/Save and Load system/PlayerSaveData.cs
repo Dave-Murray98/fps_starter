@@ -30,6 +30,10 @@ public class PlayerSaveData
     public bool canSprint = true;
     public bool canCrouch = true;
 
+    /// <summary>
+    /// Dictionary to store the data of each player dependent data component (inventory, equipment, etc.) 
+    /// that is used in the game for saving, loading and persisting player data
+    /// </summary>
     [Header("Dynamic Component Data")]
     public Dictionary<string, object> customStats = new Dictionary<string, object>();
 
@@ -123,104 +127,6 @@ public class PlayerSaveData
     #endregion
 
     #region Helper Methods
-
-    /// <summary>
-    /// Get debug information about this save data
-    /// </summary>
-    /// <returns>Debug string</returns>
-    public string GetDebugInfo()
-    {
-        var info = new System.Text.StringBuilder();
-        info.AppendLine("=== PlayerSaveData Debug Info ===");
-        info.AppendLine($"Position: {position}");
-        info.AppendLine($"Scene: {currentScene}");
-        info.AppendLine($"Health: {currentHealth}/{maxHealth}");
-        info.AppendLine($"Level: {level} (XP: {experience})");
-        info.AppendLine($"Abilities: Jump={canJump}, Sprint={canSprint}, Crouch={canCrouch}");
-
-        info.AppendLine($"Custom Data: {customStats.Count} entries");
-        foreach (var kvp in customStats)
-        {
-            string dataInfo = "null";
-            if (kvp.Value != null)
-            {
-                dataInfo = kvp.Value.GetType().Name;
-
-                // Add more specific info for known types
-                if (kvp.Value is InventorySaveData invData)
-                {
-                    dataInfo += $" ({invData.ItemCount} items)";
-                }
-                else if (kvp.Value is EquipmentSaveData eqData)
-                {
-                    var assignedCount = eqData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-                    dataInfo += $" ({assignedCount} hotkeys assigned)";
-                }
-            }
-            info.AppendLine($"  - {kvp.Key}: {dataInfo}");
-        }
-
-        return info.ToString();
-    }
-
-    /// <summary>
-    /// Validate that save data is consistent
-    /// </summary>
-    /// <returns>True if data appears valid</returns>
-    public bool IsValid()
-    {
-        // Basic validation
-        if (currentHealth < 0 || maxHealth <= 0)
-            return false;
-
-        if (string.IsNullOrEmpty(currentScene))
-            return false;
-
-        if (customStats == null)
-            return false;
-
-        // Validate specific component data if present
-        foreach (var kvp in customStats)
-        {
-            if (string.IsNullOrEmpty(kvp.Key))
-                return false;
-
-            // Validate specific data types
-            if (kvp.Value is InventorySaveData invData && !invData.IsValid())
-                return false;
-
-            if (kvp.Value is EquipmentSaveData eqData && !eqData.IsValid())
-                return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Create a copy with only basic player stats (no custom data)
-    /// </summary>
-    /// <returns>New PlayerSaveData with only basic stats</returns>
-    public PlayerSaveData CreateBasicCopy()
-    {
-        return new PlayerSaveData
-        {
-            position = position,
-            rotation = rotation,
-            currentScene = currentScene,
-            currentHealth = currentHealth,
-            maxHealth = maxHealth,
-            level = level,
-            experience = experience,
-            lookSensitivity = lookSensitivity,
-            masterVolume = masterVolume,
-            sfxVolume = sfxVolume,
-            musicVolume = musicVolume,
-            canJump = canJump,
-            canSprint = canSprint,
-            canCrouch = canCrouch
-            // Note: customStats is left empty
-        };
-    }
 
     /// <summary>
     /// Merge custom data from another PlayerSaveData instance

@@ -354,8 +354,6 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
                 break;
 
             case RestoreContext.NewGame:
-                DebugLog("New game - setting default position");
-                SetDefaultPosition();
                 break;
         }
 
@@ -437,30 +435,6 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
         }
     }
 
-    /// <summary>
-    /// Set default position for new game
-    /// </summary>
-    private void SetDefaultPosition()
-    {
-        if (playerController != null)
-        {
-            // Find a spawn point or use world origin
-            var spawnPoint = FindFirstObjectByType<PlayerSpawnPoint>();
-            if (spawnPoint != null)
-            {
-                playerController.transform.position = spawnPoint.transform.position;
-                playerController.transform.rotation = spawnPoint.transform.rotation;
-                DebugLog($"Set default position to spawn point: {spawnPoint.transform.position}");
-            }
-            else
-            {
-                playerController.transform.position = Vector3.zero;
-                playerController.transform.rotation = Quaternion.identity;
-                DebugLog("Set default position to world origin");
-            }
-        }
-    }
-
     #endregion
 
     #region Lifecycle and Utility Methods
@@ -493,71 +467,6 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
         }
     }
 
-    /// <summary>
-    /// Public method to manually set component references (useful for testing)
-    /// </summary>
-    public void SetReferences(PlayerController controller, PlayerManager manager, PlayerData data)
-    {
-        playerController = controller;
-        playerManager = manager;
-        playerData = data;
-        autoFindReferences = false; // Disable auto-find when manually set
-
-        DebugLog("References manually set");
-    }
-
-    /// <summary>
-    /// Get current player health (useful for other systems)
-    /// </summary>
-    public float GetCurrentHealth()
-    {
-        return playerManager?.currentHealth ?? 0f;
-    }
-
-    /// <summary>
-    /// Get current player position (useful for other systems)
-    /// </summary>
-    public Vector3 GetCurrentPosition()
-    {
-        return playerController?.transform.position ?? Vector3.zero;
-    }
-
-    /// <summary>
-    /// Check if all required references are valid
-    /// </summary>
-    public bool HasValidReferences()
-    {
-        return playerController != null && playerManager != null;
-    }
-
-    /// <summary>
-    /// Force refresh of component references
-    /// </summary>
-    public void RefreshReferences()
-    {
-        if (autoFindReferences)
-        {
-            FindPlayerReferences();
-            ValidateReferences();
-        }
-    }
-
     #endregion
 }
 
-/// <summary>
-/// Optional component to mark player spawn points for new game initialization
-/// </summary>
-public class PlayerSpawnPoint : MonoBehaviour
-{
-    [Header("Spawn Point Settings")]
-    public bool isDefaultSpawn = true;
-    public string spawnPointID = "default";
-
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = isDefaultSpawn ? Color.green : Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, 0.5f);
-        Gizmos.DrawRay(transform.position, transform.forward * 2f);
-    }
-}
