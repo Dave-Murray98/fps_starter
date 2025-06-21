@@ -109,8 +109,8 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     }
 
     /// <summary>
-    /// For PlayerPersistenceManager - extract only equipment data
-    /// CLEANED: Now fully modular - no legacy field references
+    /// FIXED: For PlayerPersistenceManager - extract only equipment data
+    /// The issue was checking PlayerSaveData.customStats instead of PlayerPersistentData first
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
@@ -122,15 +122,41 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return new EquipmentSaveData();
         }
 
-        if (saveContainer is PlayerSaveData playerSaveData)
+        // FIXED: Check PlayerPersistentData FIRST since that's where the rebuilt data is stored
+        if (saveContainer is PlayerPersistentData persistentData)
         {
-            // Check if PlayerSaveData has equipment data in its custom stats or dynamic storage
+            // Extract from dynamic component storage
+            var equipmentData = persistentData.GetComponentData<EquipmentSaveData>(SaveID);
+            if (equipmentData != null)
+            {
+                var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"Extracted equipment from persistent data dynamic storage: {assignedCount} hotkey assignments, equipped: {equipmentData.equippedItem?.isEquipped == true}");
+                return equipmentData;
+            }
+            else
+            {
+                DebugLog("No equipment data in persistent data - returning empty equipment");
+                return new EquipmentSaveData();
+            }
+        }
+        else if (saveContainer is PlayerSaveData playerSaveData)
+        {
+            // Check if PlayerSaveData has equipment data in its custom stats
             if (playerSaveData.customStats.TryGetValue("equipmentData", out object eqDataObj) &&
                 eqDataObj is EquipmentSaveData eqData)
             {
                 var assignedCount = eqData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
                 DebugLog($"Extracted equipment data from PlayerSaveData customStats: {assignedCount} hotkey assignments, equipped: {eqData.equippedItem?.isEquipped == true}");
                 return eqData;
+            }
+
+            // ALSO check for the component ID in custom stats
+            if (playerSaveData.customStats.TryGetValue(SaveID, out object equipmentDataObj) &&
+                equipmentDataObj is EquipmentSaveData equipmentSaveData)
+            {
+                var assignedCount = equipmentSaveData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"Extracted equipment data from PlayerSaveData custom stats by SaveID: {assignedCount} hotkey assignments, equipped: {equipmentSaveData.equippedItem?.isEquipped == true}");
+                return equipmentSaveData;
             }
 
             DebugLog("No equipment data found in PlayerSaveData - returning empty equipment");
@@ -142,22 +168,6 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             var assignedCount = equipmentSaveData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
             DebugLog($"Extracted direct EquipmentSaveData: {assignedCount} hotkey assignments");
             return equipmentSaveData;
-        }
-        else if (saveContainer is PlayerPersistentData persistentData)
-        {
-            // Extract from dynamic component storage
-            var equipmentData = persistentData.GetComponentData<EquipmentSaveData>(SaveID);
-            if (equipmentData != null)
-            {
-                var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-                DebugLog($"Extracted equipment from persistent data dynamic storage: {assignedCount} hotkey assignments");
-                return equipmentData;
-            }
-            else
-            {
-                DebugLog("No equipment data in persistent data - returning empty equipment");
-                return new EquipmentSaveData();
-            }
         }
         else
         {

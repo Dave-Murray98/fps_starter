@@ -114,8 +114,8 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     }
 
     /// <summary>
-    /// For PlayerPersistenceManager - extract only inventory data
-    /// CLEANED: Now fully modular - no legacy field references
+    /// FIXED: For PlayerPersistenceManager - extract only inventory data
+    /// The issue was checking PlayerSaveData.customStats instead of PlayerPersistentData first
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
@@ -127,14 +127,38 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return new InventorySaveData();
         }
 
-        if (saveContainer is PlayerSaveData playerSaveData)
+        // FIXED: Check PlayerPersistentData FIRST since that's where the rebuilt data is stored
+        if (saveContainer is PlayerPersistentData persistentData)
         {
-            // Check if PlayerSaveData has inventory data in its custom stats or dynamic storage
+            // Extract from dynamic component storage
+            var inventoryData = persistentData.GetComponentData<InventorySaveData>(SaveID);
+            if (inventoryData != null)
+            {
+                DebugLog($"Extracted inventory from persistent data dynamic storage: {inventoryData.ItemCount} items in {inventoryData.gridWidth}x{inventoryData.gridHeight} grid");
+                return inventoryData;
+            }
+            else
+            {
+                DebugLog("No inventory data in persistent data - returning empty inventory");
+                return new InventorySaveData();
+            }
+        }
+        else if (saveContainer is PlayerSaveData playerSaveData)
+        {
+            // Check if PlayerSaveData has inventory data in its custom stats
             if (playerSaveData.customStats.TryGetValue("inventoryData", out object invDataObj) &&
                 invDataObj is InventorySaveData invData)
             {
                 DebugLog($"Extracted inventory data from PlayerSaveData customStats: {invData.ItemCount} items");
                 return invData;
+            }
+
+            // ALSO check for the component ID in custom stats
+            if (playerSaveData.customStats.TryGetValue(SaveID, out object inventoryDataObj) &&
+                inventoryDataObj is InventorySaveData inventorySaveData)
+            {
+                DebugLog($"Extracted inventory data from PlayerSaveData custom stats by SaveID: {inventorySaveData.ItemCount} items in {inventorySaveData.gridWidth}x{inventorySaveData.gridHeight} grid");
+                return inventorySaveData;
             }
 
             DebugLog("No inventory data found in PlayerSaveData - returning empty inventory");
@@ -145,21 +169,6 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             // Direct inventory save data
             DebugLog($"Extracted direct InventorySaveData: {inventorySaveData.ItemCount} items");
             return inventorySaveData;
-        }
-        else if (saveContainer is PlayerPersistentData persistentData)
-        {
-            // Extract from dynamic component storage
-            var inventoryData = persistentData.GetComponentData<InventorySaveData>(SaveID);
-            if (inventoryData != null)
-            {
-                DebugLog($"Extracted inventory from persistent data dynamic storage: {inventoryData.ItemCount} items");
-                return inventoryData;
-            }
-            else
-            {
-                DebugLog("No inventory data in persistent data - returning empty inventory");
-                return new InventorySaveData();
-            }
         }
         else
         {

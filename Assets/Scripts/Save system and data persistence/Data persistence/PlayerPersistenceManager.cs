@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using Sirenix.OdinInspector;
 
 /// <summary>
 /// REFACTORED: Truly modular PlayerPersistenceManager
@@ -566,6 +567,159 @@ public class PlayerPersistenceManager : MonoBehaviour
         return info.ToString();
     }
 
+    /// <summary>
+    /// Debug method to verify what components are being discovered
+    /// </summary>
+    [Button]
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void DebugDiscoveredComponents()
+    {
+        DebugLog("=== DISCOVERED SAVE COMPONENTS DEBUG ===");
+
+        DiscoverPlayerDependentSaveables(); // Refresh discovery
+
+        DebugLog($"Total discovered components: {playerDependentSaveables.Count}");
+
+        foreach (var saveable in playerDependentSaveables)
+        {
+            var enhanced = saveable is IPlayerDependentSaveable ? "✓ Enhanced" : "✗ Legacy";
+            var contextAware = saveable is IContextAwareSaveable ? "✓ Context" : "✗ Basic";
+
+            DebugLog($"  {saveable.SaveID} ({saveable.GetType().Name})");
+            DebugLog($"    - Category: {saveable.SaveCategory}");
+            DebugLog($"    - Enhanced: {enhanced}");
+            DebugLog($"    - Context Aware: {contextAware}");
+
+            // Test data extraction
+            try
+            {
+                var testData = saveable.GetDataToSave();
+                DebugLog($"    - Can Extract Data: ✓ ({testData?.GetType().Name ?? "null"})");
+            }
+            catch (System.Exception e)
+            {
+                DebugLog($"    - Can Extract Data: ✗ ({e.Message})");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Debug the save file load restoration process step by step
+    /// </summary>
+    [Button]
+    public void DebugSaveFileRestoration(Dictionary<string, object> saveData)
+    {
+        DebugLog("=== DEBUG SAVE FILE RESTORATION ===");
+
+        if (saveData == null)
+        {
+            DebugLog("ERROR: Save data is null!");
+            return;
+        }
+
+        DebugLog($"Save data contains {saveData.Count} top-level entries:");
+        foreach (var kvp in saveData)
+        {
+            DebugLog($"  {kvp.Key}: {kvp.Value?.GetType().Name ?? "null"}");
+        }
+
+        // Test each component's data extraction
+        DiscoverPlayerDependentSaveables();
+
+        foreach (var saveable in playerDependentSaveables)
+        {
+            DebugLog($"\n--- Testing component: {saveable.SaveID} ---");
+
+            try
+            {
+                var extractedData = ExtractComponentDataFromSave(saveable, saveData);
+
+                if (extractedData != null)
+                {
+                    DebugLog($"✓ Successfully extracted data: {extractedData.GetType().Name}");
+
+                    // Try to load the data
+                    try
+                    {
+                        LoadSaveableWithContext(saveable, extractedData, RestoreContext.SaveFileLoad);
+                        DebugLog($"✓ Successfully loaded data to component");
+                    }
+                    catch (System.Exception e)
+                    {
+                        DebugLog($"✗ Failed to load data to component: {e.Message}");
+                    }
+                }
+                else
+                {
+                    DebugLog($"✗ No data extracted for {saveable.SaveID}");
+
+                    // Debug what we're looking for
+                    if (saveable is IPlayerDependentSaveable enhanced)
+                    {
+                        DebugLog($"  Testing enhanced extraction...");
+                        if (saveData.ContainsKey("playerPersistentData"))
+                        {
+                            var persistentData = saveData["playerPersistentData"] as PlayerPersistentData;
+                            if (persistentData != null)
+                            {
+                                var enhancedData = enhanced.ExtractFromUnifiedSave(persistentData);
+                                DebugLog($"  Enhanced extraction result: {enhancedData?.GetType().Name ?? "null"}");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                DebugLog($"✗ Exception during extraction for {saveable.SaveID}: {e.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Test the modular save/load cycle
+    /// </summary>
+    [Button]
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void TestModularSaveLoadCycle()
+    {
+        DebugLog("=== TESTING MODULAR SAVE/LOAD CYCLE ===");
+
+        // Step 1: Get current data
+        DebugLog("Step 1: Extracting current player data...");
+        var currentData = GetPersistentDataForSave();
+
+        DebugLog($"Extracted data with {currentData.ComponentDataCount} components:");
+        foreach (string componentId in currentData.GetStoredComponentIDs())
+        {
+            var compData = currentData.GetComponentData<object>(componentId);
+            DebugLog($"  {componentId}: {compData?.GetType().Name ?? "null"}");
+
+            // Log specific details for known types
+            if (compData is InventorySaveData invData)
+            {
+                DebugLog($"    Inventory: {invData.ItemCount} items");
+            }
+            else if (compData is EquipmentSaveData eqData)
+            {
+                var assignedCount = eqData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"    Equipment: {assignedCount} hotkeys assigned");
+            }
+        }
+
+        // Step 2: Simulate restoration
+        DebugLog("\nStep 2: Testing restoration...");
+
+        // Create save data structure like SaveManager would
+        var testSaveData = new Dictionary<string, object>
+        {
+            ["playerPersistentData"] = currentData
+        };
+
+        // Test restoration
+        DebugSaveFileRestoration(testSaveData);
+    }
+
     private void DebugLog(string message)
     {
         if (showDebugLogs)
@@ -574,6 +728,8 @@ public class PlayerPersistenceManager : MonoBehaviour
         }
     }
 }
+
+
 
 /// <summary>
 /// Helper class for debugging component capabilities
