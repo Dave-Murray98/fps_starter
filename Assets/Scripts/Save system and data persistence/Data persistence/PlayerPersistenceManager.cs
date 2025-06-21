@@ -271,7 +271,7 @@ public class PlayerPersistenceManager : MonoBehaviour
             }
         }
 
-        // PRIORITY 2: Check for PlayerPersistentData - MODULAR APPROACH
+        // PRIORITY 2: Check for PlayerPersistentData - using new MODULAR APPROACH
         if (saveData.ContainsKey("playerPersistentData"))
         {
             var persistentData = saveData["playerPersistentData"] as PlayerPersistentData;
@@ -325,36 +325,12 @@ public class PlayerPersistenceManager : MonoBehaviour
             DebugLog($"Using enhanced default data creation for {saveable.SaveID}");
             return enhancedSaveable.CreateDefaultData();
         }
-
-        // FALLBACK: Basic default data for legacy components
-        DebugLog($"Using legacy default data creation for {saveable.SaveID}");
-
-        // Provide basic defaults for known legacy components
-        switch (saveable.SaveID)
+        else
         {
-            case "Player_Main":
-                var playerData = GameManager.Instance?.playerData;
-                return new PlayerSaveData
-                {
-                    currentHealth = playerData?.maxHealth ?? 100f,
-                    maxHealth = playerData?.maxHealth ?? 100f,
-                    canJump = true,
-                    canSprint = true,
-                    canCrouch = true,
-                    inventoryData = new InventorySaveData(),
-                    equipmentData = new EquipmentSaveData()
-                };
-
-            case "Inventory_Main":
-                return new InventorySaveData();
-
-            case "Equipment_Main":
-                return new EquipmentSaveData();
-
-            default:
-                DebugLog($"No default data creation for component: {saveable.SaveID}");
-                return null;
+            DebugLog($"No default data creation for component: {saveable.SaveID} as it does not implement IPlayerDependentSaveable");
+            return null;
         }
+
     }
 
     /// <summary>
@@ -403,40 +379,6 @@ public class PlayerPersistenceManager : MonoBehaviour
             return;
         }
 
-        // FALLBACK: Legacy contribution for known components
-        DebugLog($"Using legacy contribution for {saveable.SaveID}");
-
-        switch (saveable.SaveID)
-        {
-            case "Player_Main":
-                if (data is PlayerSaveData playerData)
-                {
-                    saveData.currentHealth = playerData.currentHealth;
-                    saveData.canJump = playerData.canJump;
-                    saveData.canSprint = playerData.canSprint;
-                    saveData.canCrouch = playerData.canCrouch;
-                }
-                break;
-
-            case "Inventory_Main":
-                if (data is InventorySaveData inventoryData)
-                {
-                    saveData.inventoryData = inventoryData;
-                }
-                break;
-
-            case "Equipment_Main":
-                if (data is EquipmentSaveData equipmentData)
-                {
-                    saveData.equipmentData = equipmentData;
-                }
-                break;
-
-            default:
-                DebugLog($"Unknown save component: {saveable.SaveID} - using dynamic storage");
-                saveData.SetComponentData(saveable.SaveID, data);
-                break;
-        }
     }
 
     /// <summary>
