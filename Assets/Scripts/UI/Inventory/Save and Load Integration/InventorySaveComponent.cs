@@ -1,10 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// ENHANCED: InventorySaveComponent now implements IPlayerDependentSaveable for true modularity
-/// Handles its own data extraction, default creation, and contribution to unified saves
-/// No longer requires hardcoded knowledge in PlayerPersistenceManager
-/// UPDATED: Simplified to use only context-aware loading
+/// Handles saving and loading of the inventory system including all items, their positions,
+/// rotations, and grid state. Integrates with the modular save system and provides
+/// context-aware loading (though inventory restoration is the same for all contexts).
 /// </summary>
 public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -19,12 +18,9 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     protected override void Awake()
     {
         base.Awake();
-
-        // Fixed ID for inventory
         saveID = "Inventory_Main";
         autoGenerateID = false;
 
-        // Auto-find references if enabled
         if (autoFindReferences)
         {
             FindInventoryReferences();
@@ -33,38 +29,31 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
     private void Start()
     {
-        // Ensure we have inventory reference
         ValidateReferences();
     }
 
     /// <summary>
-    /// Automatically find inventory-related components
+    /// Automatically locates inventory-related components.
+    /// Checks current GameObject, then Instance, then scene search.
     /// </summary>
     private void FindInventoryReferences()
     {
-        // Try to find on same GameObject first
         if (inventoryManager == null)
-            inventoryManager = GetComponent<InventoryManager>();
-
-        // If not found on same GameObject, get from Instance
-        if (inventoryManager == null)
-            inventoryManager = InventoryManager.Instance;
-
-        // If still not found, search scene
-        if (inventoryManager == null)
-            inventoryManager = FindFirstObjectByType<InventoryManager>();
+            inventoryManager = GetComponent<InventoryManager>() ??
+                               InventoryManager.Instance ??
+                               FindFirstObjectByType<InventoryManager>();
 
         DebugLog($"Auto-found inventory reference: {inventoryManager != null}");
     }
 
     /// <summary>
-    /// Validate that we have necessary references
+    /// Validates that necessary references are available.
     /// </summary>
     private void ValidateReferences()
     {
         if (inventoryManager == null)
         {
-            Debug.LogError($"[{name}] InventoryManager reference is missing! Inventory won't be saved/loaded.");
+            Debug.LogError($"[{name}] InventoryManager reference missing! Inventory won't be saved/loaded.");
         }
         else
         {
@@ -73,34 +62,30 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     }
 
     /// <summary>
-    /// EXTRACT inventory data from InventoryManager (manager doesn't handle its own saving anymore)
+    /// Extracts complete inventory state including grid size, items, and next ID counter.
     /// </summary>
     public override object GetDataToSave()
     {
         if (inventoryManager == null)
         {
             DebugLog("Cannot save inventory - InventoryManager not found");
-            return new InventorySaveData(); // Return empty but valid data
+            return new InventorySaveData();
         }
 
-        // Extract data from the manager (manager doesn't do this itself anymore)
         var saveData = ExtractInventoryDataFromManager();
-
         DebugLog($"Extracted inventory data: {saveData.ItemCount} items in {saveData.gridWidth}x{saveData.gridHeight} grid");
         return saveData;
     }
 
     /// <summary>
-    /// Extract inventory data from the manager (replaces manager's GetSaveData method)
+    /// Extracts inventory data from the manager by directly accessing its state.
+    /// Creates InventorySaveData with all items converted to save format.
     /// </summary>
     private InventorySaveData ExtractInventoryDataFromManager()
     {
         var saveData = new InventorySaveData(inventoryManager.GridWidth, inventoryManager.GridHeight);
-
-        // Get the next item ID using the public property
         saveData.nextItemId = inventoryManager.NextItemId;
 
-        // Extract all items from the inventory data
         var allItems = inventoryManager.InventoryData.GetAllItems();
         foreach (var item in allItems)
         {
@@ -115,12 +100,12 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     }
 
     /// <summary>
-    /// FIXED: For PlayerPersistenceManager - extract only inventory data
-    /// The issue was checking PlayerSaveData.customStats instead of PlayerPersistentData first
+    /// Extracts inventory data from various save container formats.
+    /// Handles the transition from unified save structures to inventory-specific data.
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
-        DebugLog("InventorySaveComponent: Extracting inventory save data for persistence");
+        DebugLog("Extracting inventory save data for persistence");
 
         if (saveContainer == null)
         {
@@ -128,14 +113,13 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return new InventorySaveData();
         }
 
-        // FIXED: Check PlayerPersistentData FIRST since that's where the rebuilt data is stored
+        // Check PlayerPersistentData first (where rebuilt data is stored)
         if (saveContainer is PlayerPersistentData persistentData)
         {
-            // Extract from dynamic component storage
             var inventoryData = persistentData.GetComponentData<InventorySaveData>(SaveID);
             if (inventoryData != null)
             {
-                DebugLog($"Extracted inventory from persistent data dynamic storage: {inventoryData.ItemCount} items in {inventoryData.gridWidth}x{inventoryData.gridHeight} grid");
+                DebugLog($"Extracted inventory from persistent data: {inventoryData.ItemCount} items");
                 return inventoryData;
             }
             else
@@ -146,41 +130,38 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         }
         else if (saveContainer is PlayerSaveData playerSaveData)
         {
-            // Check if PlayerSaveData has inventory data in its custom stats
+            // Check custom stats for inventory data
             if (playerSaveData.customStats.TryGetValue("inventoryData", out object invDataObj) &&
                 invDataObj is InventorySaveData invData)
             {
-                DebugLog($"Extracted inventory data from PlayerSaveData customStats: {invData.ItemCount} items");
+                DebugLog($"Extracted inventory from PlayerSaveData customStats: {invData.ItemCount} items");
                 return invData;
             }
 
-            // ALSO check for the component ID in custom stats
+            // Check for component ID in custom stats
             if (playerSaveData.customStats.TryGetValue(SaveID, out object inventoryDataObj) &&
                 inventoryDataObj is InventorySaveData inventorySaveData)
             {
-                DebugLog($"Extracted inventory data from PlayerSaveData custom stats by SaveID: {inventorySaveData.ItemCount} items in {inventorySaveData.gridWidth}x{inventorySaveData.gridHeight} grid");
+                DebugLog($"Extracted inventory from PlayerSaveData by SaveID: {inventorySaveData.ItemCount} items");
                 return inventorySaveData;
             }
 
-            DebugLog("No inventory data found in PlayerSaveData - returning empty inventory");
+            DebugLog("No inventory data found in PlayerSaveData");
             return new InventorySaveData();
         }
-        else if (saveContainer is InventorySaveData inventorySaveData)
+        else if (saveContainer is InventorySaveData directInventoryData)
         {
-            // Direct inventory save data
-            DebugLog($"Extracted direct InventorySaveData: {inventorySaveData.ItemCount} items");
-            return inventorySaveData;
+            DebugLog($"Extracted direct InventorySaveData: {directInventoryData.ItemCount} items");
+            return directInventoryData;
         }
-        else
-        {
-            DebugLog($"Invalid save data type - expected PlayerSaveData, InventorySaveData, or PlayerPersistentData, got {saveContainer.GetType()}");
-            return new InventorySaveData();
-        }
+
+        DebugLog($"Invalid save data type - got {saveContainer?.GetType().Name ?? "null"}");
+        return new InventorySaveData();
     }
 
     /// <summary>
-    /// RESTORE data back to InventoryManager (manager doesn't handle its own loading anymore)
-    /// UPDATED: Now uses context-aware loading
+    /// Restores inventory data to the manager. Inventory restoration is the same
+    /// regardless of context - items are always fully restored to their saved state.
     /// </summary>
     public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
@@ -190,9 +171,9 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return;
         }
 
-        DebugLog($"=== RESTORING INVENTORY DATA TO MANAGER (Context: {context}) ===");
+        DebugLog($"=== RESTORING INVENTORY DATA (Context: {context}) ===");
 
-        // Ensure we have current references (they might have changed after scene load)
+        // Refresh references after scene load
         if (autoFindReferences)
         {
             FindInventoryReferences();
@@ -208,8 +189,6 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
         try
         {
-            // Restore data to the manager (manager doesn't do this itself anymore)
-            // Inventory restoration is the same regardless of context
             RestoreInventoryDataToManager(inventoryData);
             DebugLog("Inventory restored successfully to manager");
         }
@@ -220,7 +199,7 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     }
 
     /// <summary>
-    /// Restore inventory data to the manager (replaces manager's LoadFromSaveData method call)
+    /// Restores complete inventory state by rebuilding the grid and placing all items.
     /// </summary>
     private void RestoreInventoryDataToManager(InventorySaveData saveData)
     {
@@ -231,10 +210,10 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return;
         }
 
-        // Create new inventory data
+        // Create new inventory grid
         var newInventoryData = new InventoryGridData(saveData.gridWidth, saveData.gridHeight);
 
-        // Restore each item to the new inventory data
+        // Restore each item to the grid
         foreach (var itemSaveData in saveData.items)
         {
             var item = InventoryItemData.FromSaveData(itemSaveData);
@@ -247,17 +226,15 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             }
         }
 
-        // Set the complete data to the manager using the helper method
+        // Set complete data to manager
         inventoryManager.SetInventoryData(newInventoryData, saveData.nextItemId);
-
         DebugLog($"Restored inventory: {newInventoryData.ItemCount} items");
     }
 
-    #region IPlayerDependentSaveable Implementation - NEW MODULAR INTERFACE
+    #region IPlayerDependentSaveable Implementation
 
     /// <summary>
-    /// MODULAR: Extract inventory data from unified save structure
-    /// This component knows how to get its data from PlayerPersistentData
+    /// Extracts inventory data from unified save structure for modular loading.
     /// </summary>
     public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
     {
@@ -265,7 +242,6 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
         DebugLog("Using modular extraction from unified save data");
 
-        // Get from dynamic component data storage
         var inventoryData = unifiedData.GetComponentData<InventorySaveData>(SaveID);
         if (inventoryData != null)
         {
@@ -273,20 +249,17 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             return inventoryData;
         }
 
-        // Return empty inventory if nothing found
         DebugLog("No inventory data found in unified save - returning empty inventory");
         return new InventorySaveData();
     }
 
     /// <summary>
-    /// MODULAR: Create default inventory data for new games
-    /// This component knows what its default state should be
+    /// Creates default empty inventory for new games.
     /// </summary>
     public object CreateDefaultData()
     {
         DebugLog("Creating default inventory data for new game");
 
-        // Get grid size from manager if available, otherwise use defaults
         int gridWidth = 10;
         int gridHeight = 10;
 
@@ -297,8 +270,6 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         }
 
         var defaultData = new InventorySaveData(gridWidth, gridHeight);
-
-        // Start with next item ID of 1
         defaultData.nextItemId = 1;
 
         DebugLog($"Default inventory data created: {gridWidth}x{gridHeight} grid, empty");
@@ -306,19 +277,17 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     }
 
     /// <summary>
-    /// MODULAR: Contribute inventory data to unified save structure
-    /// This component knows how to store its data in PlayerPersistentData
+    /// Contributes inventory data to unified save structure for save file creation.
     /// </summary>
     public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
     {
         if (componentData is InventorySaveData inventoryData && unifiedData != null)
         {
-            DebugLog($"Contributing inventory data to unified save structure: {inventoryData.ItemCount} items");
+            DebugLog($"Contributing inventory data to unified save: {inventoryData.ItemCount} items");
 
-            // Store in dynamic storage
             unifiedData.SetComponentData(SaveID, inventoryData);
 
-            DebugLog($"Inventory data contributed: {inventoryData.ItemCount} items stored in dynamic storage");
+            DebugLog($"Inventory data contributed: {inventoryData.ItemCount} items stored");
         }
         else
         {
@@ -328,16 +297,13 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
     #endregion
 
-    #region Lifecycle and Utility Methods
-
     /// <summary>
-    /// Called before save operations
+    /// Called before save operations to ensure current references.
     /// </summary>
     public override void OnBeforeSave()
     {
         DebugLog("Preparing inventory for save");
 
-        // Refresh references in case they changed
         if (autoFindReferences)
         {
             FindInventoryReferences();
@@ -345,15 +311,10 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     }
 
     /// <summary>
-    /// Called after load operations
+    /// Called after load operations. Inventory UI updates automatically via events.
     /// </summary>
     public override void OnAfterLoad()
     {
         DebugLog("Inventory load completed");
-
-        // Any cleanup needed after loading
-        // Inventory UI will automatically update via events
     }
-
-    #endregion
 }

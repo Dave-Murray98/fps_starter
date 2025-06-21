@@ -3,9 +3,17 @@ using System.Collections.Generic;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// Main equipment system manager
-/// Handles equipped items, hotkey assignments, and item actions
-/// CLEANED: No longer implements ISaveable - EquipmentSaveComponent handles all save/load
+/// Manages the equipment system for the player, handling which item is currently equipped
+/// and which items are assigned to hotkey slots (1-0 keys). Provides functionality for:
+/// - Equipping items directly from inventory
+/// - Assigning items to 10 hotkey slots with automatic stacking for consumables
+/// - Cycling through equipped items with mouse wheel
+/// - Performing context-sensitive actions based on equipped item type
+/// - Automatic cleanup when items are removed from inventory
+/// 
+/// This manager coordinates with InventoryManager via shared item IDs and fires events
+/// that UI components subscribe to for visual updates. Save/load is handled by
+/// EquipmentSaveComponent to maintain separation of concerns.
 /// </summary>
 public class EquippedItemManager : MonoBehaviour
 {
@@ -16,27 +24,27 @@ public class EquippedItemManager : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private bool enableDebugLogs = true;
-    [SerializeField] private float scrollCooldown = 0.1f; // Prevent scroll spam
+    [SerializeField] private float scrollCooldown = 0.1f;
 
     [Header("Audio")]
     [SerializeField] private AudioClip equipSound;
     [SerializeField] private AudioClip hotkeySound;
 
-    // Components
+    // Component references - found automatically or via events
     private InventoryManager inventoryManager;
     private InputManager inputManager;
 
-    // Input timing
+    // Input timing control
     private float lastScrollTime = 0f;
 
-    // Events
+    // Events that UI systems subscribe to for updates
     public System.Action<EquippedItemData> OnItemEquipped;
     public System.Action OnItemUnequipped;
     public System.Action<int, HotkeyBinding> OnHotkeyAssigned;
     public System.Action<int> OnHotkeyCleared;
-    public System.Action<ItemType, bool> OnItemActionPerformed; // itemType, isLeftClick
+    public System.Action<ItemType, bool> OnItemActionPerformed;
 
-    // Public properties
+    // Public accessors for external systems
     public EquippedItemData CurrentEquippedItem => equipmentData.equippedItem;
     public bool HasEquippedItem => equipmentData.equippedItem.isEquipped;
     public ItemData GetEquippedItemData() => equipmentData.equippedItem.GetItemData();
@@ -55,22 +63,24 @@ public class EquippedItemManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Initializes the equipment system with empty state (10 unassigned hotkey slots, no equipped item).
+    /// </summary>
     private void Initialize()
     {
         equipmentData = new EquipmentSaveData();
-        DebugLog("EquippedItemManager initialized");
+        DebugLog("EquippedItemManager initialized with empty equipment state");
     }
 
     private void Start()
     {
-        // Get component references
         inventoryManager = InventoryManager.Instance;
 
-        // Subscribe to manager events
+        // Subscribe to system events for automatic reference updates
         GameManager.OnManagersRefreshed += RefreshReferences;
         InputManager.OnInputManagerReady += OnInputManagerReady;
 
-        // Subscribe to inventory events
+        // Subscribe to inventory events for automatic equipment cleanup
         if (inventoryManager != null)
         {
             inventoryManager.OnItemRemoved += OnInventoryItemRemoved;
@@ -81,6 +91,9 @@ public class EquippedItemManager : MonoBehaviour
         SetupInputHandlers();
     }
 
+    /// <summary>
+    /// Updates component references after scene changes or manager initialization.
+    /// </summary>
     private void RefreshReferences()
     {
         inputManager = GameManager.Instance?.inputManager;
@@ -90,6 +103,9 @@ public class EquippedItemManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Handles InputManager becoming available and sets up input subscriptions.
+    /// </summary>
     private void OnInputManagerReady(InputManager newInputManager)
     {
         inputManager = newInputManager;
@@ -98,32 +114,42 @@ public class EquippedItemManager : MonoBehaviour
 
     #region Input Handling
 
+    /// <summary>
+    /// Subscribes to input events from InputManager for equipment controls.
+    /// </summary>
     private void SetupInputHandlers()
     {
         if (inputManager != null)
         {
-            // Subscribe to scroll wheel input from InputManager
             inputManager.OnScrollWheelInput += HandleScrollInput;
             inputManager.OnHotkeyPressed += OnHotkeyPressed;
         }
     }
 
+    /// <summary>
+    /// Handles hotkey press events (1-0 keys) by activating the corresponding slot.
+    /// </summary>
     private void OnHotkeyPressed(int slotNumber)
     {
         ActivateHotkey(slotNumber);
     }
 
+    /// <summary>
+    /// Processes mouse scroll wheel input for cycling through equipped items.
+    /// Only functions when inventory UI is closed to prevent conflicts.
+    /// Uses cooldown to prevent overly rapid cycling from scroll spam.
+    /// </summary>
     public void HandleScrollInput(Vector2 scrollDelta)
     {
-        // Only process if enough time has passed (prevents scroll spam)
+        // Prevent scroll spam with cooldown
         if (Time.time - lastScrollTime < scrollCooldown)
             return;
 
-        // Only cycle if inventory is closed
+        // Only cycle when inventory is closed
         if (GameManager.Instance?.uiManager?.isInventoryOpen == true)
             return;
 
-        // Check if there's significant scroll input
+        // Process significant scroll input
         if (Mathf.Abs(scrollDelta.y) > 0.1f)
         {
             lastScrollTime = Time.time;
@@ -133,23 +159,25 @@ public class EquippedItemManager : MonoBehaviour
 
     private void Update()
     {
-        // Handle hotkey inputs (fallback if InputManager doesn't handle them)
+        // Fallback input handling when InputManager is unavailable
         if (inputManager == null)
         {
             HandleHotkeyInputs();
         }
 
-        // Handle item action inputs (could be moved to InputManager too)
         HandleItemActionInputs();
     }
 
+    /// <summary>
+    /// Fallback hotkey input detection using Unity's legacy input system.
+    /// Checks keys 1-0 for hotkey activation when InputManager is unavailable.
+    /// </summary>
     private void HandleHotkeyInputs()
     {
-        // Check keys 1-0 for hotkey activation
         for (int i = 1; i <= 10; i++)
         {
             KeyCode key = (KeyCode)((int)KeyCode.Alpha1 + (i - 1));
-            if (i == 10) key = KeyCode.Alpha0; // 0 key is slot 10
+            if (i == 10) key = KeyCode.Alpha0; // 0 key represents slot 10
 
             if (Input.GetKeyDown(key))
             {
@@ -158,9 +186,12 @@ public class EquippedItemManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Detects mouse clicks for item actions when inventory is closed and an item is equipped.
+    /// Left click and right click perform different actions based on equipped item type.
+    /// </summary>
     private void HandleItemActionInputs()
     {
-        // Only handle if inventory is closed and we have an equipped item
         if (GameManager.Instance?.uiManager?.isInventoryOpen == true || !HasEquippedItem)
             return;
 
@@ -178,6 +209,13 @@ public class EquippedItemManager : MonoBehaviour
 
     #region Equipment Management
 
+    /// <summary>
+    /// Equips an item directly from the inventory by its ID. The item must exist in the
+    /// inventory for this to succeed. Replaces any currently equipped item.
+    /// Fires OnItemEquipped event for UI updates.
+    /// </summary>
+    /// <param name="itemId">Unique ID of the item in the inventory</param>
+    /// <returns>True if item was successfully equipped, false if item not found</returns>
     public bool EquipItemFromInventory(string itemId)
     {
         if (inventoryManager == null)
@@ -193,7 +231,7 @@ public class EquippedItemManager : MonoBehaviour
             return false;
         }
 
-        // Equip the item
+        // Update equipment state
         equipmentData.equippedItem.EquipFromInventory(itemId, inventoryItem.ItemData);
 
         DebugLog($"Equipped {inventoryItem.ItemData.itemName} from inventory");
@@ -203,6 +241,10 @@ public class EquippedItemManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Removes the currently equipped item, returning to an unequipped state.
+    /// Fires OnItemUnequipped event for UI updates.
+    /// </summary>
     public void UnequipCurrentItem()
     {
         if (!HasEquippedItem) return;
@@ -218,6 +260,15 @@ public class EquippedItemManager : MonoBehaviour
 
     #region Hotkey Management
 
+    /// <summary>
+    /// Assigns an inventory item to a specific hotkey slot (1-10). This replaces any
+    /// existing assignment for that slot. The item is automatically removed from any
+    /// other hotkey slots to ensure unique assignment. For consumables, identical
+    /// items in the inventory are automatically stacked in the same slot.
+    /// </summary>
+    /// <param name="itemId">Unique ID of the item in the inventory</param>
+    /// <param name="slotNumber">Hotkey slot number (1-10, where 10 is the '0' key)</param>
+    /// <returns>True if assignment succeeded, false if item not found or invalid slot</returns>
     public bool AssignItemToHotkey(string itemId, int slotNumber)
     {
         if (slotNumber < 1 || slotNumber > 10)
@@ -238,6 +289,7 @@ public class EquippedItemManager : MonoBehaviour
         var binding = equipmentData.GetHotkeyBinding(slotNumber);
         if (binding == null) return false;
 
+        // The binding handles clearing existing assignments and stacking logic
         binding.AssignItem(itemId, inventoryItem.ItemData.name);
 
         DebugLog($"Assigned {inventoryItem.ItemData.itemName} to hotkey {slotNumber}");
@@ -246,6 +298,13 @@ public class EquippedItemManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Activates (equips) the item assigned to a specific hotkey slot. Validates that
+    /// the assigned item still exists in the inventory before equipping. If the item
+    /// no longer exists, clears the hotkey assignment automatically.
+    /// </summary>
+    /// <param name="slotNumber">Hotkey slot number (1-10)</param>
+    /// <returns>True if item was equipped, false if slot empty or item missing</returns>
     public bool ActivateHotkey(int slotNumber)
     {
         var binding = equipmentData.GetHotkeyBinding(slotNumber);
@@ -255,9 +314,9 @@ public class EquippedItemManager : MonoBehaviour
             return false;
         }
 
-        // Check if item still exists in inventory
         if (inventoryManager == null) return false;
 
+        // Verify item still exists in inventory
         var inventoryItem = inventoryManager.InventoryData.GetItem(binding.itemId);
         if (inventoryItem?.ItemData == null)
         {
@@ -267,7 +326,7 @@ public class EquippedItemManager : MonoBehaviour
             return false;
         }
 
-        // Equip the item
+        // Equip the item with hotkey source tracking
         equipmentData.equippedItem.EquipFromHotkey(binding.itemId, inventoryItem.ItemData, slotNumber);
 
         DebugLog($"Activated hotkey {slotNumber}: {inventoryItem.ItemData.itemName}");
@@ -277,21 +336,27 @@ public class EquippedItemManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Cycles through assigned hotkey items in sequence. If no item is currently equipped
+    /// from a hotkey, starts with the first assigned slot. If an item is equipped from
+    /// a hotkey, moves to the next/previous assigned slot in the sequence.
+    /// </summary>
+    /// <param name="forward">True to cycle forward, false to cycle backward</param>
     public void CycleEquippedItem(bool forward)
     {
-        // Cache assigned bindings to avoid repeated calculations
+        // Get all assigned hotkey slots
         var assignedBindings = equipmentData.hotkeyBindings.FindAll(h => h.isAssigned);
         if (assignedBindings.Count == 0) return;
 
         int currentIndex = -1;
 
-        // Find current equipped item in hotkey list
+        // Find current equipped item in the hotkey list
         if (HasEquippedItem && equipmentData.equippedItem.isEquippedFromHotkey)
         {
             currentIndex = assignedBindings.FindIndex(h => h.slotNumber == equipmentData.equippedItem.sourceHotkeySlot);
         }
 
-        // Calculate next index
+        // Calculate next index with wraparound
         if (forward)
         {
             currentIndex = (currentIndex + 1) % assignedBindings.Count;
@@ -301,7 +366,7 @@ public class EquippedItemManager : MonoBehaviour
             currentIndex = currentIndex <= 0 ? assignedBindings.Count - 1 : currentIndex - 1;
         }
 
-        // Activate the hotkey
+        // Activate the selected hotkey
         ActivateHotkey(assignedBindings[currentIndex].slotNumber);
     }
 
@@ -309,6 +374,16 @@ public class EquippedItemManager : MonoBehaviour
 
     #region Item Actions
 
+    /// <summary>
+    /// Performs an action with the currently equipped item. The action varies based on
+    /// the item type and whether it's a left or right click:
+    /// - Weapons: Left = attack, Right = aim
+    /// - Consumables: Left = punch, Right = consume item
+    /// - Equipment: Left = punch, Right = use equipment
+    /// - Key Items: Left = punch, Right = attempt to use
+    /// - Ammo: Left = punch only
+    /// </summary>
+    /// <param name="isLeftClick">True for left click action, false for right click</param>
     public void PerformItemAction(bool isLeftClick)
     {
         if (!HasEquippedItem) return;
@@ -318,7 +393,7 @@ public class EquippedItemManager : MonoBehaviour
 
         DebugLog($"Performing {(isLeftClick ? "left" : "right")} click action with {itemData.itemName}");
 
-        // Trigger action based on item type
+        // Route to appropriate action handler based on item type
         switch (itemData.itemType)
         {
             case ItemType.Weapon:
@@ -349,60 +424,99 @@ public class EquippedItemManager : MonoBehaviour
         OnItemActionPerformed?.Invoke(itemData.itemType, isLeftClick);
     }
 
-    // Action implementations (placeholders for now)
+    // Action implementation methods - extend these for game-specific behavior
+
+    /// <summary>
+    /// Handles weapon attack action (left click on weapon).
+    /// Override or extend this method to implement actual weapon attack behavior.
+    /// </summary>
     private void OnWeaponAttack(ItemData weaponData)
     {
         DebugLog($"Attacking with {weaponData.itemName}");
+        // TODO: Implement weapon attack logic
     }
 
+    /// <summary>
+    /// Handles weapon aim action (right click on weapon).
+    /// Override or extend this method to implement weapon aiming behavior.
+    /// </summary>
     private void OnWeaponAim(ItemData weaponData)
     {
         DebugLog($"Aiming {weaponData.itemName}");
+        // TODO: Implement weapon aiming logic
     }
 
+    /// <summary>
+    /// Handles consumable item usage (right click on consumable).
+    /// Automatically removes the consumed item from inventory.
+    /// Override or extend this method to implement consumption effects.
+    /// </summary>
     private void OnConsumeItem(ItemData consumableData)
     {
         DebugLog($"Consuming {consumableData.itemName}");
 
-        // For now, just remove from inventory
+        // TODO: Apply consumable effects (healing, buffs, etc.)
+
+        // Remove consumed item from inventory
         if (inventoryManager != null)
         {
             inventoryManager.RemoveItem(equipmentData.equippedItem.equippedItemId);
         }
     }
 
+    /// <summary>
+    /// Handles equipment usage (right click on equipment).
+    /// Override or extend this method to implement equipment-specific behavior.
+    /// </summary>
     private void OnUseEquipment(ItemData equipmentData)
     {
         DebugLog($"Using equipment {equipmentData.itemName}");
+        // TODO: Implement equipment usage logic
     }
 
+    /// <summary>
+    /// Handles key item usage (right click on key item).
+    /// Override or extend this method to implement key item interactions.
+    /// </summary>
     private void OnUseKeyItem(ItemData keyItemData)
     {
         DebugLog($"Attempting to use key item {keyItemData.itemName}");
+        // TODO: Implement key item usage logic (unlock doors, trigger events, etc.)
     }
 
+    /// <summary>
+    /// Handles punch action (left click when no weapon equipped or with non-weapon items).
+    /// Override or extend this method to implement unarmed combat.
+    /// </summary>
     private void OnPunch()
     {
         DebugLog("Punching (no weapon equipped)");
+        // TODO: Implement unarmed attack logic
     }
 
     #endregion
 
     #region Event Handlers
 
+    /// <summary>
+    /// Responds to items being removed from inventory by cleaning up equipment assignments.
+    /// Automatically unequips items and removes hotkey assignments for deleted items.
+    /// For stacked items, removes only the specific item from stacks.
+    /// </summary>
     private void OnInventoryItemRemoved(string itemId)
     {
-        // Check if equipped item was removed
+        // Check if the equipped item was removed
         if (equipmentData.equippedItem.IsEquipped(itemId))
         {
             UnequipCurrentItem();
         }
 
-        // Check and update hotkey assignments
+        // Clean up hotkey assignments
         foreach (var binding in equipmentData.hotkeyBindings)
         {
             if (binding.RemoveItem(itemId))
             {
+                // Update UI based on whether the slot is now empty or still has items
                 if (!binding.isAssigned)
                 {
                     OnHotkeyCleared?.Invoke(binding.slotNumber);
@@ -415,14 +529,18 @@ public class EquippedItemManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Responds to items being added to inventory by automatically stacking consumables
+    /// in existing hotkey slots that already contain the same item type.
+    /// </summary>
     private void OnInventoryItemAdded(InventoryItemData newItem)
     {
         if (newItem?.ItemData == null) return;
 
-        // Only try to stack consumables
+        // Only auto-stack consumables for convenience
         if (newItem.ItemData.itemType != ItemType.Consumable) return;
 
-        // Check if any hotkey can stack this item
+        // Try to add to existing hotkey stacks
         foreach (var binding in equipmentData.hotkeyBindings)
         {
             if (binding.TryAddToStack(newItem.ID, newItem.ItemData.name))
@@ -438,6 +556,9 @@ public class EquippedItemManager : MonoBehaviour
 
     #region Audio
 
+    /// <summary>
+    /// Plays the equipment sound effect when items are equipped from inventory.
+    /// </summary>
     private void PlayEquipSound()
     {
         if (equipSound != null)
@@ -446,6 +567,9 @@ public class EquippedItemManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Plays the hotkey sound effect when items are equipped via hotkey activation.
+    /// </summary>
     private void PlayHotkeySound()
     {
         if (hotkeySound != null)
@@ -456,13 +580,13 @@ public class EquippedItemManager : MonoBehaviour
 
     #endregion
 
-    #region Public API for Save System (Called by EquipmentSaveComponent)
-
+    #region Save System Integration
 
     /// <summary>
-    /// Public method to directly set equipment data (for save component)
-    /// ADD THIS to EquippedItemManager
+    /// Directly replaces the current equipment data. Used by EquipmentSaveComponent
+    /// during save/load operations. Clears existing state before applying new data.
     /// </summary>
+    /// <param name="newData">Complete equipment data to restore</param>
     public void SetEquipmentData(EquipmentSaveData newData)
     {
         if (newData == null || !newData.IsValid())
@@ -472,18 +596,15 @@ public class EquippedItemManager : MonoBehaviour
             return;
         }
 
-        // Clear current state first
         ClearEquipmentState();
-
-        // Set the equipment data directly
         equipmentData = newData;
 
-        DebugLog("Equipment data set directly via save component");
+        DebugLog("Equipment data restored from save system");
     }
 
     /// <summary>
-    /// Public method to clear all equipment state (for save component)
-    /// ADD THIS to EquippedItemManager
+    /// Resets all equipment state to empty. Fires appropriate events for UI cleanup.
+    /// Used by save system and for manual reset operations.
     /// </summary>
     public void ClearEquipmentState()
     {
@@ -494,7 +615,7 @@ public class EquippedItemManager : MonoBehaviour
             OnItemUnequipped?.Invoke();
         }
 
-        // Clear all hotkey bindings
+        // Clear all hotkey assignments
         foreach (var binding in equipmentData.hotkeyBindings)
         {
             if (binding.isAssigned)
@@ -509,174 +630,38 @@ public class EquippedItemManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Public method to get equipment data directly (for save component)
-    /// ADD THIS to EquippedItemManager
+    /// Returns a copy of the current equipment data for saving. Used by EquipmentSaveComponent
+    /// to extract data without modifying the active state.
     /// </summary>
+    /// <returns>Complete copy of current equipment state</returns>
     public EquipmentSaveData GetEquipmentDataDirect()
     {
-        // Return a copy of the current equipment data
         return new EquipmentSaveData(equipmentData);
     }
 
+    #endregion
 
-    // /// <summary>
-    // /// Get equipment data for saving (called by EquipmentSaveComponent)
-    // /// </summary>
-    // public EquipmentSaveData GetDataToSave()
-    // {
-    //     DebugLog("=== SAVING EQUIPMENT DATA ===");
-    //     DebugLog($"Equipped Item: {(HasEquippedItem ? equipmentData.equippedItem.GetItemData()?.itemName : "None")}");
-
-    //     foreach (var binding in equipmentData.hotkeyBindings)
-    //     {
-    //         if (binding.isAssigned)
-    //         {
-    //             DebugLog($"Saving Hotkey {binding.slotNumber}: {binding.itemDataName} (ID: {binding.itemId}) - Stack: {binding.stackedItemIds.Count} items");
-    //         }
-    //         else
-    //         {
-    //             DebugLog($"Saving Hotkey {binding.slotNumber}: Empty");
-    //         }
-    //     }
-
-    //     return new EquipmentSaveData(equipmentData); // Return a copy of the equipmentData, so if it's a doorway transition, we don't clear it when we load;
-    // }
+    #region Public API
 
     /// <summary>
-    /// Load equipment data from save (called by EquipmentSaveComponent)
+    /// Gets the hotkey binding for a specific slot number (1-10).
+    /// Used by UI systems and external code to query hotkey assignments.
     /// </summary>
-    public void LoadSaveData(EquipmentSaveData savedData)
+    /// <param name="slotNumber">Slot number (1-10)</param>
+    /// <returns>Hotkey binding data, or null if invalid slot number</returns>
+    public HotkeyBinding GetHotkeyBinding(int slotNumber)
     {
-        // DebugLog("=== LOADING EQUIPMENT DATA ===");
-
-        if (savedData != null && savedData.IsValid())
-        {
-            // DebugLog("Clearing current equipment state before loading...");
-            ClearCurrentEquipmentState();
-
-            // Load the copied data
-            equipmentData = savedData;
-
-            // Validate loaded data against current inventory
-            ValidateLoadedHotkeys();
-
-            // DebugLog($"After validation, equipment data first itemname is {equipmentData.hotkeyBindings[0].itemDataName}");
-
-            // DebugLog("Equipment data loaded from save");
-
-            // Refresh UI for all hotkeys
-            RefreshAllHotkeyUI();
-        }
-        else
-        {
-            DebugLog("Failed to load equipment data - invalid or null data");
-        }
+        return equipmentData.GetHotkeyBinding(slotNumber);
     }
 
     /// <summary>
-    /// Clear all current equipment state before loading
+    /// Gets all hotkey bindings for bulk operations and UI display.
+    /// Returns the complete list of 10 hotkey slots (some may be unassigned).
     /// </summary>
-    private void ClearCurrentEquipmentState()
+    /// <returns>List of all hotkey bindings</returns>
+    public List<HotkeyBinding> GetAllHotkeyBindings()
     {
-        // Clear equipped item
-        if (HasEquippedItem)
-        {
-            equipmentData.equippedItem.Clear();
-        }
-
-        // Clear all hotkey bindings
-        foreach (var binding in equipmentData.hotkeyBindings)
-        {
-            if (binding.isAssigned)
-            {
-                binding.ClearSlot();
-            }
-        }
-
-        DebugLog("Current equipment state cleared");
-    }
-
-    /// <summary>
-    /// Refresh UI for all hotkey slots
-    /// </summary>
-    private void RefreshAllHotkeyUI()
-    {
-        // Refresh equipped item UI
-        if (HasEquippedItem)
-        {
-            OnItemEquipped?.Invoke(equipmentData.equippedItem);
-        }
-        else
-        {
-            OnItemUnequipped?.Invoke();
-        }
-
-        // Refresh ALL hotkey slots (both assigned and empty)
-        for (int i = 0; i < equipmentData.hotkeyBindings.Count; i++)
-        {
-            var binding = equipmentData.hotkeyBindings[i];
-            if (binding.isAssigned)
-            {
-                OnHotkeyAssigned?.Invoke(binding.slotNumber, binding);
-            }
-            else
-            {
-                OnHotkeyCleared?.Invoke(binding.slotNumber);
-            }
-        }
-
-        DebugLog($"UI refreshed for {equipmentData.hotkeyBindings.Count} hotkey slots");
-    }
-
-    /// <summary>
-    /// Validate that loaded hotkey assignments still exist in inventory
-    /// </summary>
-    private void ValidateLoadedHotkeys()
-    {
-
-        if (inventoryManager == null)
-        {
-            DebugLog("Cannot validate hotkeys - inventory manager is null");
-            return;
-        }
-
-        foreach (var binding in equipmentData.hotkeyBindings)
-        {
-            if (!binding.isAssigned)
-            {
-                Debug.Log("Hotkey " + binding.slotNumber + " is not assigned - skipping");
-                continue;
-            }
-
-            // Check if the primary item still exists
-            InventoryItemData inventoryItem = inventoryManager.InventoryData.GetItem(binding.itemId);
-
-            Debug.Log($"Hotkey {binding.slotNumber}: Validating primary item {binding.itemId}");
-
-            if (inventoryItem == null)
-            {
-                DebugLog($"Hotkey {binding.slotNumber}: Primary item {binding.itemId} no longer exists - clearing slot");
-                binding.ClearSlot();
-                continue;
-            }
-
-            // Validate stacked items
-            var itemsToRemove = new List<string>();
-            foreach (string stackedId in binding.stackedItemIds)
-            {
-                if (inventoryManager.InventoryData.GetItem(stackedId) == null)
-                {
-                    DebugLog($"Hotkey {binding.slotNumber}: Stacked item {stackedId} no longer exists - removing");
-                    itemsToRemove.Add(stackedId);
-                }
-            }
-
-            foreach (string itemToRemove in itemsToRemove)
-            {
-                DebugLog($"Hotkey {binding.slotNumber}: Removing invalid stacked item {itemToRemove}");
-                binding.RemoveItem(itemToRemove);
-            }
-        }
+        return equipmentData.hotkeyBindings;
     }
 
     #endregion
@@ -691,6 +676,10 @@ public class EquippedItemManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Outputs detailed debug information about the current equipment state.
+    /// Shows equipped item, hotkey assignments, and stack information.
+    /// </summary>
     [Button("Debug Current State")]
     private void DebugCurrentState()
     {
@@ -700,7 +689,8 @@ public class EquippedItemManager : MonoBehaviour
         if (HasEquippedItem)
         {
             var item = equipmentData.equippedItem;
-            Debug.Log($"Equipped: {item.GetItemData()?.itemName} (from {(item.isEquippedFromHotkey ? $"hotkey {item.sourceHotkeySlot}" : "inventory")})");
+            string source = item.isEquippedFromHotkey ? $"hotkey {item.sourceHotkeySlot}" : "inventory";
+            Debug.Log($"Equipped: {item.GetItemData()?.itemName} (from {source})");
         }
 
         Debug.Log("Hotkey Assignments:");
@@ -708,32 +698,17 @@ public class EquippedItemManager : MonoBehaviour
         {
             if (binding.isAssigned)
             {
-                Debug.Log($"  {binding.slotNumber}: {binding.GetCurrentItemData()?.itemName} {binding.GetStackInfo()}");
+                string stackInfo = binding.HasMultipleItems ? $" {binding.GetStackInfo()}" : "";
+                Debug.Log($"  {binding.slotNumber}: {binding.GetCurrentItemData()?.itemName}{stackInfo}");
             }
         }
-    }
-
-    /// <summary>
-    /// Get hotkey binding for slot (public access)
-    /// </summary>
-    public HotkeyBinding GetHotkeyBinding(int slotNumber)
-    {
-        return equipmentData.GetHotkeyBinding(slotNumber);
-    }
-
-    /// <summary>
-    /// Get all hotkey bindings (for UI)
-    /// </summary>
-    public List<HotkeyBinding> GetAllHotkeyBindings()
-    {
-        return equipmentData.hotkeyBindings;
     }
 
     #endregion
 
     private void OnDestroy()
     {
-        // Unsubscribe from events
+        // Clean up event subscriptions
         GameManager.OnManagersRefreshed -= RefreshReferences;
         InputManager.OnInputManagerReady -= OnInputManagerReady;
 

@@ -1,14 +1,14 @@
+// PlayerPersistenceManager.cs
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// REFACTORED: Truly modular PlayerPersistenceManager
-/// No longer has hardcoded knowledge of specific save components
-/// Components handle their own data extraction, default creation, and contribution
-/// This makes the system scalable - add/remove components without touching this manager
-/// UPDATED: Simplified with unified context-aware loading
+/// Manages persistence of player-dependent data across scene transitions.
+/// Automatically discovers and coordinates with all player-dependent save components
+/// without requiring hardcoded references. Handles three restoration contexts:
+/// doorway transitions, save file loads, and new game initialization.
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
@@ -17,13 +17,11 @@ public class PlayerPersistenceManager : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private bool showDebugLogs = true;
 
-    // Discovered save components (no direct references!)
+    // Automatically discovered save components
     private List<ISaveable> playerDependentSaveables = new List<ISaveable>();
 
-    // Persistent data storage for scene transitions
+    // Temporary storage for scene transitions
     private Dictionary<string, object> persistentPlayerData = new Dictionary<string, object>();
-
-    // State management
     private bool hasPersistentData = false;
 
     private void Awake()
@@ -32,7 +30,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            DebugLog("PlayerPersistenceManager initialized with modular architecture");
+            DebugLog("PlayerPersistenceManager initialized");
         }
         else
         {
@@ -46,12 +44,11 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Discover all player-dependent save components in the scene
-    /// This is what makes the system modular - no hardcoded references!
+    /// Automatically finds all player-dependent save components in the scene.
+    /// This modularity means new save components can be added without modifying this manager.
     /// </summary>
     private void DiscoverPlayerDependentSaveables()
     {
-        // Find all ISaveable components that are player-dependent
         var allSaveables = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
             .Where(s => s.SaveCategory == SaveDataCategory.PlayerDependent)
@@ -68,28 +65,22 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// MODULAR: Update persistent data before scene transition (called by doorways)
-    /// This method discovers and calls all player-dependent save components automatically
+    /// Prepares player data for doorway transitions by collecting current state
+    /// from all player-dependent components. Called before leaving a scene via doorway.
     /// </summary>
     public void UpdatePersistentPlayerDataForTransition()
     {
         DebugLog("=== PREPARING PLAYER DATA FOR TRANSITION ===");
 
-        // Re-discover saveables in case new ones were added
         DiscoverPlayerDependentSaveables();
-
-        // Clear previous data
         persistentPlayerData.Clear();
 
-        // Let each save component prepare its data
+        // Collect data from each save component
         foreach (var saveable in playerDependentSaveables)
         {
             try
             {
-                // Call preparation hook
                 saveable.OnBeforeSave();
-
-                // Get the component's data
                 var data = saveable.GetDataToSave();
                 if (data != null)
                 {
@@ -108,10 +99,8 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// CONTEXT-AWARE: Restore player data for doorway transitions
-    /// This restores player stats, inventory, equipment but NOT position
-    /// Called by SceneTransitionManager when context is DoorwayTransition
-    /// UPDATED: Simplified without context-aware checking
+    /// Restores player data after doorway transitions. Restores stats, inventory,
+    /// and equipment but not position (doorway handles positioning).
     /// </summary>
     public void RestoreForDoorwayTransition()
     {
@@ -123,17 +112,15 @@ public class PlayerPersistenceManager : MonoBehaviour
             return;
         }
 
-        // Re-discover saveables in the new scene
         DiscoverPlayerDependentSaveables();
 
-        // Restore data to each component with DOORWAY context
+        // Restore data to each component with doorway context
         foreach (var saveable in playerDependentSaveables)
         {
             try
             {
                 if (persistentPlayerData.TryGetValue(saveable.SaveID, out var data))
                 {
-                    // Load data with doorway context (no position restore)
                     saveable.LoadSaveDataWithContext(data, RestoreContext.DoorwayTransition);
                     saveable.OnAfterLoad();
                     DebugLog($"Restored doorway data for {saveable.SaveID}");
@@ -149,16 +136,13 @@ public class PlayerPersistenceManager : MonoBehaviour
             }
         }
 
-        // Clear persistent data after successful restoration
         ClearPersistentData();
         DebugLog("Doorway transition player data restoration complete");
     }
 
     /// <summary>
-    /// CONTEXT-AWARE: Restore player data from save file
-    /// This restores ALL player data INCLUDING position
-    /// Called by SceneTransitionManager when context is SaveFileLoad
-    /// UPDATED: Simplified without context-aware checking
+    /// Restores complete player data from save files including position and all state.
+    /// Used when loading saved games to restore exact game state.
     /// </summary>
     public void RestoreFromSaveFile(Dictionary<string, object> saveData)
     {
@@ -170,22 +154,17 @@ public class PlayerPersistenceManager : MonoBehaviour
             return;
         }
 
-        // Clear doorway transition data since we're loading from save
         ClearPersistentData();
-
-        // Re-discover saveables
         DiscoverPlayerDependentSaveables();
 
-        // Restore data to each component with SAVE LOAD context
+        // Restore data to each component with save file context
         foreach (var saveable in playerDependentSaveables)
         {
             try
             {
-                // MODULAR: Let component extract its own data from the save file
                 var componentData = ExtractComponentDataFromSave(saveable, saveData);
                 if (componentData != null)
                 {
-                    // Load data with save file context (includes position restore)
                     saveable.LoadSaveDataWithContext(componentData, RestoreContext.SaveFileLoad);
                     saveable.OnAfterLoad();
                     DebugLog($"Restored save file data for {saveable.SaveID}");
@@ -201,18 +180,14 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// CONTEXT-AWARE: Initialize player data for new game
-    /// Called by SceneTransitionManager when context is NewGame
-    /// UPDATED: Simplified without context-aware checking
+    /// Initializes fresh player data for new games with default values.
+    /// Clears any existing persistent data and sets starting state.
     /// </summary>
     public void InitializeForNewGame()
     {
         DebugLog("=== INITIALIZING PLAYER DATA FOR NEW GAME ===");
 
-        // Clear any existing data
         ClearPersistentData();
-
-        // Re-discover saveables
         DiscoverPlayerDependentSaveables();
 
         // Initialize each component with default values
@@ -220,7 +195,6 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             try
             {
-                // MODULAR: Let component create its own default data
                 var defaultData = CreateDefaultDataForComponent(saveable);
                 if (defaultData != null)
                 {
@@ -239,102 +213,81 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// MODULAR: Extract component-specific data from a save file
-    /// Now uses the enhanced interface system for true modularity
+    /// Extracts component-specific data from save containers using the modular interface.
+    /// Components handle their own data extraction for maximum flexibility.
     /// </summary>
     private object ExtractComponentDataFromSave(ISaveable saveable, Dictionary<string, object> saveData)
     {
-        DebugLog($"Extracting data for component: {saveable.SaveID}");
-
-        // PRIORITY 1: Check for direct PlayerSaveData (this contains position data)
+        // Check for direct PlayerSaveData (contains position data)
         if (saveData.ContainsKey("playerSaveData"))
         {
             var playerSaveData = saveData["playerSaveData"] as PlayerSaveData;
             if (playerSaveData != null)
             {
-                DebugLog($"Found playerSaveData with position: {playerSaveData.position}");
-                var extracted = saveable.ExtractRelevantData(playerSaveData);
-                DebugLog($"Extracted data type: {extracted?.GetType().Name ?? "null"}");
-                return extracted;
+                return saveable.ExtractRelevantData(playerSaveData);
             }
         }
 
-        // PRIORITY 2: Check for PlayerPersistentData - MODULAR APPROACH
+        // Check for PlayerPersistentData (modular approach)
         if (saveData.ContainsKey("playerPersistentData"))
         {
             var persistentData = saveData["playerPersistentData"] as PlayerPersistentData;
             if (persistentData != null)
             {
-                DebugLog($"Found playerPersistentData");
                 return ExtractFromPlayerPersistentDataModular(saveable, persistentData);
             }
         }
 
-        // PRIORITY 3: Direct component lookup
+        // Direct component lookup
         if (saveData.ContainsKey(saveable.SaveID))
         {
-            DebugLog($"Found direct component data for: {saveable.SaveID}");
             return saveData[saveable.SaveID];
         }
 
-        DebugLog($"No save data found for component: {saveable.SaveID}");
         return null;
     }
 
     /// <summary>
-    /// MODULAR: Extract data for a specific component from PlayerPersistentData
-    /// Now only uses the enhanced interface - no legacy fallback needed
+    /// Uses the enhanced modular interface to extract component data from unified save structure.
     /// </summary>
     private object ExtractFromPlayerPersistentDataModular(ISaveable saveable, PlayerPersistentData persistentData)
     {
         if (persistentData == null) return null;
 
-        // Use the enhanced interface - all components should implement this now
         if (saveable is IPlayerDependentSaveable enhancedSaveable)
         {
-            DebugLog($"Using enhanced extraction for {saveable.SaveID}");
             return enhancedSaveable.ExtractFromUnifiedSave(persistentData);
         }
 
-        // If we reach here, the component hasn't been updated to the new interface
-        Debug.LogError($"Component {saveable.SaveID} ({saveable.GetType().Name}) doesn't implement IPlayerDependentSaveable! Please update it to use the modular interface.");
-
-        // Try fallback to ExtractRelevantData as last resort
-        DebugLog($"Attempting fallback extraction for {saveable.SaveID}");
+        Debug.LogError($"Component {saveable.SaveID} doesn't implement IPlayerDependentSaveable! Update it to use the modular interface.");
         return saveable.ExtractRelevantData(persistentData);
     }
 
     /// <summary>
-    /// MODULAR: Create default data for a component (new game initialization)
-    /// Now only uses the enhanced interface - no legacy fallbacks needed
+    /// Creates default data for components using the modular interface.
     /// </summary>
     private object CreateDefaultDataForComponent(ISaveable saveable)
     {
-        // Use the enhanced interface - all components should implement this now
         if (saveable is IPlayerDependentSaveable enhancedSaveable)
         {
-            DebugLog($"Using enhanced default data creation for {saveable.SaveID}");
             return enhancedSaveable.CreateDefaultData();
         }
 
-        // If we reach here, the component hasn't been updated to the new interface
-        Debug.LogError($"Component {saveable.SaveID} ({saveable.GetType().Name}) doesn't implement IPlayerDependentSaveable! Please update it to use the modular interface.");
+        Debug.LogError($"Component {saveable.SaveID} doesn't implement IPlayerDependentSaveable! Update it to use the modular interface.");
         return null;
     }
 
     /// <summary>
-    /// Get current persistent data for save system (called by SaveManager)
-    /// MODULAR: Uses the new interface system for contribution
+    /// Builds unified save data by collecting from all player-dependent components.
+    /// Used by SaveManager when creating save files.
     /// </summary>
     public PlayerPersistentData GetPersistentDataForSave()
     {
-        // Force update with current values
         UpdatePersistentPlayerDataForTransition();
 
-        // Create save-friendly data structure
         var saveData = new PlayerPersistentData();
 
-        // MODULAR: Let each save component contribute to the save data
+        // Let each component contribute to the unified save structure
         foreach (var saveable in playerDependentSaveables)
         {
             try
@@ -355,29 +308,22 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// MODULAR: Helper method to let save components contribute to the unified save data
-    /// Now only uses the enhanced interface - no legacy fallbacks needed
+    /// Allows save components to contribute to the unified save structure using modular interface.
     /// </summary>
     private void ContributeToSaveDataModular(ISaveable saveable, object data, PlayerPersistentData saveData)
     {
-        // Use the enhanced interface - all components should implement this now
         if (saveable is IPlayerDependentSaveable enhancedSaveable)
         {
-            DebugLog($"Using enhanced contribution for {saveable.SaveID}");
             enhancedSaveable.ContributeToUnifiedSave(data, saveData);
             return;
         }
 
-        // If we reach here, the component hasn't been updated to the new interface
-        Debug.LogError($"Component {saveable.SaveID} ({saveable.GetType().Name}) doesn't implement IPlayerDependentSaveable! Please update it to use the modular interface.");
-
-        // Fallback: Store in dynamic storage
-        DebugLog($"Using fallback dynamic storage for {saveable.SaveID}");
+        Debug.LogError($"Component {saveable.SaveID} doesn't implement IPlayerDependentSaveable! Update it to use the modular interface.");
         saveData.SetComponentData(saveable.SaveID, data);
     }
 
     /// <summary>
-    /// Clear persistent data (useful for new game)
+    /// Clears temporary persistent data. Used when starting new games or after successful restoration.
     /// </summary>
     public void ClearPersistentData()
     {
@@ -387,12 +333,12 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Check if we have persistent data waiting to be restored
+    /// Returns whether persistent data is available for restoration.
     /// </summary>
     public bool HasPersistentData => hasPersistentData;
 
     /// <summary>
-    /// Manually refresh discovered saveables (useful when components are added/removed)
+    /// Manually refreshes the list of discovered saveables. Call when components are added/removed at runtime.
     /// </summary>
     public void RefreshDiscoveredSaveables()
     {
@@ -401,7 +347,7 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Force a component to be discovered (useful for runtime-created components)
+    /// Manually registers a component for persistence. Useful for runtime-created components.
     /// </summary>
     public void RegisterComponent(ISaveable component)
     {
@@ -417,12 +363,11 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Remove a component from discovery (useful for runtime-destroyed components)
+    /// Removes a component from persistence tracking. Useful for runtime-destroyed components.
     /// </summary>
     public void UnregisterComponent(ISaveable component)
     {
-        if (component == null)
-            return;
+        if (component == null) return;
 
         if (playerDependentSaveables.Remove(component))
         {
@@ -439,40 +384,3 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 }
 
-
-
-/// <summary>
-/// Helper class for debugging component capabilities
-/// </summary>
-[System.Serializable]
-public class ComponentCapabilities
-{
-    public bool IsEnhanced;
-    public string ComponentType;
-    public SaveDataCategory SaveCategory;
-
-    public override string ToString()
-    {
-        var features = new List<string>();
-        if (IsEnhanced) features.Add("Enhanced");
-        return $"{ComponentType} ({SaveCategory}) [{string.Join(", ", features)}]";
-    }
-}
-
-/// <summary>
-/// Statistics about the save system state
-/// </summary>
-[System.Serializable]
-public class SaveSystemStats
-{
-    public int TotalComponents;
-    public int EnhancedComponents;
-    public int LegacyComponents;
-    public bool HasPersistentData;
-    public int PersistentDataCount;
-
-    public override string ToString()
-    {
-        return $"SaveSystem: {TotalComponents} components ({EnhancedComponents} enhanced, {LegacyComponents} legacy), Persistent: {HasPersistentData}";
-    }
-}

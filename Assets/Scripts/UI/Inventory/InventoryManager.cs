@@ -4,9 +4,10 @@ using UnityEngine;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// Core inventory system that manages data independently of visuals
-/// This is a singleton that persists across scenes
-/// FIXED: Improved rotation handling to prevent cell occupation issues
+/// Core inventory system managing the tetris-style grid-based item placement.
+/// Handles item addition, removal, movement, and rotation independently of UI.
+/// Persists across scenes and fires events for UI synchronization.
+/// Does not handle its own saving - InventorySaveComponent manages persistence.
 /// </summary>
 public class InventoryManager : MonoBehaviour
 {
@@ -28,9 +29,11 @@ public class InventoryManager : MonoBehaviour
     public event Action OnInventoryCleared;
     public event Action<InventoryGridData> OnInventoryDataChanged;
 
+    // Public properties
     public InventoryGridData InventoryData => inventoryData;
     public int GridWidth => gridWidth;
     public int GridHeight => gridHeight;
+    public int NextItemId { get => nextItemId; set => nextItemId = value; }
 
     private void Awake()
     {
@@ -49,11 +52,11 @@ public class InventoryManager : MonoBehaviour
     private void Initialize()
     {
         inventoryData = new InventoryGridData(gridWidth, gridHeight);
-        //Debug.Log($"PersistentInventoryManager initialized with {gridWidth}x{gridHeight} grid");
     }
 
     /// <summary>
-    /// Add an item to the inventory (finds a valid position automatically)
+    /// Adds an item to the inventory at the specified position or finds a valid position automatically.
+    /// Generates a unique ID for the item and handles tetris-style placement validation.
     /// </summary>
     public bool AddItem(ItemData itemData, Vector2Int? preferredPosition = null)
     {
@@ -97,7 +100,8 @@ public class InventoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Remove an item from the inventory
+    /// Removes an item from the inventory by its unique ID.
+    /// Frees up the grid space and fires removal events.
     /// </summary>
     public bool RemoveItem(string itemId)
     {
@@ -105,14 +109,14 @@ public class InventoryManager : MonoBehaviour
         {
             OnItemRemoved?.Invoke(itemId);
             OnInventoryDataChanged?.Invoke(inventoryData);
-            //            Debug.Log($"Removed item {itemId}");
             return true;
         }
         return false;
     }
 
     /// <summary>
-    /// Move an item to a new position
+    /// Moves an item to a new grid position with collision validation.
+    /// Temporarily removes item to test placement, then restores if invalid.
     /// </summary>
     public bool MoveItem(string itemId, Vector2Int newPosition)
     {
@@ -125,7 +129,7 @@ public class InventoryManager : MonoBehaviour
 
         var originalPosition = item.GridPosition;
 
-        // Temporarily remove item to test new position
+        // Temporarily remove for collision testing
         inventoryData.RemoveItem(itemId);
         item.SetGridPosition(newPosition);
 
@@ -138,7 +142,7 @@ public class InventoryManager : MonoBehaviour
         }
         else
         {
-            // Restore item to original position
+            // Restore to original position
             item.SetGridPosition(originalPosition);
             inventoryData.PlaceItem(item);
             InventoryDebugSystem.LogItemPlacementAttempt(itemId, newPosition, false, "Position invalid or occupied");
@@ -147,7 +151,8 @@ public class InventoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Rotate an item - FIXED version that properly handles grid state
+    /// Rotates an item clockwise with proper grid state management.
+    /// Handles collision detection and reverts rotation if new orientation doesn't fit.
     /// </summary>
     public bool RotateItem(string itemId)
     {
@@ -164,7 +169,6 @@ public class InventoryManager : MonoBehaviour
             return false;
         }
 
-        // Store original state
         var originalRotation = item.currentRotation;
         var originalPosition = item.GridPosition;
 
@@ -172,20 +176,19 @@ public class InventoryManager : MonoBehaviour
         int maxRotations = TetrominoDefinitions.GetRotationCount(item.shapeType);
         int newRotation = (originalRotation + 1) % maxRotations;
 
-        // IMPORTANT: Remove item from grid before testing rotation
+        // Remove from grid before testing rotation
         bool wasInGrid = inventoryData.GetItem(itemId) != null;
         if (wasInGrid)
         {
             inventoryData.RemoveItem(itemId);
         }
 
-        // Apply new rotation
+        // Apply new rotation and test
         item.SetRotation(newRotation);
 
-        // Test if new rotation is valid at current position
         if (inventoryData.IsValidPosition(originalPosition, item))
         {
-            // Place item back with new rotation
+            // Place back with new rotation
             if (inventoryData.PlaceItem(item))
             {
                 InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, true);
@@ -194,7 +197,7 @@ public class InventoryManager : MonoBehaviour
             }
             else
             {
-                // Failed to place back - revert rotation and restore
+                // Failed to place - revert and restore
                 item.SetRotation(originalRotation);
                 inventoryData.PlaceItem(item);
                 InventoryDebugSystem.LogItemRotationAttempt(itemId, originalRotation, newRotation, false, "Failed to place after rotation");
@@ -203,7 +206,7 @@ public class InventoryManager : MonoBehaviour
         }
         else
         {
-            // New rotation invalid - revert rotation and restore item
+            // New rotation invalid - revert and restore
             item.SetRotation(originalRotation);
             if (wasInGrid)
             {
@@ -215,7 +218,7 @@ public class InventoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Clear all items from inventory
+    /// Clears all items from the inventory and resets the ID counter.
     /// </summary>
     public void ClearInventory()
     {
@@ -226,62 +229,8 @@ public class InventoryManager : MonoBehaviour
         Debug.Log("Inventory cleared");
     }
 
-    // /// <summary>
-    // /// Get save data for persistence system
-    // /// </summary>
-    // public InventorySaveData GetSaveData()
-    // {
-    //     var saveData = new InventorySaveData(gridWidth, gridHeight); // Return a copy of the data, so if it's a doorway transition, we don't clear it when we load;
-    //     saveData.nextItemId = nextItemId;
-
-    //     foreach (var item in inventoryData.GetAllItems())
-    //     {
-    //         var itemSaveData = item.ToSaveData();
-    //         if (itemSaveData.IsValid())
-    //         {
-    //             saveData.AddItem(itemSaveData);
-    //         }
-    //     }
-
-    //     return saveData;
-    // }
-
-    // /// <summary>
-    // /// Load from save data
-    // /// </summary>
-    // public void LoadFromSaveData(InventorySaveData saveData)
-    // {
-    //     if (saveData == null || !saveData.IsValid())
-    //     {
-    //         Debug.LogWarning("Invalid inventory save data");
-    //         return;
-    //     }
-
-    //     ClearInventory();
-    //     nextItemId = saveData.nextItemId;
-
-    //     foreach (var itemSaveData in saveData.items)
-    //     {
-    //         var item = InventoryItemData.FromSaveData(itemSaveData);
-    //         if (item != null)
-    //         {
-    //             if (inventoryData.PlaceItem(item))
-    //             {
-    //                 OnItemAdded?.Invoke(item);
-    //             }
-    //             else
-    //             {
-    //                 Debug.LogWarning($"Failed to restore item {item.ID} at position {item.GridPosition}");
-    //             }
-    //         }
-    //     }
-
-    //     OnInventoryDataChanged?.Invoke(inventoryData);
-    //     Debug.Log($"Loaded inventory: {inventoryData.ItemCount} items");
-    // }
-
     /// <summary>
-    /// Check if inventory has space for an item
+    /// Checks if the inventory has space for a new item by testing placement.
     /// </summary>
     public bool HasSpaceForItem(ItemData itemData)
     {
@@ -292,7 +241,7 @@ public class InventoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Get inventory statistics
+    /// Returns inventory statistics for UI display and debugging.
     /// </summary>
     public (int itemCount, int occupiedCells, int totalCells) GetInventoryStats()
     {
@@ -309,7 +258,26 @@ public class InventoryManager : MonoBehaviour
         return (inventoryData.ItemCount, occupiedCells, gridWidth * gridHeight);
     }
 
-    // Debug methods
+    /// <summary>
+    /// Directly sets inventory data and ID counter. Used by InventorySaveComponent for data restoration.
+    /// </summary>
+    public void SetInventoryData(InventoryGridData newData, int newNextItemId)
+    {
+        inventoryData = newData;
+        nextItemId = newNextItemId;
+
+        // Trigger events for UI updates
+        OnInventoryDataChanged?.Invoke(inventoryData);
+
+        var allItems = inventoryData.GetAllItems();
+        foreach (var item in allItems)
+        {
+            OnItemAdded?.Invoke(item);
+        }
+    }
+
+    #region Debug Methods
+
     [Button("Add Test Item")]
     private void AddTestItem()
     {
@@ -367,31 +335,5 @@ public class InventoryManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Public property to access nextItemId (for save component)
-    /// </summary>
-    public int NextItemId
-    {
-        get => nextItemId;
-        set => nextItemId = value;
-    }
-
-    /// <summary>
-    /// Public method to directly set inventory data (for save component)
-    /// </summary>
-    public void SetInventoryData(InventoryGridData newData, int newNextItemId)
-    {
-        inventoryData = newData;
-        nextItemId = newNextItemId;
-
-        // Trigger events for any listeners
-        OnInventoryDataChanged?.Invoke(inventoryData);
-
-        // Trigger individual item events for UI updates
-        var allItems = inventoryData.GetAllItems();
-        foreach (var item in allItems)
-        {
-            OnItemAdded?.Invoke(item);
-        }
-    }
+    #endregion
 }

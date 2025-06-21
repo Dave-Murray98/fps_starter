@@ -4,29 +4,33 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
 
-
 /// <summary>
-/// Interface that all managers should implement for centralized management
+/// Interface for centralized manager coordination.
+/// All core managers should implement this for lifecycle management.
 /// </summary>
 public interface IManager
 {
     /// <summary>
-    /// Called when the manager should initialize itself
+    /// Initialize the manager's core functionality and state.
     /// </summary>
     void Initialize();
 
     /// <summary>
-    /// Called when managers should refresh their references after scene load
+    /// Refresh component references after scene changes.
     /// </summary>
     void RefreshReferences();
 
     /// <summary>
-    /// Called when the manager should clean up
+    /// Clean up resources and unsubscribe from events.
     /// </summary>
     void Cleanup();
 }
 
-
+/// <summary>
+/// Central coordinator for all game managers and core systems.
+/// Handles manager lifecycle, scene transition coordination, and provides
+/// unified access to save/load functionality and game state control.
+/// </summary>
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
@@ -43,7 +47,7 @@ public class GameManager : MonoBehaviour
     [Header("Game State")]
     public bool isPaused = false;
 
-    // Events for manager system
+    // Events for manager system coordination
     public static event Action OnManagersInitialized;
     public static event Action OnManagersRefreshed;
 
@@ -78,21 +82,27 @@ public class GameManager : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
+    /// <summary>
+    /// Handles scene loaded events by refreshing manager references after a delay.
+    /// </summary>
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
-        //Debug.Log($"Scene loaded: {scene.name}, refreshing manager references");
         StartCoroutine(RefreshManagerReferencesCoroutine());
     }
 
+    /// <summary>
+    /// Discovers and initializes all managers implementing IManager interface.
+    /// </summary>
     private void InitializeManagers()
     {
-        //Debug.Log("GameManager: Initializing managers...");
         FindAndRegisterManagers();
         InitializeAllManagers();
         OnManagersInitialized?.Invoke();
-        //Debug.Log("GameManager: All managers initialized");
     }
 
+    /// <summary>
+    /// Locates all manager components in the scene and registers them.
+    /// </summary>
     private void FindAndRegisterManagers()
     {
         allManagers.Clear();
@@ -103,17 +113,16 @@ public class GameManager : MonoBehaviour
         uiManager = FindFirstObjectByType<UIManager>();
         audioManager = FindFirstObjectByType<AudioManager>();
 
-        //  Debug.Log($"GameManager: Found managers - Player: {playerManager != null}, Input: {inputManager != null}, UI: {uiManager != null}, Audio: {audioManager != null}");
-
         // Register managers that implement IManager
         if (playerManager != null) allManagers.Add(playerManager);
         if (inputManager != null) allManagers.Add(inputManager);
         if (uiManager != null) allManagers.Add(uiManager);
         if (audioManager != null) allManagers.Add(audioManager);
-
-        //  Debug.Log($"GameManager: Registered {allManagers.Count} managers in scene: {UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
     }
 
+    /// <summary>
+    /// Calls Initialize() on all registered managers with error handling.
+    /// </summary>
     private void InitializeAllManagers()
     {
         foreach (var manager in allManagers)
@@ -129,6 +138,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Refreshes manager references with timing to ensure scene is fully loaded.
+    /// </summary>
     private IEnumerator RefreshManagerReferencesCoroutine()
     {
         yield return null;
@@ -136,9 +148,11 @@ public class GameManager : MonoBehaviour
         RefreshManagerReferences();
     }
 
+    /// <summary>
+    /// Refreshes all manager references after scene changes.
+    /// </summary>
     private void RefreshManagerReferences()
     {
-        //  Debug.Log("GameManager: Refreshing manager references...");
         FindAndRegisterManagers();
 
         foreach (var manager in allManagers)
@@ -154,25 +168,31 @@ public class GameManager : MonoBehaviour
         }
 
         OnManagersRefreshed?.Invoke();
-        // Debug.Log("GameManager: Manager references refreshed");
     }
 
-    // Simplified save/load methods - just delegate to SimplifiedSaveManager
+    /// <summary>
+    /// Initiates a game save operation via SaveManager.
+    /// </summary>
     [Button]
     public void SaveGame()
     {
         SaveManager.Instance?.SaveGame();
     }
 
+    /// <summary>
+    /// Initiates a game load operation via SaveManager.
+    /// </summary>
     [Button]
     public void LoadGame()
     {
         SaveManager.Instance?.LoadGame();
     }
 
+    /// <summary>
+    /// Initializes a fresh game state with default values.
+    /// </summary>
     public void NewGame()
     {
-        // Just create a fresh game state
         if (playerManager != null && playerData != null)
         {
             playerManager.currentHealth = playerData.maxHealth;
@@ -180,6 +200,9 @@ public class GameManager : MonoBehaviour
         Debug.Log("New game started");
     }
 
+    /// <summary>
+    /// Pauses the game by setting time scale to 0 and firing pause events.
+    /// </summary>
     public void PauseGame()
     {
         if (!isPaused)
@@ -190,6 +213,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Resumes the game by restoring time scale and firing resume events.
+    /// </summary>
     public void ResumeGame()
     {
         if (isPaused)
@@ -200,6 +226,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Quits the game application.
+    /// </summary>
     public void QuitGame()
     {
         Debug.Log("Quitting Game");
@@ -210,6 +239,9 @@ public class GameManager : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Manually triggers manager reference refresh (editor only).
+    /// </summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
     public void RefreshReferences()
     {

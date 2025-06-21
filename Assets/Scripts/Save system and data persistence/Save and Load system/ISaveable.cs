@@ -1,134 +1,121 @@
 using UnityEngine;
 
 /// <summary>
-/// Interface for any object that can be saved and loaded
-/// UPDATED: Now all saveable objects are context-aware by default
+/// Core interface for any object that can be saved and loaded.
+/// Provides context-aware restoration to handle different loading scenarios.
 /// </summary>
 public interface ISaveable
 {
     /// <summary>
-    /// Unique identifier for this saveable object
-    /// Should be consistent between saves/loads
+    /// Unique identifier for this saveable object.
+    /// Must be consistent between saves/loads for proper data restoration.
     /// </summary>
     string SaveID { get; }
 
     /// <summary>
-    /// Category determines whether this object's data is scene-dependent or player-dependent
+    /// Determines whether this object's data persists across scenes or with the current scene.
+    /// PlayerDependent: Follows player between scenes (stats, inventory, equipment)
+    /// SceneDependent: Tied to specific scenes (enemy states, door locks, pickups)
     /// </summary>
     SaveDataCategory SaveCategory { get; }
 
     /// <summary>
-    /// Returns the data that should be saved for this object
+    /// Extracts the current state data that should be saved for this object.
+    /// Called when saving to file or preparing for scene transitions.
     /// </summary>
     object GetDataToSave();
 
     /// <summary>
-    /// Extracts relevant data from the provided save container
-    /// This is used to filter out only the data that this object cares about
+    /// Filters relevant data from a larger save container.
+    /// Used by persistence managers to extract only the data this component needs.
     /// </summary>
     object ExtractRelevantData(object saveContainer);
 
     /// <summary>
-    /// Loads the provided data into this object with awareness of the restoration context
-    /// This allows components to make context-specific decisions about what to restore
-    /// 
-    /// Examples:
-    /// - PlayerSaveComponent: Don't restore position during doorway transitions
-    /// - InventoryComponent: Always restore inventory regardless of context
-    /// - QuestComponent: Reset active quests on new game but preserve on transitions
+    /// Restores data to this object with context about why the restoration is happening.
+    /// Context determines what gets restored (e.g., skip position during doorway transitions).
     /// </summary>
-    /// <param name="data">The data to load</param>
-    /// <param name="context">The context for this restoration operation</param>
+    /// <param name="data">The data to restore</param>
+    /// <param name="context">Why this restoration is happening</param>
     void LoadSaveDataWithContext(object data, RestoreContext context);
 
     /// <summary>
-    /// Optional: Called before save data is collected
-    /// Use for any preparation needed before saving
+    /// Called before data collection for saving. Use for cleanup or preparation.
     /// </summary>
     void OnBeforeSave() { }
 
     /// <summary>
-    /// Optional: Called after save data has been loaded
-    /// Use for any setup needed after loading
+    /// Called after data restoration. Use for triggering UI updates or validation.
     /// </summary>
     void OnAfterLoad() { }
 }
 
 /// <summary>
-/// Enhanced interface for player-dependent save components that need to handle unified save data
-/// This makes the system truly modular by letting components handle their own data mapping
+/// Enhanced interface for player-dependent components that need to integrate
+/// with the unified save system. Enables true modularity by letting components
+/// handle their own data mapping and default state creation.
 /// </summary>
 public interface IPlayerDependentSaveable : ISaveable
 {
     /// <summary>
-    /// Extract this component's data from a unified save structure
-    /// Each component knows how to get its data from PlayerPersistentData
+    /// Extracts this component's data from the unified player data structure.
+    /// Each component knows how to find its data in PlayerPersistentData.
     /// </summary>
-    /// <param name="unifiedData">The unified player data structure</param>
-    /// <returns>Component-specific data extracted from the unified structure</returns>
     object ExtractFromUnifiedSave(PlayerPersistentData unifiedData);
 
     /// <summary>
-    /// Create default data for this component (used for new games)
-    /// Each component knows what its default state should be
+    /// Creates appropriate default data for new games.
+    /// Each component defines its own starting state.
     /// </summary>
-    /// <returns>Default data for this component</returns>
     object CreateDefaultData();
 
     /// <summary>
-    /// Contribute this component's data to a unified save structure
-    /// Each component knows how to store its data in PlayerPersistentData
+    /// Stores this component's data into the unified player data structure.
+    /// Called when building save files or preparing scene transitions.
     /// </summary>
-    /// <param name="componentData">This component's data to contribute</param>
-    /// <param name="unifiedData">The unified structure to contribute to</param>
     void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData);
 }
 
 /// <summary>
-/// Defines whether save data is scene-dependent or player-dependent 
+/// Categorizes save data by persistence behavior.
 /// </summary>
 public enum SaveDataCategory
 {
     /// <summary>
-    /// Scene-dependent data - this data contains information about the current scene and when the player leaves the scene, it should be saved so that it can be restored when the player returns to that scene.
-    /// Examples: Enemy states, pickup collections, door locks, environmental changes
+    /// Data tied to specific scenes. Saved when leaving a scene,
+    /// restored when returning. Examples: enemy health, door states, collected items.
     /// </summary>
     SceneDependent,
 
     /// <summary>
-    /// Player-dependent data - this data should persist across scenes unless the player loads into a previous save, wherein it should be restored to that save's state.
-    /// Examples: Player health, inventory, stats, quest progress
+    /// Data that follows the player across scenes. Persists during doorway transitions,
+    /// only reset when loading saves. Examples: health, inventory, equipment, abilities.
     /// </summary>
     PlayerDependent
 }
 
 /// <summary>
-/// Defines the context for data restoration operations
-/// This tells restoration systems WHY they're being called and what they should restore
+/// Describes why data restoration is happening, allowing components
+/// to make appropriate decisions about what to restore.
 /// </summary>
 public enum RestoreContext
 {
     /// <summary>
-    /// Player is transitioning through a doorway/portal
-    /// - Restore player stats, inventory, equipment, abilities
-    /// - Do NOT restore player position (doorway will set position)
-    /// - Restore scene-dependent data for the target scene
+    /// Player moving between scenes via doorway/portal.
+    /// Restore: stats, inventory, equipment, abilities
+    /// Skip: player position (doorway sets position)
     /// </summary>
     DoorwayTransition,
 
     /// <summary>
-    /// Player is loading from a save file
-    /// - Restore ALL player data INCLUDING position
-    /// - Restore scene-dependent data from save file
-    /// - This is a complete state restoration
+    /// Loading from a save file.
+    /// Restore: everything including exact player position and scene state
     /// </summary>
     SaveFileLoad,
 
     /// <summary>
-    /// New game initialization
-    /// - Set default player stats
-    /// - Clear inventory/equipment
-    /// - Set starting position
+    /// Starting a new game.
+    /// Set: default values, starting position, clear inventory/progress
     /// </summary>
     NewGame
 }

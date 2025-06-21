@@ -4,8 +4,18 @@ using System.Linq;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// FIXED: SaveManager with corrected load logic for modular save system
-/// The issue was in how we prepare save data for SceneTransitionManager
+/// Central coordinator for saving and loading complete game state to/from files.
+/// Orchestrates data collection from all persistence managers (PlayerPersistenceManager
+/// and SceneDataManager) and handles file I/O using the ES3 save system.
+/// 
+/// The SaveManager operates by:
+/// 1. Collecting current state from all persistence managers
+/// 2. Packaging data into a unified GameSaveData structure
+/// 3. Writing to disk with ES3 for saves, or reading and reconstructing for loads
+/// 4. Delegating scene transitions and data restoration to SceneTransitionManager
+/// 
+/// For loading, it rebuilds the modular save structure that components expect,
+/// ensuring compatibility with the component-based save system architecture.
 /// </summary>
 public class SaveManager : MonoBehaviour
 {
@@ -17,7 +27,7 @@ public class SaveManager : MonoBehaviour
 
     [ShowInInspector] private GameSaveData currentSaveData;
 
-    // Events
+    // Events for UI and external systems
     public System.Action<bool> OnSaveComplete;
     public System.Action<bool> OnLoadComplete;
 
@@ -37,37 +47,49 @@ public class SaveManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Initiates a complete game save operation with loading screen coordination.
+    /// Collects data from all persistence managers and writes to file.
+    /// </summary>
     public void SaveGame()
     {
         StartCoroutine(SaveGameCoroutine());
     }
 
+    /// <summary>
+    /// Loads a saved game and transitions to the saved scene with complete state restoration.
+    /// Delegates to SceneTransitionManager for coordinated loading experience.
+    /// </summary>
     public void LoadGame()
     {
         StartCoroutine(LoadGameCoroutine());
     }
 
+    /// <summary>
+    /// Coroutine that handles the complete save process with loading screen coordination.
+    /// Forces immediate scene data collection before any UI updates to ensure current
+    /// scene state is captured, then proceeds with data collection and file writing.
+    /// </summary>
     private System.Collections.IEnumerator SaveGameCoroutine()
     {
         DebugLog("Starting save operation...");
 
-        // FORCE IMMEDIATE SCENE DATA COLLECTION FIRST (before any UI updates)
+        // Immediately capture current scene data before any UI changes
         if (SceneDataManager.Instance != null)
         {
-            DebugLog("IMMEDIATE: Forcing current scene data save");
-            SceneDataManager.Instance.SaveCurrentSceneData(); // This calls the private method directly
-            DebugLog("IMMEDIATE: Current scene data forced - checking container...");
+            DebugLog("Forcing immediate scene data save");
+            SceneDataManager.Instance.SaveCurrentSceneData();
 
-            // Debug: Check if data is immediately available
+            // Verify data was captured
             string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
             var immediateCheck = SceneDataManager.Instance.GetSceneDataForSaving();
             if (immediateCheck.ContainsKey(currentScene))
             {
-                DebugLog($"IMMEDIATE: Scene data confirmed in container - {immediateCheck[currentScene].objectData.Count} objects");
+                DebugLog($"Scene data confirmed - {immediateCheck[currentScene].objectData.Count} objects");
             }
             else
             {
-                DebugLog("IMMEDIATE: WARNING - Scene data not found in container!");
+                DebugLog("WARNING - Scene data not found in container!");
             }
         }
         else
@@ -75,33 +97,34 @@ public class SaveManager : MonoBehaviour
             DebugLog("SceneDataManager not found - scene data will not be saved!");
         }
 
-        // NOW start the UI and timing stuff
+        // Start loading screen and begin timed save process
         LoadingScreenManager.Instance?.ShowLoadingScreen("Saving Game...", "Please wait");
         LoadingScreenManager.Instance?.SetProgress(0.1f);
         yield return new WaitForSecondsRealtime(0.1f);
 
+        // Initialize save data structure
         currentSaveData = new GameSaveData();
         currentSaveData.saveTime = System.DateTime.Now;
         currentSaveData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
         LoadingScreenManager.Instance?.SetProgress(0.3f);
 
-        // Save player persistent data to the main save file
+        // Collect player data from PlayerPersistenceManager
         if (PlayerPersistenceManager.Instance != null)
         {
             currentSaveData.playerPersistentData = PlayerPersistenceManager.Instance.GetPersistentDataForSave();
             SavePlayerPositionData();
             currentSaveData.SetPlayerSaveDataToPlayerPersistentData();
 
-            // DEBUGGING: Log what we're about to save
+            // Log save data for debugging
             DebugLog($"Saving player data: Health={currentSaveData.playerPersistentData.currentHealth}");
-            DebugLog($"Player persistent component data: {currentSaveData.playerPersistentData.ComponentDataCount} entries");
+            DebugLog($"Player persistent components: {currentSaveData.playerPersistentData.ComponentDataCount} entries");
             DebugLog($"Player save custom data: {currentSaveData.playersaveData?.CustomDataCount ?? 0} entries");
         }
 
         LoadingScreenManager.Instance?.SetProgress(0.5f);
 
-        // Get scene data (should already be collected above)
+        // Collect scene data (already captured above)
         if (SceneDataManager.Instance != null)
         {
             currentSaveData.sceneData = SceneDataManager.Instance.GetSceneDataForSaving();
@@ -111,7 +134,7 @@ public class SaveManager : MonoBehaviour
         LoadingScreenManager.Instance?.SetProgress(0.7f);
         LoadingScreenManager.Instance?.SetProgress(0.9f);
 
-        // Save to file
+        // Write to file using ES3
         bool saveSuccess = false;
         try
         {
@@ -133,8 +156,9 @@ public class SaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// FIXED: LoadGame now properly converts save data for SceneTransitionManager
-    /// The issue was in the data preparation - we need to rebuild PlayerPersistentData from the saved data
+    /// Coroutine that handles the complete load process. Reads save data from file,
+    /// reconstructs the modular save structure that persistence managers expect,
+    /// and delegates to SceneTransitionManager for coordinated restoration.
     /// </summary>
     private System.Collections.IEnumerator LoadGameCoroutine()
     {
@@ -146,7 +170,7 @@ public class SaveManager : MonoBehaviour
             yield break;
         }
 
-        // FIXED: Prepare save data properly for SceneTransitionManager
+        // Rebuild the modular save structure for SceneTransitionManager
         var saveDataForTransition = PrepareSaveDataForTransition();
 
         // Get target scene from save data
@@ -155,16 +179,16 @@ public class SaveManager : MonoBehaviour
 
         DebugLog($"Load target: {targetScene}, current: {currentScene}");
 
-        // DELEGATE TO SCENETRANSITIONMANAGER: Let it handle everything from here
+        // Delegate complete loading process to SceneTransitionManager
         if (SceneTransitionManager.Instance != null)
         {
-            // SceneTransitionManager will handle the loading screen, scene transition, and data restoration
+            // SceneTransitionManager handles loading screen, scene transition, and data restoration
             SceneTransitionManager.Instance.LoadSceneFromSave(targetScene, saveDataForTransition);
 
-            // Wait for the transition to complete
+            // Wait for transition to complete
             yield return new WaitUntil(() => UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == targetScene);
 
-            // Wait a bit more for data restoration to complete
+            // Allow time for data restoration to complete
             yield return new WaitForSecondsRealtime(0.5f);
         }
         else
@@ -179,29 +203,31 @@ public class SaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// FIXED: Prepare save data in a format that SceneTransitionManager can use for restoration
-    /// The key fix: We need to rebuild PlayerPersistentData from the custom data in PlayerSaveData
-    /// AND ensure all component data is properly structured for modular restoration
+    /// Reconstructs the modular save data structure that SceneTransitionManager and
+    /// persistence managers expect. Converts the flattened save file format back
+    /// into the component-based structure used during runtime.
+    /// 
+    /// The key transformation is rebuilding PlayerPersistentData from the custom data
+    /// stored in PlayerSaveData, ensuring all save components can properly restore
+    /// their data using the modular interface system.
     /// </summary>
     private Dictionary<string, object> PrepareSaveDataForTransition()
     {
         var transitionData = new Dictionary<string, object>();
 
-        // CRITICAL FIX: Rebuild PlayerPersistentData from the loaded save data
+        // Rebuild PlayerPersistentData from the flattened save structure
         if (currentSaveData.playersaveData != null)
         {
-            DebugLog("REBUILDING PlayerPersistentData from loaded save data...");
+            DebugLog("Rebuilding PlayerPersistentData from loaded save data...");
 
-            // Create new PlayerPersistentData
+            // Create new PlayerPersistentData with basic stats
             var rebuiltPersistentData = new PlayerPersistentData();
-
-            // Copy basic stats
             rebuiltPersistentData.currentHealth = currentSaveData.playersaveData.currentHealth;
             rebuiltPersistentData.canJump = currentSaveData.playersaveData.canJump;
             rebuiltPersistentData.canSprint = currentSaveData.playersaveData.canSprint;
             rebuiltPersistentData.canCrouch = currentSaveData.playersaveData.canCrouch;
 
-            // CRITICAL: Copy all component data from PlayerSaveData.customStats to PlayerPersistentData.componentData
+            // Rebuild component data from PlayerSaveData.customStats to PlayerPersistentData.componentData
             foreach (string componentKey in currentSaveData.playersaveData.GetCustomDataKeys())
             {
                 var componentData = currentSaveData.playersaveData.GetCustomData<object>(componentKey);
@@ -210,7 +236,7 @@ public class SaveManager : MonoBehaviour
                     rebuiltPersistentData.SetComponentData(componentKey, componentData);
                     DebugLog($"Rebuilt component data for {componentKey}: {componentData.GetType().Name}");
 
-                    // ADDITIONAL DEBUG: Log specific component details
+                    // Log specific details for key component types
                     if (componentData is InventorySaveData invData)
                     {
                         DebugLog($"  Inventory: {invData.ItemCount} items in {invData.gridWidth}x{invData.gridHeight} grid");
@@ -227,28 +253,28 @@ public class SaveManager : MonoBehaviour
             transitionData["playerPersistentData"] = rebuiltPersistentData;
         }
 
-        // Add direct PlayerSaveData (contains position info)
+        // Add direct PlayerSaveData access (contains position information)
         if (currentSaveData.playersaveData != null)
         {
             transitionData["playerSaveData"] = currentSaveData.playersaveData;
             DebugLog($"Added PlayerSaveData with {currentSaveData.playersaveData.CustomDataCount} custom data entries");
         }
 
-        // Add position data
+        // Add position data for precise player positioning
         if (currentSaveData.playerPositionData != null)
         {
             transitionData["playerPositionData"] = currentSaveData.playerPositionData;
             DebugLog($"Added player position: {currentSaveData.playerPositionData.position}");
         }
 
-        // Add scene data
+        // Add scene data for environment restoration
         if (currentSaveData.sceneData != null)
         {
             transitionData["sceneData"] = currentSaveData.sceneData;
             DebugLog($"Added scene data for {currentSaveData.sceneData.Count} scenes");
         }
 
-        // DEBUGGING: Verify the structure we're creating
+        // Debug log the final structure for verification
         DebugLog("=== FINAL TRANSITION DATA STRUCTURE ===");
         foreach (var kvp in transitionData)
         {
@@ -270,7 +296,8 @@ public class SaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Call this method in LoadSaveDataFromFile after loading
+    /// Loads save data from the ES3 file and stores it in currentSaveData.
+    /// Performs basic validation and logs loaded content for debugging.
     /// </summary>
     private bool LoadSaveDataFromFile()
     {
@@ -284,8 +311,11 @@ public class SaveManager : MonoBehaviour
         {
             currentSaveData = ES3.Load<GameSaveData>("gameData", saveFileName + ".es3");
 
-            // DEBUGGING: Log what we loaded
+            // Log what was successfully loaded
             DebugLog($"Save file loaded successfully - Scene: {currentSaveData.currentScene}");
+            DebugLog($"Save time: {currentSaveData.saveTime}");
+            DebugLog($"Player health: {currentSaveData.playersaveData?.currentHealth ?? 0}");
+            DebugLog($"Scene data: {currentSaveData.sceneData?.Count ?? 0} scenes");
 
             return true;
         }
@@ -296,6 +326,10 @@ public class SaveManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Captures the current player's world position and rotation for save files.
+    /// This position data is used during save file loads to restore exact player placement.
+    /// </summary>
     private void SavePlayerPositionData()
     {
         var player = FindFirstObjectByType<PlayerController>();
@@ -309,15 +343,25 @@ public class SaveManager : MonoBehaviour
 
             DebugLog($"Saved player position: {currentSaveData.playerPositionData.position}");
         }
+        else
+        {
+            DebugLog("PlayerController not found - position not saved");
+        }
     }
 
+    /// <summary>
+    /// Checks if a save file exists for the current save slot.
+    /// Used by UI systems to enable/disable load buttons.
+    /// </summary>
     public bool SaveExists()
     {
         return ES3.FileExists(saveFileName + ".es3");
     }
 
     /// <summary>
-    /// Get save file info for UI display (without loading the full save)
+    /// Extracts basic save file information without loading the complete save data.
+    /// Used for displaying save slot information in UI (date, scene, level, etc.)
+    /// without the overhead of loading the entire save file.
     /// </summary>
     public SaveFileInfo GetSaveFileInfo()
     {
@@ -325,11 +369,11 @@ public class SaveManager : MonoBehaviour
 
         try
         {
-            // Load only the metadata we need for display
+            // Load only the metadata needed for UI display
             var saveTime = ES3.Load<System.DateTime>("gameData.saveTime", saveFileName + ".es3");
             var sceneName = ES3.Load<string>("gameData.currentScene", saveFileName + ".es3");
 
-            // Try to get player level if it exists
+            // Try to get player level if it exists in the save
             int playerLevel = 1;
             if (ES3.KeyExists("gameData.playersaveData.level", saveFileName + ".es3"))
             {
@@ -341,7 +385,7 @@ public class SaveManager : MonoBehaviour
                 saveTime = saveTime,
                 sceneName = sceneName,
                 playerLevel = playerLevel,
-                playTime = 0f // Could calculate this if we track play time
+                playTime = 0f // Could be implemented by tracking total play time
             };
         }
         catch (System.Exception e)
@@ -352,7 +396,8 @@ public class SaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Delete the current save file
+    /// Deletes the current save file from disk. Used by UI systems for
+    /// delete save functionality. Returns success status.
     /// </summary>
     public bool DeleteSaveFile()
     {
@@ -374,7 +419,8 @@ public class SaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Create a backup of the current save file
+    /// Creates a backup copy of the current save file. Useful for
+    /// preventing save corruption or implementing multiple save slots.
     /// </summary>
     public bool BackupSaveFile()
     {
@@ -395,7 +441,6 @@ public class SaveManager : MonoBehaviour
             return false;
         }
     }
-
 
     private void DebugLog(string message)
     {

@@ -2,9 +2,8 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 
 /// <summary>
-/// Base class for all save components
-/// Provides common functionality and enforces consistent patterns
-/// UPDATED: Now uses context-aware loading by default
+/// Base class providing common functionality for all save components.
+/// Handles ID generation, debug logging, and enforces consistent patterns.
 /// </summary>
 public abstract class SaveComponentBase : MonoBehaviour, ISaveable
 {
@@ -13,7 +12,6 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
     [SerializeField] protected bool autoGenerateID = true;
     [SerializeField] protected bool enableDebugLogs = false;
 
-    // ISaveable implementation
     public virtual string SaveID
     {
         get
@@ -28,6 +26,7 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
 
     [ShowInInspector] public virtual SaveDataCategory SaveCategory => SaveDataCategory.SceneDependent;
 
+    // Abstract methods that derived classes must implement
     public abstract object GetDataToSave();
     public abstract void LoadSaveDataWithContext(object data, RestoreContext context);
 
@@ -41,10 +40,12 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
         DebugLog("Finished loading");
     }
 
-    // Utility methods
+    /// <summary>
+    /// Generates a unique identifier based on object type, hierarchy position, and world position.
+    /// Override for custom ID generation strategies.
+    /// </summary>
     protected virtual string GenerateUniqueID()
     {
-        // Generate unique ID based on object type and position
         string typeName = GetType().Name;
         string position = transform.position.ToString("F2");
         string sceneId = GetComponentInParent<Transform>()?.GetSiblingIndex().ToString() ?? "0";
@@ -61,26 +62,28 @@ public abstract class SaveComponentBase : MonoBehaviour, ISaveable
 
     protected virtual void Awake()
     {
-        // Auto-register with save manager if it exists
+        // Components auto-register with save system if available
         if (SaveManager.Instance != null)
         {
-            //DebugLog("Registered with SaveManager");
+            // Registration handled by persistence managers
         }
     }
 
     protected virtual void OnValidate()
     {
-        // In editor, auto-generate ID if needed
+        // Auto-generate ID in editor for immediate feedback
         if (autoGenerateID && string.IsNullOrEmpty(saveID))
         {
             saveID = GenerateUniqueID();
         }
     }
 
+    /// <summary>
+    /// Default implementation returns the entire save container.
+    /// Override to filter data for this specific component.
+    /// </summary>
     public virtual object ExtractRelevantData(object saveContainer)
     {
-        // Default implementation returns the entire save container
-        // Override in derived classes to filter data as needed
         return saveContainer;
     }
 }

@@ -4,6 +4,11 @@ using TMPro;
 using System.Collections;
 
 
+/// <summary>
+/// Manages loading screen display during scene transitions and save operations.
+/// Provides smooth progress updates, contextual messages, and coordinated timing
+/// with SceneTransitionManager for seamless user experience.
+/// </summary>
 public class LoadingScreenManager : MonoBehaviour
 {
     public static LoadingScreenManager Instance { get; private set; }
@@ -32,7 +37,7 @@ public class LoadingScreenManager : MonoBehaviour
         "Rebuilding world..."
     };
 
-    // Internal state
+    // Internal state tracking
     private float targetProgress = 0f;
     private float currentProgress = 0f;
     private bool isLoading = false;
@@ -52,21 +57,20 @@ public class LoadingScreenManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Initializes loading screen to hidden state with reset progress.
+    /// </summary>
     private void InitializeLoadingScreen()
     {
-        // Ensure loading screen starts hidden
         if (loadingScreenCanvas != null)
         {
             loadingScreenCanvas.gameObject.SetActive(false);
         }
 
-        // Initialize progress
         if (progressSlider != null)
         {
             progressSlider.value = 0f;
         }
-
-        //        Debug.Log("LoadingScreenManager initialized");
     }
 
     private void Update()
@@ -77,7 +81,7 @@ public class LoadingScreenManager : MonoBehaviour
             currentProgress = Mathf.Lerp(currentProgress, targetProgress, progressSmoothSpeed * Time.unscaledDeltaTime);
             progressSlider.value = currentProgress;
 
-            // Update progress text
+            // Update progress percentage text
             if (progressText != null)
             {
                 progressText.text = $"{Mathf.RoundToInt(currentProgress * 100)}%";
@@ -86,7 +90,7 @@ public class LoadingScreenManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Show loading screen for doorway transition
+    /// Shows loading screen with doorway-specific messaging.
     /// </summary>
     public void ShowLoadingScreenForDoorway(string targetScene)
     {
@@ -94,7 +98,7 @@ public class LoadingScreenManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Show loading screen for save load
+    /// Shows loading screen with save/load specific messaging.
     /// </summary>
     public void ShowLoadingScreenForSaveLoad(string targetScene)
     {
@@ -102,7 +106,7 @@ public class LoadingScreenManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Show loading screen with custom message
+    /// Shows loading screen with custom messages and resets progress.
     /// </summary>
     public void ShowLoadingScreen(string mainMessage = "Loading...", string subMessage = "")
     {
@@ -115,7 +119,7 @@ public class LoadingScreenManager : MonoBehaviour
         currentProgress = 0f;
         targetProgress = 0f;
 
-        // Show UI
+        // Show UI elements
         if (loadingScreenCanvas != null)
         {
             loadingScreenCanvas.gameObject.SetActive(true);
@@ -126,13 +130,13 @@ public class LoadingScreenManager : MonoBehaviour
             loadingPanel.SetActive(true);
         }
 
-        // Set messages
+        // Set display messages
         if (loadingText != null)
         {
             loadingText.text = string.IsNullOrEmpty(subMessage) ? mainMessage : $"{mainMessage}\n{subMessage}";
         }
 
-        // Reset progress
+        // Reset progress display
         if (progressSlider != null)
         {
             progressSlider.value = 0f;
@@ -147,7 +151,7 @@ public class LoadingScreenManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Update loading progress (0-1)
+    /// Updates the target progress value (0-1). Actual progress smoothly interpolates to this value.
     /// </summary>
     public void SetProgress(float progress)
     {
@@ -155,7 +159,7 @@ public class LoadingScreenManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Hide loading screen
+    /// Hides the loading screen with final progress display and timing.
     /// </summary>
     public void HideLoadingScreen()
     {
@@ -167,13 +171,16 @@ public class LoadingScreenManager : MonoBehaviour
         loadingCoroutine = StartCoroutine(HideLoadingScreenCoroutine());
     }
 
+    /// <summary>
+    /// Coroutine that ensures 100% is briefly displayed before hiding the loading screen.
+    /// </summary>
     private IEnumerator HideLoadingScreenCoroutine()
     {
-        // Ensure we show 100% briefly
+        // Show 100% completion briefly
         SetProgress(1f);
         yield return new WaitForSecondsRealtime(0.3f);
 
-        // Hide UI
+        // Hide UI elements
         isLoading = false;
 
         if (loadingPanel != null)
@@ -190,10 +197,13 @@ public class LoadingScreenManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Check if currently loading
+    /// Returns whether a loading operation is currently active.
     /// </summary>
     public bool IsLoading => isLoading;
 
+    /// <summary>
+    /// Selects a random message from the provided array, with fallback.
+    /// </summary>
     private string GetRandomMessage(string[] messages)
     {
         if (messages == null || messages.Length == 0)

@@ -4,10 +4,9 @@ using System.Linq;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// REFACTORED: SceneDataManager no longer subscribes to OnSceneLoaded
-/// SceneTransitionManager calls us when needed - much cleaner separation of concerns
-/// Focuses purely on scene data persistence without scene transition management
-/// UPDATED: Simplified with unified context-aware loading
+/// Manages persistence of scene-dependent data like enemy states, door locks, and pickups.
+/// Saves scene state when leaving via doorways and restores it when returning.
+/// Does not handle scene transitions directly - that's SceneTransitionManager's job.
 /// </summary>
 public class SceneDataManager : MonoBehaviour
 {
@@ -16,9 +15,6 @@ public class SceneDataManager : MonoBehaviour
     [Header("Data Storage")]
     [ShowInInspector][SerializeField] private SceneDataContainer sceneDataContainer;
     [SerializeField] private bool showDebugLogs = true;
-
-    [Header("Editor Debug Tools")]
-    [SerializeField] private bool showEditorDebugTools = true;
 
     private void Awake()
     {
@@ -36,14 +32,13 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by doorway transition system to prepare for scene change
-    /// Saves current scene data before transitioning
+    /// Called by SceneTransitionManager before scene transitions to save current scene state.
+    /// Only saves data for doorway transitions - save files handle complete state separately.
     /// </summary>
     public void PrepareSceneTransition(string targetScene, string targetDoorway, RestoreContext restoreContext)
     {
         DebugLog($"Preparing transition to {targetScene} via {restoreContext}");
 
-        // Save current scene data if this is a portal transition
         if (restoreContext == RestoreContext.DoorwayTransition)
         {
             SaveCurrentSceneData();
@@ -51,7 +46,8 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by SceneTransitionManager when it needs to restore scene data for doorway transitions
+    /// Restores scene data for doorway transitions. Called by SceneTransitionManager
+    /// after the new scene loads to restore previous scene state.
     /// </summary>
     public void RestoreSceneDataForTransition(string sceneName)
     {
@@ -60,7 +56,8 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by SceneTransitionManager when it needs to restore scene data from save file
+    /// Restores scene data from save files. Replaces current scene data container
+    /// with saved data and restores the current scene.
     /// </summary>
     public void RestoreSceneDataFromSave(Dictionary<string, object> saveData)
     {
@@ -89,7 +86,8 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Clear all scene data (useful for new game)
+    /// Clears all stored scene data. Used when starting new games to ensure
+    /// fresh scene states without any previous modifications.
     /// </summary>
     public void ClearAllSceneData()
     {
@@ -98,7 +96,8 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Save current scene's data (EXCLUDING player data)
+    /// Captures the current state of all scene-dependent objects in the active scene.
+    /// Only saves objects marked as SceneDependent - player data is handled separately.
     /// </summary>
     public void SaveCurrentSceneData()
     {
@@ -110,7 +109,7 @@ public class SceneDataManager : MonoBehaviour
         sceneData.lastVisited = System.DateTime.Now;
         sceneData.hasBeenVisited = true;
 
-        // Save all saveable objects EXCEPT player-related components
+        // Find and save all scene-dependent objects
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
             .Where(s => s.SaveCategory == SaveDataCategory.SceneDependent)
@@ -129,10 +128,6 @@ public class SceneDataManager : MonoBehaviour
                     sceneData.SetObjectData(saveable.SaveID, data);
                     DebugLog($"Saved data for: {saveable.SaveID}");
                 }
-                else
-                {
-                    DebugLog($"No data to save for: {saveable.SaveID}");
-                }
             }
             catch (System.Exception e)
             {
@@ -141,25 +136,25 @@ public class SceneDataManager : MonoBehaviour
         }
 
         sceneDataContainer.SetSceneData(currentScene, sceneData);
-        DebugLog($"Saved {saveableObjects.Length} scene objects for: {currentScene} (Total objects with data: {sceneData.objectData.Count})");
+        DebugLog($"Saved {saveableObjects.Length} scene objects for: {currentScene}");
     }
 
     /// <summary>
-    /// Restore scene data (EXCLUDING player data)
-    /// UPDATED: Now uses context-aware loading for all saveables
+    /// Restores scene data to all matching scene-dependent objects in the current scene.
+    /// Uses context-aware loading to handle different restoration scenarios.
     /// </summary>
     private void RestoreSceneData(string sceneName, RestoreContext context)
     {
         var sceneData = sceneDataContainer.GetSceneData(sceneName);
         if (sceneData == null)
         {
-            DebugLog($"No scene data for: {sceneName} (this is normal for first visit)");
+            DebugLog($"No scene data for: {sceneName} (normal for first visit)");
             return;
         }
 
         DebugLog($"Restoring scene data for: {sceneName} ({sceneData.objectData.Count} objects) with context: {context}");
 
-        // Restore all objects EXCEPT player-related
+        // Find and restore all scene-dependent objects
         ISaveable[] saveableObjects = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
             .OfType<ISaveable>()
             .Where(s => s.SaveCategory == SaveDataCategory.SceneDependent)
@@ -175,15 +170,10 @@ public class SceneDataManager : MonoBehaviour
                 var data = sceneData.GetObjectData<object>(saveable.SaveID);
                 if (data != null)
                 {
-                    // Use context-aware loading - all saveables now support this
                     saveable.LoadSaveDataWithContext(data, context);
                     saveable.OnAfterLoad();
                     restoredCount++;
                     DebugLog($"Restored scene object: {saveable.SaveID}");
-                }
-                else
-                {
-                    DebugLog($"No saved data found for: {saveable.SaveID}");
                 }
             }
             catch (System.Exception e)
@@ -192,29 +182,23 @@ public class SceneDataManager : MonoBehaviour
             }
         }
 
-        DebugLog($"Scene data restoration complete for: {sceneName} ({restoredCount}/{saveableObjects.Length} objects restored)");
+        DebugLog($"Scene data restoration complete: {restoredCount}/{saveableObjects.Length} objects restored");
     }
 
     /// <summary>
-    /// Get scene data for SaveManager
+    /// Returns a copy of all scene data for SaveManager to include in save files.
+    /// Forces a save of the current scene to ensure latest state is captured.
     /// </summary>
     public Dictionary<string, SceneSaveData> GetSceneDataForSaving()
     {
-        DebugLog("GetSceneDataForSaving called - forcing current scene save...");
-
-        // Save current scene first
+        DebugLog("GetSceneDataForSaving called - forcing current scene save");
         SaveCurrentSceneData();
 
-        // Immediate check
         string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         if (sceneDataContainer.sceneData.ContainsKey(currentScene))
         {
             var sceneData = sceneDataContainer.sceneData[currentScene];
-            DebugLog($"IMMEDIATE: Current scene '{currentScene}' found with {sceneData.objectData.Count} objects");
-        }
-        else
-        {
-            DebugLog($"WARNING - Current scene '{currentScene}' not found in container!");
+            DebugLog($"Current scene '{currentScene}' saved with {sceneData.objectData.Count} objects");
         }
 
         DebugLog($"Returning scene data for {sceneDataContainer.sceneData.Count} total scenes");
@@ -222,7 +206,7 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Get data for a specific scene (useful for debugging)
+    /// Gets saved data for a specific scene. Returns null if no data exists.
     /// </summary>
     public SceneSaveData GetSceneData(string sceneName)
     {
@@ -230,7 +214,7 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Check if we have data for a specific scene
+    /// Checks if saved data exists for the specified scene.
     /// </summary>
     public bool HasSceneData(string sceneName)
     {
@@ -238,7 +222,7 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Get list of all scenes we have data for
+    /// Returns list of all scene names that have saved data.
     /// </summary>
     public List<string> GetScenesWithData()
     {
@@ -246,7 +230,7 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Remove data for a specific scene (useful for testing)
+    /// Removes saved data for a specific scene. Useful for testing or cleanup.
     /// </summary>
     public void RemoveSceneData(string sceneName)
     {
@@ -255,14 +239,10 @@ public class SceneDataManager : MonoBehaviour
             sceneDataContainer.sceneData.Remove(sceneName);
             DebugLog($"Removed scene data for: {sceneName}");
         }
-        else
-        {
-            DebugLog($"No scene data to remove for: {sceneName}");
-        }
     }
 
     /// <summary>
-    /// Get total number of scenes with saved data
+    /// Returns count of scenes with saved data.
     /// </summary>
     public int GetSceneDataCount()
     {
@@ -270,7 +250,7 @@ public class SceneDataManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Get memory usage information for debugging
+    /// Returns memory usage summary for debugging.
     /// </summary>
     public string GetMemoryInfo()
     {
@@ -279,218 +259,7 @@ public class SceneDataManager : MonoBehaviour
         {
             totalObjects += sceneData.objectData.Count;
         }
-
         return $"Scenes: {sceneDataContainer.sceneData.Count}, Total Objects: {totalObjects}";
-    }
-
-    /// <summary>
-    /// Export scene data summary for debugging
-    /// </summary>
-    public void LogSceneDataSummary()
-    {
-        DebugLog("=== SCENE DATA SUMMARY ===");
-
-        if (sceneDataContainer.sceneData.Count == 0)
-        {
-            DebugLog("No scene data stored");
-            return;
-        }
-
-        foreach (var kvp in sceneDataContainer.sceneData)
-        {
-            var sceneData = kvp.Value;
-            DebugLog($"Scene: {kvp.Key}");
-            DebugLog($"  Last Visited: {sceneData.lastVisited}");
-            DebugLog($"  Has Been Visited: {sceneData.hasBeenVisited}");
-            DebugLog($"  Objects: {sceneData.objectData.Count}");
-            DebugLog($"  Flags: {sceneData.sceneFlags.Count}");
-            DebugLog($"  Counters: {sceneData.sceneCounters.Count}");
-
-            // Log object details
-            foreach (var objKvp in sceneData.objectData)
-            {
-                DebugLog($"    - {objKvp.Key}: {objKvp.Value?.GetType().Name ?? "null"}");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Validate scene data integrity
-    /// </summary>
-    public bool ValidateSceneData()
-    {
-        bool isValid = true;
-
-        foreach (var kvp in sceneDataContainer.sceneData)
-        {
-            var sceneData = kvp.Value;
-
-            // Check if scene name matches key
-            if (sceneData.sceneName != kvp.Key)
-            {
-                Debug.LogError($"Scene data mismatch: Key={kvp.Key}, Data.sceneName={sceneData.sceneName}");
-                isValid = false;
-            }
-
-            // Check for null object data
-            foreach (var objKvp in sceneData.objectData)
-            {
-                if (objKvp.Value == null)
-                {
-                    Debug.LogWarning($"Null object data found: Scene={kvp.Key}, Object={objKvp.Key}");
-                }
-            }
-        }
-
-        DebugLog($"Scene data validation: {(isValid ? "PASSED" : "FAILED")}");
-        return isValid;
-    }
-
-    /// <summary>
-    /// Create a backup of current scene data
-    /// </summary>
-    public Dictionary<string, SceneSaveData> CreateSceneDataBackup()
-    {
-        var backup = new Dictionary<string, SceneSaveData>();
-
-        foreach (var kvp in sceneDataContainer.sceneData)
-        {
-            // Create a deep copy of the scene data
-            var originalData = kvp.Value;
-            var backupData = new SceneSaveData
-            {
-                sceneName = originalData.sceneName,
-                lastVisited = originalData.lastVisited,
-                hasBeenVisited = originalData.hasBeenVisited,
-                objectData = new Dictionary<string, object>(originalData.objectData),
-                sceneFlags = new Dictionary<string, bool>(originalData.sceneFlags),
-                sceneCounters = new Dictionary<string, int>(originalData.sceneCounters)
-            };
-
-            backup[kvp.Key] = backupData;
-        }
-
-        DebugLog($"Created backup of {backup.Count} scenes");
-        return backup;
-    }
-
-    /// <summary>
-    /// Restore from a backup
-    /// </summary>
-    public void RestoreFromBackup(Dictionary<string, SceneSaveData> backup)
-    {
-        if (backup == null)
-        {
-            Debug.LogError("Cannot restore from null backup");
-            return;
-        }
-
-        sceneDataContainer.sceneData = new Dictionary<string, SceneSaveData>(backup);
-        DebugLog($"Restored from backup containing {backup.Count} scenes");
-    }
-
-    /// <summary>
-    /// Manually force save of current scene (useful for testing)
-    /// </summary>
-    [Button("Force Save Current Scene"), ShowIf("showEditorDebugTools")]
-    public void ForceSaveCurrentSceneDebug()
-    {
-        Debug.Log("=== FORCE SAVE DEBUG ===");
-        string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        Debug.Log($"Current scene: {currentScene}");
-
-        SaveCurrentSceneData();
-
-        // Immediately check what was saved
-        var savedData = sceneDataContainer.GetSceneData(currentScene);
-        if (savedData != null)
-        {
-            Debug.Log($"IMMEDIATE CHECK: Scene data contains {savedData.objectData.Count} objects");
-
-            foreach (var kvp in savedData.objectData)
-            {
-                Debug.Log($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
-            }
-        }
-        else
-        {
-            Debug.Log("IMMEDIATE CHECK: No scene data found!");
-        }
-    }
-
-    [Button("Debug Scene Data Container"), ShowIf("showEditorDebugTools")]
-    public void DebugSceneDataContainer()
-    {
-        Debug.Log("=== SCENE DATA CONTAINER DEBUG ===");
-        Debug.Log($"Total scenes stored: {sceneDataContainer.sceneData.Count}");
-
-        foreach (var kvp in sceneDataContainer.sceneData)
-        {
-            Debug.Log($"Scene: {kvp.Key} - Objects: {kvp.Value.objectData.Count} - Last Visited: {kvp.Value.lastVisited}");
-        }
-    }
-
-    [Button("Log Scene Data Summary"), ShowIf("showEditorDebugTools")]
-    private void EditorLogSceneDataSummary()
-    {
-        LogSceneDataSummary();
-    }
-
-    [Button("Validate Scene Data"), ShowIf("showEditorDebugTools")]
-    private void EditorValidateSceneData()
-    {
-        ValidateSceneData();
-    }
-
-    [Button("Clear All Scene Data"), ShowIf("showEditorDebugTools")]
-    private void EditorClearAllSceneData()
-    {
-#if UNITY_EDITOR
-        if (UnityEditor.EditorUtility.DisplayDialog("Clear Scene Data",
-            "Are you sure you want to clear all scene data? This cannot be undone.",
-            "Yes", "Cancel"))
-        {
-            ClearAllSceneData();
-        }
-#else
-        ClearAllSceneData();
-#endif
-    }
-
-    [Button("Get Memory Info"), ShowIf("showEditorDebugTools")]
-    private void EditorGetMemoryInfo()
-    {
-        string info = GetMemoryInfo();
-        Debug.Log($"Scene Data Memory Info: {info}");
-#if UNITY_EDITOR
-        UnityEditor.EditorUtility.DisplayDialog("Memory Info", info, "OK");
-#endif
-    }
-
-    /// <summary>
-    /// Called when the application is quitting to clean up resources
-    /// </summary>
-    private void OnApplicationQuit()
-    {
-        if (showDebugLogs)
-        {
-            DebugLog("Application quitting - scene data will be lost unless saved to file");
-            LogSceneDataSummary();
-        }
-    }
-
-    /// <summary>
-    /// Cleanup when destroyed
-    /// </summary>
-    private void OnDestroy()
-    {
-        DebugLog("SceneDataManager destroyed");
-
-        // Clean up any resources if needed
-        if (sceneDataContainer != null)
-        {
-            sceneDataContainer.sceneData?.Clear();
-        }
     }
 
     private void DebugLog(string message)
@@ -500,22 +269,4 @@ public class SceneDataManager : MonoBehaviour
             Debug.Log($"[SceneDataManager] {message}");
         }
     }
-
-#if UNITY_EDITOR
-    /// <summary>
-    /// Draw gizmos for scene data visualization
-    /// </summary>
-    private void OnDrawGizmos()
-    {
-        if (!showEditorDebugTools) return;
-
-        // Draw scene data info in scene view
-        var style = new UnityEngine.GUIStyle();
-        style.normal.textColor = Color.yellow;
-        style.fontSize = 12;
-
-        string info = $"Scene Data Manager\nScenes: {GetSceneDataCount()}\n{GetMemoryInfo()}";
-        UnityEditor.Handles.Label(transform.position, info, style);
-    }
-#endif
 }

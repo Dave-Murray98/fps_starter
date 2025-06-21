@@ -1,10 +1,11 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 
 /// <summary>
-/// Pure data representation of an inventory item - no visual dependencies
+/// Data representation of an inventory item without visual dependencies.
+/// Stores position, rotation, and shape information for tetris-style placement.
+/// Links to ItemData ScriptableObjects via name for persistence compatibility.
 /// </summary>
 [System.Serializable]
 public class InventoryItemData
@@ -13,16 +14,16 @@ public class InventoryItemData
     public string ID;
     public Vector2Int GridPosition;
 
-    [Header("Item Data")]
-    public string itemDataName; // Name of the ItemData ScriptableObject
-    [NonSerialized] private ItemData _cachedItemData; // Cache for performance
+    [Header("Item Data Reference")]
+    public string itemDataName; // Name of the ItemData ScriptableObject for persistence
+    [NonSerialized] private ItemData _cachedItemData; // Runtime cache for performance
 
-    [Header("Shape Properties")]
+    [Header("Shape and State")]
     public TetrominoType shapeType;
     public int currentRotation = 0;
     public int stackCount = 1;
 
-    // Cached shape data
+    // Cached shape data for performance
     private TetrominoData _currentShapeData;
     private bool _dataCached = false;
 
@@ -38,6 +39,9 @@ public class InventoryItemData
         RefreshShapeData();
     }
 
+    /// <summary>
+    /// Gets the ItemData ScriptableObject, using cache or loading from Resources if needed.
+    /// </summary>
     public ItemData ItemData
     {
         get
@@ -50,6 +54,9 @@ public class InventoryItemData
         }
     }
 
+    /// <summary>
+    /// Gets the current tetris shape data with rotation applied.
+    /// </summary>
     public TetrominoData CurrentShapeData
     {
         get
@@ -60,6 +67,9 @@ public class InventoryItemData
         }
     }
 
+    /// <summary>
+    /// Gets all grid positions occupied by this item at its current location and rotation.
+    /// </summary>
     public Vector2Int[] GetOccupiedPositions()
     {
         var shapeData = CurrentShapeData;
@@ -73,6 +83,9 @@ public class InventoryItemData
         return positions;
     }
 
+    /// <summary>
+    /// Gets all grid positions this item would occupy at a specific location (for placement testing).
+    /// </summary>
     public Vector2Int[] GetOccupiedPositionsAt(Vector2Int position)
     {
         var shapeData = CurrentShapeData;
@@ -86,6 +99,9 @@ public class InventoryItemData
         return positions;
     }
 
+    /// <summary>
+    /// Gets all grid positions this item would occupy at a specific location and rotation (for rotation testing).
+    /// </summary>
     public Vector2Int[] GetOccupiedPositionsAt(Vector2Int position, int rotation)
     {
         var shapeData = TetrominoDefinitions.GetRotationState(shapeType, rotation);
@@ -99,6 +115,9 @@ public class InventoryItemData
         return positions;
     }
 
+    /// <summary>
+    /// Rotates the item clockwise to the next valid rotation state.
+    /// </summary>
     public void RotateItem()
     {
         if (!CanRotate) return;
@@ -108,6 +127,9 @@ public class InventoryItemData
         RefreshShapeData();
     }
 
+    /// <summary>
+    /// Sets the item to a specific rotation state.
+    /// </summary>
     public void SetRotation(int rotation)
     {
         int maxRotations = TetrominoDefinitions.GetRotationCount(shapeType);
@@ -115,11 +137,17 @@ public class InventoryItemData
         RefreshShapeData();
     }
 
+    /// <summary>
+    /// Updates the item's grid position.
+    /// </summary>
     public void SetGridPosition(Vector2Int position)
     {
         GridPosition = position;
     }
 
+    /// <summary>
+    /// Checks if this item can be rotated based on its ItemData settings and shape definition.
+    /// </summary>
     public bool CanRotate
     {
         get
@@ -131,12 +159,18 @@ public class InventoryItemData
         }
     }
 
+    /// <summary>
+    /// Refreshes the cached shape data when rotation changes.
+    /// </summary>
     private void RefreshShapeData()
     {
         _currentShapeData = TetrominoDefinitions.GetRotationState(shapeType, currentRotation);
         _dataCached = true;
     }
 
+    /// <summary>
+    /// Finds ItemData ScriptableObject by name using Resources system.
+    /// </summary>
     private ItemData FindItemDataByName(string dataName)
     {
         ItemData itemData = Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + dataName);
@@ -150,11 +184,13 @@ public class InventoryItemData
                 return data;
         }
 
-        Debug.LogWarning($"ItemData '{dataName}' not found. Make sure it exists in Resources folder or is loaded in memory.");
+        Debug.LogWarning($"ItemData '{dataName}' not found. Make sure it exists in Resources folder.");
         return null;
     }
 
-    // Convert to/from InventoryItemSaveData
+    /// <summary>
+    /// Converts this item to save data format for persistence.
+    /// </summary>
     public InventoryItemSaveData ToSaveData()
     {
         return new InventoryItemSaveData(ID, itemDataName, GridPosition, currentRotation)
@@ -163,6 +199,9 @@ public class InventoryItemData
         };
     }
 
+    /// <summary>
+    /// Creates an InventoryItemData from save data format.
+    /// </summary>
     public static InventoryItemData FromSaveData(InventoryItemSaveData saveData)
     {
         var itemData = Resources.Load<ItemData>(SaveManager.Instance.itemDataPath + saveData.itemDataName);

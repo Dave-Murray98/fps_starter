@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Pure data representation of the inventory grid - no visual dependencies
-/// This persists across scenes and doesn't require any UI to be active
+/// Pure data representation of the tetris-style inventory grid without any visual dependencies.
+/// Handles collision detection, item placement validation, and grid state management.
+/// Can persist across scenes and be serialized/deserialized without requiring active UI.
 /// </summary>
 [System.Serializable]
 public class InventoryGridData
@@ -35,20 +36,30 @@ public class InventoryGridData
         }
     }
 
+    /// <summary>
+    /// Tests if an item can be placed at the specified position with its current rotation.
+    /// Checks grid boundaries and collisions with other items.
+    /// </summary>
     public bool IsValidPosition(Vector2Int position, InventoryItemData item)
     {
         return IsValidPosition(position, item, item.currentRotation);
     }
 
+    /// <summary>
+    /// Tests if an item can be placed at the specified position with a specific rotation.
+    /// Used for rotation validation before applying changes.
+    /// </summary>
     public bool IsValidPosition(Vector2Int position, InventoryItemData item, int rotation)
     {
         var occupiedPositions = item.GetOccupiedPositionsAt(position, rotation);
 
         foreach (var pos in occupiedPositions)
         {
+            // Check grid boundaries
             if (pos.x < 0 || pos.x >= gridWidth || pos.y < 0 || pos.y >= gridHeight)
                 return false;
 
+            // Check collision with other items (ignore self)
             if (grid[pos.x, pos.y] != null && grid[pos.x, pos.y] != item.ID)
                 return false;
         }
@@ -56,16 +67,20 @@ public class InventoryGridData
         return true;
     }
 
+    /// <summary>
+    /// Places an item in the grid at its current position.
+    /// Updates both the spatial grid and item dictionary.
+    /// </summary>
     public bool PlaceItem(InventoryItemData item)
     {
         if (!IsValidPosition(item.GridPosition, item))
             return false;
 
-        // Remove item if it already exists (for repositioning)
+        // Remove if already exists (for repositioning)
         if (items.ContainsKey(item.ID))
             RemoveItem(item.ID);
 
-        // Place the item
+        // Place in grid
         var occupiedPositions = item.GetOccupiedPositions();
         foreach (var pos in occupiedPositions)
         {
@@ -76,6 +91,9 @@ public class InventoryGridData
         return true;
     }
 
+    /// <summary>
+    /// Removes an item from the grid by ID, freeing up its occupied cells.
+    /// </summary>
     public bool RemoveItem(string itemID)
     {
         if (!items.ContainsKey(itemID))
@@ -84,6 +102,7 @@ public class InventoryGridData
         var item = items[itemID];
         var occupiedPositions = item.GetOccupiedPositions();
 
+        // Clear grid cells
         foreach (var pos in occupiedPositions)
         {
             if (pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight)
@@ -96,6 +115,9 @@ public class InventoryGridData
         return true;
     }
 
+    /// <summary>
+    /// Gets the item occupying the specified grid cell, or null if empty.
+    /// </summary>
     public InventoryItemData GetItemAt(int x, int y)
     {
         if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight)
@@ -108,25 +130,29 @@ public class InventoryGridData
         return items.ContainsKey(itemID) ? items[itemID] : null;
     }
 
+    /// <summary>
+    /// Gets an item by its unique ID.
+    /// </summary>
     public InventoryItemData GetItem(string itemID)
     {
         if (items.ContainsKey(itemID))
         {
-            Debug.Log($"Found item {itemID} in inventory");
             return items[itemID];
         }
-        else
-        {
-            Debug.Log($"Item {itemID} not found in inventory");
-            return null;
-        }
+        return null;
     }
 
+    /// <summary>
+    /// Returns a list of all items in the inventory.
+    /// </summary>
     public List<InventoryItemData> GetAllItems()
     {
         return new List<InventoryItemData>(items.Values);
     }
 
+    /// <summary>
+    /// Checks if a specific grid cell is occupied by any item.
+    /// </summary>
     public bool IsOccupied(int x, int y)
     {
         if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight)
@@ -135,6 +161,9 @@ public class InventoryGridData
         return grid[x, y] != null;
     }
 
+    /// <summary>
+    /// Clears all items from the grid.
+    /// </summary>
     public void Clear()
     {
         for (int x = 0; x < gridWidth; x++)
@@ -147,6 +176,10 @@ public class InventoryGridData
         items.Clear();
     }
 
+    /// <summary>
+    /// Finds the first valid position where an item can be placed.
+    /// Searches left-to-right, top-to-bottom starting from the specified position.
+    /// </summary>
     public Vector2Int? FindValidPositionForItem(InventoryItemData item, int startX = 0, int startY = 0)
     {
         for (int y = startY; y < gridHeight; y++)

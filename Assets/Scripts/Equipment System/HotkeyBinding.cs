@@ -2,9 +2,9 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// Data for a hotkey slot assignment
-/// FIXED: Now properly handles replacement and smart stacking for consumables only
-/// CRITICAL FIX: Added copy constructor for scene transitions
+/// Data container for a single hotkey slot assignment in the equipment system.
+/// Handles item assignment, stacking for consumables, and automatic cleanup.
+/// Supports smart stacking where multiple identical consumables share a hotkey slot.
 /// </summary>
 [System.Serializable]
 public class HotkeyBinding
@@ -14,14 +14,16 @@ public class HotkeyBinding
     public bool isAssigned;     // Whether this slot has an item
 
     [Header("Item Reference")]
-    public string itemId;       // Current item ID from inventory
-    public string itemDataName; // ItemData name for persistence
+    public string itemId;       // Current active item ID from inventory
+    public string itemDataName; // ItemData name for persistence and lookup
 
     [Header("Stack Management")]
     public List<string> stackedItemIds = new List<string>(); // All items of this type
-    public int currentStackIndex = 0; // Which item in stack is active
+    public int currentStackIndex = 0; // Which item in stack is currently active
 
-    // Default constructor
+    /// <summary>
+    /// Creates a hotkey binding for the specified slot number.
+    /// </summary>
     public HotkeyBinding(int slot)
     {
         slotNumber = slot;
@@ -32,17 +34,18 @@ public class HotkeyBinding
         currentStackIndex = 0;
     }
 
-    // CRITICAL FIX: Copy constructor for scene transitions
+    /// <summary>
+    /// Copy constructor for scene transitions and data preservation.
+    /// </summary>
     public HotkeyBinding(HotkeyBinding other)
     {
         slotNumber = other.slotNumber;
         isAssigned = other.isAssigned;
         itemId = other.itemId;
-        itemDataName = other.itemDataName; // ← CRITICAL: Copy the item data name!
-        stackedItemIds = new List<string>(other.stackedItemIds); // Deep copy the list
+        itemDataName = other.itemDataName;
+        stackedItemIds = new List<string>(other.stackedItemIds); // Deep copy list
         currentStackIndex = other.currentStackIndex;
 
-        // Debug log to verify copy worked
         if (isAssigned)
         {
             Debug.Log($"[HotkeyBinding] Copy constructor: Slot {slotNumber} copied with item {itemDataName} (ID: {itemId})");
@@ -50,31 +53,32 @@ public class HotkeyBinding
     }
 
     /// <summary>
-    /// Assign an item to this hotkey slot (REPLACES any existing assignment)
+    /// Assigns an item to this hotkey slot, replacing any existing assignment.
+    /// Automatically removes the item from other hotkey slots to ensure unique assignment.
     /// </summary>
     public void AssignItem(string newItemId, string newItemDataName)
     {
-        // STEP 1: Clear any existing assignment (this is the key fix!)
+        // Clear any existing assignment
         ClearSlot();
 
-        // STEP 2: Remove this item from any other hotkey slots (unique assignment rule)
+        // Remove this item from other hotkey slots (unique assignment rule)
         RemoveItemFromOtherHotkeys(newItemId);
 
-        // STEP 3: Assign the new item
+        // Assign the new item
         itemId = newItemId;
         itemDataName = newItemDataName;
         isAssigned = true;
 
-        // STEP 4: Initialize stack with this item
+        // Initialize stack with this item
         stackedItemIds.Add(newItemId);
         currentStackIndex = 0;
 
-        // STEP 5: Find and stack identical consumables if this is a consumable
+        // Find and stack identical consumables if this is a consumable
         FindAndStackIdenticalConsumables();
     }
 
     /// <summary>
-    /// Remove this item from any other hotkey slots to ensure unique assignment
+    /// Removes this item from any other hotkey slots to ensure unique assignment.
     /// </summary>
     private void RemoveItemFromOtherHotkeys(string itemIdToRemove)
     {
@@ -85,15 +89,11 @@ public class HotkeyBinding
         {
             if (binding != this && binding.isAssigned)
             {
-                // Check if this binding contains the item
                 if (binding.stackedItemIds.Contains(itemIdToRemove))
                 {
                     bool wasCleared = false;
 
-                    // Remove the item
                     binding.RemoveItem(itemIdToRemove);
-
-                    // Check if the binding was completely cleared
                     wasCleared = !binding.isAssigned;
 
                     // Trigger appropriate UI update event
@@ -111,13 +111,13 @@ public class HotkeyBinding
     }
 
     /// <summary>
-    /// Find all identical consumable items in inventory and add them to the stack
+    /// Automatically finds and stacks all identical consumable items in the inventory.
+    /// Only applies to consumable items for convenience stacking.
     /// </summary>
     private void FindAndStackIdenticalConsumables()
     {
         if (InventoryManager.Instance == null) return;
 
-        // Get the ItemData to check if it's a consumable
         var itemData = GetCurrentItemData();
         if (itemData == null || itemData.itemType != ItemType.Consumable) return;
 
@@ -126,7 +126,7 @@ public class HotkeyBinding
 
         foreach (var inventoryItem in inventoryItems)
         {
-            // Skip if it's already in our stack
+            // Skip if already in our stack
             if (stackedItemIds.Contains(inventoryItem.ID)) continue;
 
             // Add to stack if it's the exact same consumable type
@@ -141,7 +141,7 @@ public class HotkeyBinding
     }
 
     /// <summary>
-    /// Remove an item from this slot's stack
+    /// Removes an item from this slot's stack. If it's the active item, switches to next in stack.
     /// </summary>
     public bool RemoveItem(string itemIdToRemove)
     {
@@ -151,7 +151,6 @@ public class HotkeyBinding
 
         if (removed)
         {
-            // If we removed the current item, find next available
             if (itemId == itemIdToRemove)
             {
                 if (stackedItemIds.Count > 0)
@@ -180,7 +179,7 @@ public class HotkeyBinding
     }
 
     /// <summary>
-    /// Clear this hotkey slot completely
+    /// Completely clears this hotkey slot.
     /// </summary>
     public void ClearSlot()
     {
@@ -192,31 +191,30 @@ public class HotkeyBinding
     }
 
     /// <summary>
-    /// Refresh the stack (call this when inventory changes)
+    /// Adds a new item to this hotkey's stack if it's the same type (for dynamic stacking).
+    /// Only works for consumables and matching item types.
     /// </summary>
-    public void RefreshStack()
+    public bool TryAddToStack(string newItemId, string newItemDataName)
     {
-        if (!isAssigned) return;
+        // Only add if this hotkey is assigned and it's the same item type
+        if (!isAssigned || itemDataName != newItemDataName) return false;
 
-        // Remove any item IDs that no longer exist in inventory
-        var itemsToRemove = new List<string>();
+        // Only stack consumables
+        var itemData = GetCurrentItemData();
+        if (itemData == null || itemData.itemType != ItemType.Consumable) return false;
 
-        foreach (string stackedId in stackedItemIds)
-        {
-            if (InventoryManager.Instance?.InventoryData.GetItem(stackedId) == null)
-            {
-                itemsToRemove.Add(stackedId);
-            }
-        }
+        // Don't add if already in stack
+        if (stackedItemIds.Contains(newItemId)) return false;
 
-        foreach (string itemToRemove in itemsToRemove)
-        {
-            RemoveItem(itemToRemove);
-        }
+        // Add to stack
+        stackedItemIds.Add(newItemId);
+        Debug.Log($"Hotkey {slotNumber}: Added new {itemDataName} to stack ({stackedItemIds.Count} total)");
+
+        return true;
     }
 
     /// <summary>
-    /// Get the ItemData for the currently assigned item
+    /// Gets the ItemData for the currently assigned item with fallback to Resources loading.
     /// </summary>
     public ItemData GetCurrentItemData()
     {
@@ -240,34 +238,12 @@ public class HotkeyBinding
     }
 
     /// <summary>
-    /// Add a new item to this hotkey's stack if it's the same type (for dynamic stacking)
-    /// </summary>
-    public bool TryAddToStack(string newItemId, string newItemDataName)
-    {
-        // Only add if this hotkey is assigned and it's the same item type
-        if (!isAssigned || itemDataName != newItemDataName) return false;
-
-        // Only stack consumables
-        var itemData = GetCurrentItemData();
-        if (itemData == null || itemData.itemType != ItemType.Consumable) return false;
-
-        // Don't add if already in stack
-        if (stackedItemIds.Contains(newItemId)) return false;
-
-        // Add to stack
-        stackedItemIds.Add(newItemId);
-        Debug.Log($"Hotkey {slotNumber}: Added new {itemDataName} to stack ({stackedItemIds.Count} total)");
-
-        return true;
-    }
-
-    /// <summary>
-    /// Check if this slot has multiple items stacked
+    /// Checks if this slot has multiple items stacked.
     /// </summary>
     public bool HasMultipleItems => stackedItemIds.Count > 1;
 
     /// <summary>
-    /// Get stack info for UI display
+    /// Gets stack info string for UI display (e.g., "2/3").
     /// </summary>
     public string GetStackInfo()
     {

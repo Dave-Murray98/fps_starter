@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// REFACTORED: SceneTransitionManager is now the SINGLE orchestrator for all scene loading
-/// No other systems should subscribe to OnSceneLoaded - this handles everything
+/// Central orchestrator for all scene loading operations. Coordinates loading screens,
+/// data persistence, and ensures proper restoration order. This is the single entry point
+/// for scene transitions - no other systems should directly handle scene loading.
 /// </summary>
 public class SceneTransitionManager : MonoBehaviour
 {
@@ -13,12 +14,12 @@ public class SceneTransitionManager : MonoBehaviour
     public float minLoadingTime = 1f;
     public bool showDebugLogs = true;
 
-    // Current transition state
+    // Current transition state tracking
     private RestoreContext currentRestoreContext = RestoreContext.DoorwayTransition;
     private string pendingTargetDoorwayID = "";
     private Dictionary<string, object> pendingSaveData = null;
 
-    // Events
+    // Events for external systems
     public System.Action<string> OnTransitionStarted;
     public System.Action<string> OnTransitionCompleted;
 
@@ -37,18 +38,19 @@ public class SceneTransitionManager : MonoBehaviour
 
     private void Start()
     {
-        // CRITICAL: Only SceneTransitionManager subscribes to scene loaded
+        // This is the only system that should subscribe to scene loaded events
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     /// <summary>
-    /// Transition through a doorway (portal-based movement)
+    /// Handles player movement through doorways/portals between scenes.
+    /// Preserves player stats and inventory but lets the doorway set position.
     /// </summary>
     public void TransitionThroughDoorway(string targetScene, string targetDoorwayID)
     {
         DebugLog($"Starting doorway transition to {targetScene}, doorway: {targetDoorwayID}");
 
-        // CRITICAL FIX: Save player data BEFORE starting transition
+        // Save current player state before transitioning
         if (PlayerPersistenceManager.Instance != null)
         {
             DebugLog("Saving player data before doorway transition");
@@ -61,13 +63,14 @@ public class SceneTransitionManager : MonoBehaviour
 
         currentRestoreContext = RestoreContext.DoorwayTransition;
         pendingTargetDoorwayID = targetDoorwayID;
-        pendingSaveData = null; // Clear any save data
+        pendingSaveData = null;
 
         StartCoroutine(DoTransitionWithLoading(targetScene, RestoreContext.DoorwayTransition));
     }
 
     /// <summary>
-    /// Load scene from save file
+    /// Loads a game from a save file, transitioning to the saved scene with complete state restoration.
+    /// Restores everything including exact player position and world state.
     /// </summary>
     public void LoadSceneFromSave(string targetScene, Dictionary<string, object> saveData = null)
     {
@@ -75,13 +78,14 @@ public class SceneTransitionManager : MonoBehaviour
 
         currentRestoreContext = RestoreContext.SaveFileLoad;
         pendingTargetDoorwayID = "";
-        pendingSaveData = saveData; // Store save data for restoration
+        pendingSaveData = saveData;
 
         StartCoroutine(DoTransitionWithLoading(targetScene, RestoreContext.SaveFileLoad));
     }
 
     /// <summary>
-    /// Start a new game
+    /// Starts a new game in the specified starting scene with default values.
+    /// Clears all persistent data and initializes fresh game state.
     /// </summary>
     public void StartNewGame(string startingScene)
     {
@@ -94,12 +98,16 @@ public class SceneTransitionManager : MonoBehaviour
         StartCoroutine(DoTransitionWithLoading(startingScene, RestoreContext.NewGame));
     }
 
+    /// <summary>
+    /// Manages the complete scene loading process with loading screen and proper timing.
+    /// Ensures minimum load time for smooth user experience.
+    /// </summary>
     private System.Collections.IEnumerator DoTransitionWithLoading(string targetScene, RestoreContext context)
     {
         OnTransitionStarted?.Invoke(targetScene);
         DebugLog($"Starting {context} transition to {targetScene}");
 
-        // Show appropriate loading screen
+        // Show appropriate loading screen based on context
         switch (context)
         {
             case RestoreContext.DoorwayTransition:
@@ -116,25 +124,23 @@ public class SceneTransitionManager : MonoBehaviour
         // Prepare systems for transition
         if (context == RestoreContext.DoorwayTransition)
         {
-            // Tell SceneDataManager to save current scene before transition
             SceneDataManager.Instance?.PrepareSceneTransition(targetScene, pendingTargetDoorwayID, RestoreContext.DoorwayTransition);
         }
 
-        // Phase 1: Preparation (0-20%)
+        // Staged loading with progress updates
         LoadingScreenManager.Instance?.SetProgress(0.1f);
         yield return new WaitForSecondsRealtime(0.2f);
 
         LoadingScreenManager.Instance?.SetProgress(0.2f);
         yield return new WaitForSecondsRealtime(0.1f);
 
-        // Phase 2: Scene Loading (20-80%)
         LoadingScreenManager.Instance?.SetProgress(0.3f);
 
-        // Start the actual scene load
+        // Start actual scene loading
         var sceneLoadOperation = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(targetScene);
         sceneLoadOperation.allowSceneActivation = false;
 
-        // Monitor scene loading progress
+        // Monitor loading progress
         while (sceneLoadOperation.progress < 0.9f)
         {
             float progress = Mathf.Lerp(0.3f, 0.8f, sceneLoadOperation.progress / 0.9f);
@@ -142,10 +148,9 @@ public class SceneTransitionManager : MonoBehaviour
             yield return null;
         }
 
-        // Phase 3: Finalization (80-100%)
         LoadingScreenManager.Instance?.SetProgress(0.8f);
 
-        // Ensure minimum loading time
+        // Ensure minimum loading time for UX
         float loadStartTime = Time.unscaledTime;
         while (Time.unscaledTime - loadStartTime < minLoadingTime)
         {
@@ -158,36 +163,32 @@ public class SceneTransitionManager : MonoBehaviour
         // Activate the scene
         LoadingScreenManager.Instance?.SetProgress(1f);
         sceneLoadOperation.allowSceneActivation = true;
-
-        // Wait for scene to actually load
         yield return sceneLoadOperation;
 
         OnTransitionCompleted?.Invoke(targetScene);
         DebugLog($"Completed {context} transition to {targetScene}");
 
-        // Hide loading screen after a brief pause
         yield return new WaitForSecondsRealtime(0.2f);
         LoadingScreenManager.Instance?.HideLoadingScreen();
     }
 
     /// <summary>
-    /// CENTRAL ORCHESTRATOR: This is the ONLY method that should handle OnSceneLoaded
-    /// All data restoration flows through here based on the current RestoreContext
+    /// Central handler for all scene loaded events. Routes to appropriate restoration
+    /// method based on the current transition context. This ensures proper data
+    /// restoration order and prevents conflicts between systems.
     /// </summary>
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
         DebugLog($"=== SCENE LOADED: {scene.name} (Context: {currentRestoreContext}) ===");
-
         StartCoroutine(OrchestateDataRestoration(scene.name));
     }
 
     /// <summary>
-    /// Orchestrates all data restoration based on the current context
-    /// This is the single point of control for what gets restored and when
+    /// Orchestrates data restoration based on transition context.
+    /// Each context requires different restoration behavior and timing.
     /// </summary>
     private System.Collections.IEnumerator OrchestateDataRestoration(string sceneName)
     {
-        // Wait for scene to fully initialize
         yield return new WaitForSecondsRealtime(0.1f);
 
         DebugLog($"Starting data restoration for context: {currentRestoreContext}");
@@ -211,13 +212,14 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Handle restoration for doorway transitions
+    /// Handles data restoration for doorway transitions.
+    /// Restores player stats but not position, restores scene objects, then positions player.
     /// </summary>
     private System.Collections.IEnumerator HandleDoorwayTransitionRestore(string sceneName)
     {
         DebugLog("=== DOORWAY TRANSITION RESTORATION ===");
 
-        // 1. Restore player persistent data (NO position restore)
+        // 1. Restore player data (excluding position)
         if (PlayerPersistenceManager.Instance != null)
         {
             DebugLog("Restoring player data for doorway transition (no position)");
@@ -226,7 +228,7 @@ public class SceneTransitionManager : MonoBehaviour
 
         yield return new WaitForSecondsRealtime(0.05f);
 
-        // 2. Restore scene-dependent data
+        // 2. Restore scene-specific objects
         if (SceneDataManager.Instance != null)
         {
             DebugLog("Restoring scene data for doorway transition");
@@ -244,13 +246,14 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Handle restoration for save file loads
+    /// Handles complete state restoration from save files.
+    /// Restores all data including exact positions and scene states.
     /// </summary>
     private System.Collections.IEnumerator HandleSaveFileLoadRestore(string sceneName)
     {
         DebugLog("=== SAVE FILE LOAD RESTORATION ===");
 
-        // 1. Restore player data including position
+        // 1. Restore complete player data including position
         if (PlayerPersistenceManager.Instance != null)
         {
             DebugLog("Restoring player data from save file (including position)");
@@ -268,7 +271,7 @@ public class SceneTransitionManager : MonoBehaviour
 
         yield return new WaitForSecondsRealtime(0.05f);
 
-        // 3. Update UI systems
+        // 3. Refresh UI systems
         if (GameManager.Instance?.uiManager != null)
         {
             DebugLog("Refreshing UI after save load");
@@ -284,7 +287,8 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Handle restoration for new game
+    /// Initializes fresh game state for new games.
+    /// Sets default values and clears any existing persistent data.
     /// </summary>
     private System.Collections.IEnumerator HandleNewGameRestore(string sceneName)
     {
@@ -308,7 +312,7 @@ public class SceneTransitionManager : MonoBehaviour
 
         yield return new WaitForSecondsRealtime(0.05f);
 
-        // 3. Update UI
+        // 3. Update UI systems
         if (GameManager.Instance?.uiManager != null)
         {
             DebugLog("Refreshing UI for new game");
@@ -317,7 +321,8 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Position player at specified doorway
+    /// Locates and positions the player at the specified doorway in the current scene.
+    /// Used after doorway transitions to place the player at the correct entrance.
     /// </summary>
     private void PositionPlayerAtDoorway(string doorwayID)
     {
@@ -351,12 +356,12 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Get current restore context (useful for debugging)
+    /// Gets the current restoration context for debugging purposes.
     /// </summary>
     public RestoreContext GetCurrentRestoreContext() => currentRestoreContext;
 
     /// <summary>
-    /// Check if we're currently handling a specific restore context
+    /// Checks if currently handling a specific restoration context.
     /// </summary>
     public bool IsHandlingContext(RestoreContext context) => currentRestoreContext == context;
 

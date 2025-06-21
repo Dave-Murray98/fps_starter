@@ -1,9 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// SIMPLIFIED: Doorway now delegates everything to SceneTransitionManager
-/// Much cleaner - no direct interaction with save systems
-/// SceneTransitionManager handles all the orchestration
+/// Simple doorway component for scene transitions. Handles player interaction and
+/// delegates actual scene loading to SceneTransitionManager for coordinated transitions.
+/// Each doorway has a unique ID and specifies target scene and destination doorway.
 /// </summary>
 public class Doorway : MonoBehaviour
 {
@@ -25,6 +25,10 @@ public class Doorway : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Initiates doorway transition by delegating to SceneTransitionManager.
+    /// SceneTransitionManager handles data persistence, loading screens, and restoration.
+    /// </summary>
     public void UseDoorway()
     {
         if (string.IsNullOrEmpty(targetScene))
@@ -35,17 +39,8 @@ public class Doorway : MonoBehaviour
 
         Debug.Log($"[Doorway] Using doorway {doorwayID} to transition to {targetScene}");
 
-        // SIMPLIFIED: Just tell SceneTransitionManager to handle the doorway transition
-        // It will orchestrate all the data saving, scene loading, and data restoration
         if (SceneTransitionManager.Instance != null)
         {
-            // SceneTransitionManager will:
-            // 1. Tell PlayerPersistenceManager to save current player data
-            // 2. Tell SceneDataManager to save current scene data  
-            // 3. Load the target scene
-            // 4. Restore scene data (excluding player position)
-            // 5. Restore player data (excluding position)
-            // 6. Position player at target doorway
             SceneTransitionManager.Instance.TransitionThroughDoorway(targetScene, targetDoorwayID);
         }
         else
@@ -74,7 +69,7 @@ public class Doorway : MonoBehaviour
     }
 
     /// <summary>
-    /// Get doorway information for debugging
+    /// Returns doorway information for debugging and validation.
     /// </summary>
     public string GetDoorwayInfo()
     {
@@ -82,7 +77,7 @@ public class Doorway : MonoBehaviour
     }
 
     /// <summary>
-    /// Validate doorway configuration
+    /// Validates that doorway configuration is complete.
     /// </summary>
     public bool IsValid()
     {
@@ -109,11 +104,11 @@ public class Doorway : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        // Draw doorway visualization in scene view
+        // Visual representation in scene view
         Gizmos.color = Color.blue;
         Gizmos.DrawWireCube(transform.position, new Vector3(2f, 3f, 0.5f));
 
-        // Draw arrow pointing to target
+        // Arrow pointing forward
         Gizmos.color = Color.green;
         Gizmos.DrawRay(transform.position, transform.forward * 2f);
 
