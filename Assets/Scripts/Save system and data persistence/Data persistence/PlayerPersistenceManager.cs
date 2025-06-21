@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// REFACTORED: PlayerPersistenceManager now has context-aware restoration methods
-/// No longer subscribes to OnSceneLoaded - SceneTransitionManager calls us when needed
-/// Much cleaner and more predictable restoration flow
+/// REFACTORED: Truly modular PlayerPersistenceManager
+/// No longer has hardcoded knowledge of specific save components
+/// Components handle their own data extraction, default creation, and contribution
+/// This makes the system scalable - add/remove components without touching this manager
 /// </summary>
 public class PlayerPersistenceManager : MonoBehaviour
 {
@@ -29,7 +30,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            DebugLog("PlayerPersistenceManager initialized with context-aware architecture");
+            DebugLog("PlayerPersistenceManager initialized with modular architecture");
         }
         else
         {
@@ -39,7 +40,6 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     private void Start()
     {
-        // REMOVED: No longer subscribe to OnSceneLoaded - SceneTransitionManager handles this
         DiscoverPlayerDependentSaveables();
     }
 
@@ -60,7 +60,8 @@ public class PlayerPersistenceManager : MonoBehaviour
         DebugLog($"Discovered {playerDependentSaveables.Count} player-dependent save components:");
         foreach (var saveable in playerDependentSaveables)
         {
-            DebugLog($"  - {saveable.SaveID} ({saveable.GetType().Name})");
+            string componentType = saveable is IPlayerDependentSaveable ? "Enhanced" : "Legacy";
+            DebugLog($"  - {saveable.SaveID} ({saveable.GetType().Name}) [{componentType}]");
         }
     }
 
@@ -106,7 +107,7 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     /// <summary>
     /// CONTEXT-AWARE: Restore player data for doorway transitions
-    /// This restores player stats, inventory, equipment, abilities but NOT position
+    /// This restores player stats, inventory, equipment but NOT position
     /// Called by SceneTransitionManager when context is DoorwayTransition
     /// </summary>
     public void RestoreForDoorwayTransition()
@@ -175,7 +176,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             try
             {
-                // Extract data for this specific component from the save file
+                // MODULAR: Let component extract its own data from the save file
                 var componentData = ExtractComponentDataFromSave(saveable, saveData);
                 if (componentData != null)
                 {
@@ -212,7 +213,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         {
             try
             {
-                // Create default data for this component
+                // MODULAR: Let component create its own default data
                 var defaultData = CreateDefaultDataForComponent(saveable);
                 if (defaultData != null)
                 {
@@ -250,14 +251,12 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Extract component-specific data from a save file
+    /// MODULAR: Extract component-specific data from a save file
+    /// Now uses the enhanced interface system for true modularity
     /// </summary>
     private object ExtractComponentDataFromSave(ISaveable saveable, Dictionary<string, object> saveData)
     {
         DebugLog($"Extracting data for component: {saveable.SaveID}");
-
-        // The save data might contain different structures depending on how it's saved
-        // This method handles extracting the right data for each component
 
         // PRIORITY 1: Check for direct PlayerSaveData (this contains position data)
         if (saveData.ContainsKey("playerSaveData"))
@@ -272,14 +271,14 @@ public class PlayerPersistenceManager : MonoBehaviour
             }
         }
 
-        // PRIORITY 2: Check for PlayerPersistentData
+        // PRIORITY 2: Check for PlayerPersistentData - MODULAR APPROACH
         if (saveData.ContainsKey("playerPersistentData"))
         {
             var persistentData = saveData["playerPersistentData"] as PlayerPersistentData;
             if (persistentData != null)
             {
                 DebugLog($"Found playerPersistentData");
-                return ExtractFromPlayerPersistentData(saveable, persistentData);
+                return ExtractFromPlayerPersistentDataModular(saveable, persistentData);
             }
         }
 
@@ -295,42 +294,42 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Extract data for a specific component from PlayerPersistentData
+    /// MODULAR: Extract data for a specific component from PlayerPersistentData
+    /// Uses the new interface system - no more hardcoded switch statements!
     /// </summary>
-    private object ExtractFromPlayerPersistentData(ISaveable saveable, PlayerPersistentData persistentData)
+    private object ExtractFromPlayerPersistentDataModular(ISaveable saveable, PlayerPersistentData persistentData)
     {
         if (persistentData == null) return null;
 
-        switch (saveable.SaveID)
+        // ENHANCED: Use the new interface if available
+        if (saveable is IPlayerDependentSaveable enhancedSaveable)
         {
-            case "Player_Main":
-                return new PlayerSaveData
-                {
-                    currentHealth = persistentData.currentHealth,
-                    canJump = persistentData.canJump,
-                    canSprint = persistentData.canSprint,
-                    canCrouch = persistentData.canCrouch,
-                    inventoryData = persistentData.inventoryData,
-                    equipmentData = persistentData.equipmentData
-                };
-
-            case "Inventory_Main":
-                return persistentData.inventoryData;
-
-            case "Equipment_Main":
-                return persistentData.equipmentData;
-
-            default:
-                DebugLog($"No extraction mapping for component: {saveable.SaveID}");
-                return null;
+            DebugLog($"Using enhanced extraction for {saveable.SaveID}");
+            return enhancedSaveable.ExtractFromUnifiedSave(persistentData);
         }
+
+        // FALLBACK: Legacy extraction using ExtractRelevantData
+        DebugLog($"Using legacy extraction for {saveable.SaveID}");
+        return saveable.ExtractRelevantData(persistentData);
     }
 
     /// <summary>
-    /// Create default data for a component (new game initialization)
+    /// MODULAR: Create default data for a component (new game initialization)
+    /// Uses the new interface system - no more hardcoded switch statements!
     /// </summary>
     private object CreateDefaultDataForComponent(ISaveable saveable)
     {
+        // ENHANCED: Use the new interface if available
+        if (saveable is IPlayerDependentSaveable enhancedSaveable)
+        {
+            DebugLog($"Using enhanced default data creation for {saveable.SaveID}");
+            return enhancedSaveable.CreateDefaultData();
+        }
+
+        // FALLBACK: Basic default data for legacy components
+        DebugLog($"Using legacy default data creation for {saveable.SaveID}");
+
+        // Provide basic defaults for known legacy components
         switch (saveable.SaveID)
         {
             case "Player_Main":
@@ -360,6 +359,7 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     /// <summary>
     /// Get current persistent data for save system (called by SaveManager)
+    /// MODULAR: Uses the new interface system for contribution
     /// </summary>
     public PlayerPersistentData GetPersistentDataForSave()
     {
@@ -369,7 +369,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         // Create save-friendly data structure
         var saveData = new PlayerPersistentData();
 
-        // Let each save component contribute to the save data
+        // MODULAR: Let each save component contribute to the save data
         foreach (var saveable in playerDependentSaveables)
         {
             try
@@ -377,7 +377,7 @@ public class PlayerPersistenceManager : MonoBehaviour
                 var data = saveable.GetDataToSave();
                 if (data != null)
                 {
-                    ContributeToSaveData(saveable, data, saveData);
+                    ContributeToSaveDataModular(saveable, data, saveData);
                 }
             }
             catch (System.Exception e)
@@ -390,10 +390,22 @@ public class PlayerPersistenceManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Helper method to let save components contribute to the unified save data
+    /// MODULAR: Helper method to let save components contribute to the unified save data
+    /// Uses the new interface system - no more hardcoded switch statements!
     /// </summary>
-    private void ContributeToSaveData(ISaveable saveable, object data, PlayerPersistentData saveData)
+    private void ContributeToSaveDataModular(ISaveable saveable, object data, PlayerPersistentData saveData)
     {
+        // ENHANCED: Use the new interface if available
+        if (saveable is IPlayerDependentSaveable enhancedSaveable)
+        {
+            DebugLog($"Using enhanced contribution for {saveable.SaveID}");
+            enhancedSaveable.ContributeToUnifiedSave(data, saveData);
+            return;
+        }
+
+        // FALLBACK: Legacy contribution for known components
+        DebugLog($"Using legacy contribution for {saveable.SaveID}");
+
         switch (saveable.SaveID)
         {
             case "Player_Main":
@@ -421,7 +433,8 @@ public class PlayerPersistenceManager : MonoBehaviour
                 break;
 
             default:
-                DebugLog($"Unknown save component: {saveable.SaveID} - data not included in unified save");
+                DebugLog($"Unknown save component: {saveable.SaveID} - using dynamic storage");
+                saveData.SetComponentData(saveable.SaveID, data);
                 break;
         }
     }
@@ -466,11 +479,188 @@ public class PlayerPersistenceManager : MonoBehaviour
         return playerDependentSaveables.Select(s => $"{s.SaveID} ({s.GetType().Name})").ToList();
     }
 
+    /// <summary>
+    /// DEBUG: Get detailed info about component capabilities
+    /// </summary>
+    public Dictionary<string, ComponentCapabilities> GetComponentCapabilities()
+    {
+        var capabilities = new Dictionary<string, ComponentCapabilities>();
+
+        foreach (var saveable in playerDependentSaveables)
+        {
+            capabilities[saveable.SaveID] = new ComponentCapabilities
+            {
+                IsEnhanced = saveable is IPlayerDependentSaveable,
+                IsContextAware = saveable is IContextAwareSaveable,
+                ComponentType = saveable.GetType().Name,
+                SaveCategory = saveable.SaveCategory
+            };
+        }
+
+        return capabilities;
+    }
+
+    /// <summary>
+    /// Force a component to be discovered (useful for runtime-created components)
+    /// </summary>
+    public void RegisterComponent(ISaveable component)
+    {
+        if (component == null || component.SaveCategory != SaveDataCategory.PlayerDependent)
+            return;
+
+        if (!playerDependentSaveables.Contains(component))
+        {
+            playerDependentSaveables.Add(component);
+            string componentType = component is IPlayerDependentSaveable ? "Enhanced" : "Legacy";
+            DebugLog($"Manually registered component: {component.SaveID} ({component.GetType().Name}) [{componentType}]");
+        }
+    }
+
+    /// <summary>
+    /// Remove a component from discovery (useful for runtime-destroyed components)
+    /// </summary>
+    public void UnregisterComponent(ISaveable component)
+    {
+        if (component == null)
+            return;
+
+        if (playerDependentSaveables.Remove(component))
+        {
+            DebugLog($"Unregistered component: {component.SaveID}");
+        }
+    }
+
+    /// <summary>
+    /// Validate that all discovered components are still valid
+    /// </summary>
+    public void ValidateComponents()
+    {
+        var invalidComponents = new List<ISaveable>();
+
+        foreach (var component in playerDependentSaveables)
+        {
+            try
+            {
+                // Test if component is still accessible
+                var _ = component.SaveID;
+                var __ = component.SaveCategory;
+            }
+            catch (System.Exception)
+            {
+                invalidComponents.Add(component);
+            }
+        }
+
+        foreach (var invalid in invalidComponents)
+        {
+            playerDependentSaveables.Remove(invalid);
+            DebugLog($"Removed invalid component from discovery");
+        }
+
+        if (invalidComponents.Count > 0)
+        {
+            DebugLog($"Cleaned up {invalidComponents.Count} invalid components");
+        }
+    }
+
+    /// <summary>
+    /// Get statistics about the current save system state
+    /// </summary>
+    public SaveSystemStats GetSaveSystemStats()
+    {
+        var stats = new SaveSystemStats();
+
+        stats.TotalComponents = playerDependentSaveables.Count;
+        stats.EnhancedComponents = playerDependentSaveables.Count(s => s is IPlayerDependentSaveable);
+        stats.ContextAwareComponents = playerDependentSaveables.Count(s => s is IContextAwareSaveable);
+        stats.LegacyComponents = stats.TotalComponents - stats.EnhancedComponents;
+        stats.HasPersistentData = hasPersistentData;
+        stats.PersistentDataCount = persistentPlayerData.Count;
+
+        return stats;
+    }
+
+    /// <summary>
+    /// Export detailed debug information about the save system
+    /// </summary>
+    public string ExportDebugInfo()
+    {
+        var info = new System.Text.StringBuilder();
+
+        info.AppendLine("=== PLAYER PERSISTENCE MANAGER DEBUG INFO ===");
+
+        var stats = GetSaveSystemStats();
+        info.AppendLine($"Total Components: {stats.TotalComponents}");
+        info.AppendLine($"Enhanced Components: {stats.EnhancedComponents}");
+        info.AppendLine($"Context-Aware Components: {stats.ContextAwareComponents}");
+        info.AppendLine($"Legacy Components: {stats.LegacyComponents}");
+        info.AppendLine($"Has Persistent Data: {stats.HasPersistentData}");
+        info.AppendLine($"Persistent Data Count: {stats.PersistentDataCount}");
+
+        info.AppendLine("\nDISCOVERED COMPONENTS:");
+        foreach (var saveable in playerDependentSaveables)
+        {
+            var enhanced = saveable is IPlayerDependentSaveable ? "✓" : "✗";
+            var contextAware = saveable is IContextAwareSaveable ? "✓" : "✗";
+            info.AppendLine($"  - {saveable.SaveID} ({saveable.GetType().Name}) [Enhanced: {enhanced}, ContextAware: {contextAware}]");
+        }
+
+        if (hasPersistentData)
+        {
+            info.AppendLine("\nPERSISTENT DATA:");
+            foreach (var kvp in persistentPlayerData)
+            {
+                info.AppendLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name ?? "null"}");
+            }
+        }
+
+        return info.ToString();
+    }
+
     private void DebugLog(string message)
     {
         if (showDebugLogs)
         {
             Debug.Log($"[PlayerPersistence] {message}");
         }
+    }
+}
+
+/// <summary>
+/// Helper class for debugging component capabilities
+/// </summary>
+[System.Serializable]
+public class ComponentCapabilities
+{
+    public bool IsEnhanced;
+    public bool IsContextAware;
+    public string ComponentType;
+    public SaveDataCategory SaveCategory;
+
+    public override string ToString()
+    {
+        var features = new List<string>();
+        if (IsEnhanced) features.Add("Enhanced");
+        if (IsContextAware) features.Add("ContextAware");
+        return $"{ComponentType} ({SaveCategory}) [{string.Join(", ", features)}]";
+    }
+}
+
+/// <summary>
+/// Statistics about the save system state
+/// </summary>
+[System.Serializable]
+public class SaveSystemStats
+{
+    public int TotalComponents;
+    public int EnhancedComponents;
+    public int ContextAwareComponents;
+    public int LegacyComponents;
+    public bool HasPersistentData;
+    public int PersistentDataCount;
+
+    public override string ToString()
+    {
+        return $"SaveSystem: {TotalComponents} components ({EnhancedComponents} enhanced, {LegacyComponents} legacy), Persistent: {HasPersistentData}";
     }
 }

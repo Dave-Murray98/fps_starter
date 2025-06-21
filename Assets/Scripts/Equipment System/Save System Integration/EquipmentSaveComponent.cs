@@ -1,12 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// REFACTORED: EquipmentSaveComponent now handles ALL equipment data management
-/// Extracts data from EquippedItemManager during saves
-/// Restores data back to EquippedItemManager during loads
-/// EquippedItemManager becomes a pure data holder
+/// ENHANCED: EquipmentSaveComponent now implements IPlayerDependentSaveable for true modularity
+/// Handles its own data extraction, default creation, and contribution to unified saves
+/// No longer requires hardcoded knowledge in PlayerPersistenceManager
 /// </summary>
-public class EquipmentSaveComponent : SaveComponentBase
+public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
     [Header("Component References")]
     [SerializeField] private EquippedItemManager equippedItemManager;
@@ -95,7 +94,7 @@ public class EquipmentSaveComponent : SaveComponentBase
     /// </summary>
     private EquipmentSaveData ExtractEquipmentDataFromManager()
     {
-        // Use the new helper method to get data directly
+        // Use the helper method to get data directly
         return equippedItemManager.GetEquipmentDataDirect();
     }
 
@@ -214,88 +213,93 @@ public class EquipmentSaveComponent : SaveComponentBase
         if (saveData == null || !saveData.IsValid())
         {
             DebugLog("Invalid equipment save data - clearing equipment state");
-            ClearEquipmentState();
+            equippedItemManager.ClearEquipmentState();
             return;
         }
 
-        // Clear current equipment state before loading
-        ClearEquipmentState();
-
-        // Load the equipment data by directly setting the manager's internal data
-        // This replaces the manager's LoadSaveData method
-        SetEquipmentDataToManager(saveData);
-
-        // Validate loaded data against current inventory
-        ValidateLoadedHotkeys();
-
-        // Refresh UI for all hotkeys and equipped items
-        RefreshAllEquipmentUI();
+        // Use the helper method to set data directly
+        equippedItemManager.SetEquipmentData(saveData);
 
         DebugLog("Equipment data restoration to manager complete");
     }
 
-    /// <summary>
-    /// Set equipment data directly to the manager (replaces internal manager logic)
-    /// </summary>
-    private void SetEquipmentDataToManager(EquipmentSaveData saveData)
-    {
-        // Use the new helper method to set data directly
-        equippedItemManager.SetEquipmentData(saveData);
-        DebugLog("Equipment data set to manager via new helper method");
-    }
+    #region IPlayerDependentSaveable Implementation - NEW MODULAR INTERFACE
 
     /// <summary>
-    /// Clear current equipment state
+    /// MODULAR: Extract equipment data from unified save structure
+    /// This component knows how to get its data from PlayerPersistentData
     /// </summary>
-    private void ClearEquipmentState()
+    public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
     {
-        // Use the new helper method to clear equipment state
-        equippedItemManager.ClearEquipmentState();
-        DebugLog("Current equipment state cleared via helper method");
-    }
+        if (unifiedData == null) return null;
 
-    /// <summary>
-    /// Validate loaded hotkeys against current inventory
-    /// </summary>
-    private void ValidateLoadedHotkeys()
-    {
-        // This validation might need to be moved here from the manager
-        // For now, the manager handles this internally
-        DebugLog("Validating loaded hotkeys against inventory");
-    }
+        DebugLog("Using modular extraction from unified save data");
 
-    /// <summary>
-    /// Refresh all equipment UI
-    /// </summary>
-    private void RefreshAllEquipmentUI()
-    {
-        // Trigger UI refresh events
-        if (equippedItemManager.HasEquippedItem)
+        // First try to get from legacy field for backward compatibility
+        if (unifiedData.equipmentData != null)
         {
-            equippedItemManager.OnItemEquipped?.Invoke(equippedItemManager.CurrentEquippedItem);
+            var assignedCount = unifiedData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+            DebugLog($"Extracted equipment from legacy field: {assignedCount} hotkey assignments");
+            return unifiedData.equipmentData;
+        }
+
+        // Then try dynamic component data storage
+        var equipmentData = unifiedData.GetComponentData<EquipmentSaveData>(SaveID);
+        if (equipmentData != null)
+        {
+            var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+            DebugLog($"Extracted equipment from dynamic storage: {assignedCount} hotkey assignments");
+            return equipmentData;
+        }
+
+        // Return empty equipment if nothing found
+        DebugLog("No equipment data found in unified save - returning empty equipment");
+        return new EquipmentSaveData();
+    }
+
+    /// <summary>
+    /// MODULAR: Create default equipment data for new games
+    /// This component knows what its default state should be
+    /// </summary>
+    public object CreateDefaultData()
+    {
+        DebugLog("Creating default equipment data for new game");
+
+        var defaultData = new EquipmentSaveData();
+
+        // Default constructor already sets up 10 empty hotkey slots and empty equipped item
+        DebugLog($"Default equipment data created: {defaultData.hotkeyBindings.Count} hotkey slots, no equipped item");
+        return defaultData;
+    }
+
+    /// <summary>
+    /// MODULAR: Contribute equipment data to unified save structure
+    /// This component knows how to store its data in PlayerPersistentData
+    /// </summary>
+    public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
+    {
+        if (componentData is EquipmentSaveData equipmentData && unifiedData != null)
+        {
+            var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+            DebugLog($"Contributing equipment data to unified save structure: {assignedCount} hotkey assignments");
+
+            // Store in legacy field for backward compatibility
+            unifiedData.equipmentData = equipmentData;
+
+            // Also store in dynamic storage for consistency
+            unifiedData.SetComponentData(SaveID, equipmentData);
+
+            DebugLog($"Equipment data contributed: {assignedCount} hotkey assignments stored in both legacy and dynamic storage");
         }
         else
         {
-            equippedItemManager.OnItemUnequipped?.Invoke();
+            DebugLog($"Invalid data for contribution - expected EquipmentSaveData, got {componentData?.GetType().Name ?? "null"}");
         }
-
-        // Refresh hotkey UI for all slots
-        var allBindings = equippedItemManager.GetAllHotkeyBindings();
-        for (int i = 0; i < allBindings.Count; i++)
-        {
-            var binding = allBindings[i];
-            if (binding.isAssigned)
-            {
-                equippedItemManager.OnHotkeyAssigned?.Invoke(binding.slotNumber, binding);
-            }
-            else
-            {
-                equippedItemManager.OnHotkeyCleared?.Invoke(binding.slotNumber);
-            }
-        }
-
-        DebugLog("Equipment UI refresh complete");
     }
+
+    #endregion
+
+    #region Lifecycle and Utility Methods
 
     /// <summary>
     /// Called before save operations
@@ -318,7 +322,53 @@ public class EquipmentSaveComponent : SaveComponentBase
     {
         DebugLog("Equipment load completed");
 
-        // Equipment UI should automatically update via manager events
+        // IMPORTANT: Force UI refresh after equipment load
+        // This ensures hotkey bar and other UI elements display correctly after save/load
+        StartCoroutine(RefreshEquipmentUIAfterLoad());
+    }
+
+    /// <summary>
+    /// Force refresh equipment UI after load with proper timing
+    /// </summary>
+    private System.Collections.IEnumerator RefreshEquipmentUIAfterLoad()
+    {
+        // Wait a frame to ensure all managers are fully loaded
+        yield return null;
+
+        // Wait for UI systems to be ready
+        yield return new WaitForEndOfFrame();
+
+        if (equippedItemManager != null)
+        {
+            DebugLog("Forcing equipment UI refresh after load");
+
+            // Force refresh all hotkey UI
+            var allBindings = equippedItemManager.GetAllHotkeyBindings();
+            for (int i = 0; i < allBindings.Count; i++)
+            {
+                var binding = allBindings[i];
+                if (binding.isAssigned)
+                {
+                    equippedItemManager.OnHotkeyAssigned?.Invoke(binding.slotNumber, binding);
+                }
+                else
+                {
+                    equippedItemManager.OnHotkeyCleared?.Invoke(binding.slotNumber);
+                }
+            }
+
+            // Force refresh equipped item UI
+            if (equippedItemManager.HasEquippedItem)
+            {
+                equippedItemManager.OnItemEquipped?.Invoke(equippedItemManager.CurrentEquippedItem);
+            }
+            else
+            {
+                equippedItemManager.OnItemUnequipped?.Invoke();
+            }
+
+            DebugLog("Equipment UI refresh completed");
+        }
     }
 
     /// <summary>
@@ -373,4 +423,65 @@ public class EquipmentSaveComponent : SaveComponentBase
             ValidateReferences();
         }
     }
+
+    /// <summary>
+    /// Check if any item is currently equipped
+    /// </summary>
+    public bool HasEquippedItem()
+    {
+        return equippedItemManager?.HasEquippedItem == true;
+    }
+
+    /// <summary>
+    /// Get equipped item type (useful for other systems)
+    /// </summary>
+    public ItemType? GetEquippedItemType()
+    {
+        if (!HasEquippedItem()) return null;
+
+        return equippedItemManager.GetEquippedItemData()?.itemType;
+    }
+
+    /// <summary>
+    /// Get debug information about current equipment state
+    /// </summary>
+    public string GetEquipmentDebugInfo()
+    {
+        if (equippedItemManager == null)
+            return "EquippedItemManager: null";
+
+        var equippedItemName = GetCurrentEquippedItemName();
+        var hotkeyCount = GetAssignedHotkeyCount();
+
+        return $"Equipment: {equippedItemName} equipped, {hotkeyCount}/10 hotkeys assigned";
+    }
+
+    /// <summary>
+    /// Check if a specific hotkey slot is assigned
+    /// </summary>
+    public bool IsHotkeySlotAssigned(int slotNumber)
+    {
+        if (equippedItemManager == null) return false;
+
+        var binding = equippedItemManager.GetHotkeyBinding(slotNumber);
+        return binding?.isAssigned == true;
+    }
+
+    /// <summary>
+    /// Get the item assigned to a specific hotkey slot
+    /// </summary>
+    public string GetHotkeySlotItemName(int slotNumber)
+    {
+        if (equippedItemManager == null) return null;
+
+        var binding = equippedItemManager.GetHotkeyBinding(slotNumber);
+        if (binding?.isAssigned == true)
+        {
+            return binding.GetCurrentItemData()?.itemName;
+        }
+
+        return null;
+    }
+
+    #endregion
 }

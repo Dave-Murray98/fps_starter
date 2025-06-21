@@ -2,38 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Defines the context for data restoration operations
-/// This tells restoration systems WHY they're being called and what they should restore
-/// </summary>
-public enum RestoreContext
-{
-    /// <summary>
-    /// Player is transitioning through a doorway/portal
-    /// - Restore player stats, inventory, equipment, abilities
-    /// - Do NOT restore player position (doorway will set position)
-    /// - Restore scene-dependent data for the target scene
-    /// </summary>
-    DoorwayTransition,
-
-    /// <summary>
-    /// Player is loading from a save file
-    /// - Restore ALL player data INCLUDING position
-    /// - Restore scene-dependent data from save file
-    /// - This is a complete state restoration
-    /// </summary>
-    SaveFileLoad,
-
-    /// <summary>
-    /// New game initialization
-    /// - Set default player stats
-    /// - Clear inventory/equipment
-    /// - Set starting position
-    /// </summary>
-    NewGame
-}
-
-
-/// <summary>
 /// REFACTORED: SceneTransitionManager is now the SINGLE orchestrator for all scene loading
 /// No other systems should subscribe to OnSceneLoaded - this handles everything
 /// </summary>

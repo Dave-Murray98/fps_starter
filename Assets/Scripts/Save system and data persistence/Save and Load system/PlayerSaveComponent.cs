@@ -1,11 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// REFACTORED: PlayerSaveComponent now implements context-aware restoration
-/// Can distinguish between doorway transitions (no position restore) and save loads (full restore)
-/// Much cleaner and more predictable than the previous IsFullSaveLoad method
+/// ENHANCED: PlayerSaveComponent now implements IPlayerDependentSaveable for true modularity
+/// Handles its own data extraction, default creation, and contribution to unified saves
+/// No longer requires hardcoded knowledge in PlayerPersistenceManager
 /// </summary>
-public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable
+public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPlayerDependentSaveable
 {
     [Header("Component References")]
     [SerializeField] private PlayerController playerController;
@@ -169,6 +169,132 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable
         }
     }
 
+    #region IPlayerDependentSaveable Implementation - NEW MODULAR INTERFACE
+
+    /// <summary>
+    /// MODULAR: Extract player data from unified save structure
+    /// This component knows how to get its data from PlayerPersistentData
+    /// </summary>
+    public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
+    {
+        if (unifiedData == null) return null;
+
+        DebugLog("Using modular extraction from unified save data");
+
+        // Create PlayerSaveData from the unified structure
+        var playerSaveData = new PlayerSaveData
+        {
+            currentHealth = unifiedData.currentHealth,
+            canJump = unifiedData.canJump,
+            canSprint = unifiedData.canSprint,
+            canCrouch = unifiedData.canCrouch,
+            // Note: Position is intentionally not extracted from persistent data
+            // Position should come from save files, not scene transitions
+            position = Vector3.zero,
+            rotation = Vector3.zero,
+            inventoryData = unifiedData.inventoryData,
+            equipmentData = unifiedData.equipmentData
+        };
+
+        // Try to get additional data from dynamic storage
+        var additionalData = unifiedData.GetComponentData<PlayerSaveData>(SaveID);
+        if (additionalData != null)
+        {
+            // Merge any additional data that might be stored
+            playerSaveData.lookSensitivity = additionalData.lookSensitivity;
+            playerSaveData.masterVolume = additionalData.masterVolume;
+            playerSaveData.sfxVolume = additionalData.sfxVolume;
+            playerSaveData.musicVolume = additionalData.musicVolume;
+            playerSaveData.level = additionalData.level;
+            playerSaveData.experience = additionalData.experience;
+        }
+
+        DebugLog($"Modular extraction complete: Health={playerSaveData.currentHealth}, Abilities set");
+        return playerSaveData;
+    }
+
+    /// <summary>
+    /// MODULAR: Create default player data for new games
+    /// This component knows what its default state should be
+    /// </summary>
+    public object CreateDefaultData()
+    {
+        DebugLog("Creating default player data for new game");
+
+        var defaultData = new PlayerSaveData();
+
+        // Set health from PlayerData if available
+        if (playerData != null)
+        {
+            defaultData.currentHealth = playerData.maxHealth;
+            defaultData.maxHealth = playerData.maxHealth;
+            defaultData.lookSensitivity = playerData.lookSensitivity;
+        }
+        else
+        {
+            defaultData.currentHealth = 100f;
+            defaultData.maxHealth = 100f;
+            defaultData.lookSensitivity = 2f;
+        }
+
+        // Set default abilities
+        defaultData.canJump = true;
+        defaultData.canSprint = true;
+        defaultData.canCrouch = true;
+
+        // Set default audio settings
+        defaultData.masterVolume = 1f;
+        defaultData.sfxVolume = 1f;
+        defaultData.musicVolume = 1f;
+
+        // Set default character progression
+        defaultData.level = 1;
+        defaultData.experience = 0f;
+
+        // Default position will be set by spawn point or doorway
+        defaultData.position = Vector3.zero;
+        defaultData.rotation = Vector3.zero;
+        defaultData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+
+        // Initialize empty inventory and equipment
+        defaultData.inventoryData = new InventorySaveData();
+        defaultData.equipmentData = new EquipmentSaveData();
+
+        DebugLog($"Default player data created: Health={defaultData.currentHealth}, Abilities enabled");
+        return defaultData;
+    }
+
+    /// <summary>
+    /// MODULAR: Contribute player data to unified save structure
+    /// This component knows how to store its data in PlayerPersistentData
+    /// </summary>
+    public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
+    {
+        if (componentData is PlayerSaveData playerData && unifiedData != null)
+        {
+            DebugLog("Contributing player data to unified save structure");
+
+            // Contribute basic player stats to the unified structure
+            unifiedData.currentHealth = playerData.currentHealth;
+            unifiedData.canJump = playerData.canJump;
+            unifiedData.canSprint = playerData.canSprint;
+            unifiedData.canCrouch = playerData.canCrouch;
+
+            // Store complete player data in dynamic storage for full preservation
+            unifiedData.SetComponentData(SaveID, playerData);
+
+            DebugLog($"Player data contributed: Health={playerData.currentHealth}, Abilities set, Full data stored");
+        }
+        else
+        {
+            DebugLog($"Invalid data for contribution - expected PlayerSaveData, got {componentData?.GetType().Name ?? "null"}");
+        }
+    }
+
+    #endregion
+
+    #region IContextAwareSaveable Implementation
+
     /// <summary>
     /// CONTEXT-AWARE: Load data with awareness of restoration context
     /// This is the key improvement - we know WHY we're being restored
@@ -223,6 +349,10 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable
         DebugLog("Using fallback LoadSaveData - defaulting to full restoration");
         LoadSaveDataWithContext(data, RestoreContext.SaveFileLoad);
     }
+
+    #endregion
+
+    #region Private Helper Methods
 
     /// <summary>
     /// Restore player stats, abilities, and health (common to all contexts)
@@ -309,6 +439,10 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable
         }
     }
 
+    #endregion
+
+    #region Lifecycle and Utility Methods
+
     /// <summary>
     /// Called before save operations
     /// </summary>
@@ -385,6 +519,8 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable
             ValidateReferences();
         }
     }
+
+    #endregion
 }
 
 /// <summary>

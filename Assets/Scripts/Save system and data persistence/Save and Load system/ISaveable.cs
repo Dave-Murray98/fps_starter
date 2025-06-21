@@ -46,6 +46,36 @@ public interface ISaveable
 }
 
 /// <summary>
+/// Enhanced interface for player-dependent save components that need to handle unified save data
+/// This makes the system truly modular by letting components handle their own data mapping
+/// </summary>
+public interface IPlayerDependentSaveable : ISaveable
+{
+    /// <summary>
+    /// Extract this component's data from a unified save structure
+    /// Each component knows how to get its data from PlayerPersistentData
+    /// </summary>
+    /// <param name="unifiedData">The unified player data structure</param>
+    /// <returns>Component-specific data extracted from the unified structure</returns>
+    object ExtractFromUnifiedSave(PlayerPersistentData unifiedData);
+
+    /// <summary>
+    /// Create default data for this component (used for new games)
+    /// Each component knows what its default state should be
+    /// </summary>
+    /// <returns>Default data for this component</returns>
+    object CreateDefaultData();
+
+    /// <summary>
+    /// Contribute this component's data to a unified save structure
+    /// Each component knows how to store its data in PlayerPersistentData
+    /// </summary>
+    /// <param name="componentData">This component's data to contribute</param>
+    /// <param name="unifiedData">The unified structure to contribute to</param>
+    void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData);
+}
+
+/// <summary>
 /// Defines whether save data is scene-dependent or player-dependent 
 /// </summary>
 public enum SaveDataCategory
@@ -82,4 +112,35 @@ public interface IContextAwareSaveable : ISaveable
     /// <param name="data">The data to load</param>
     /// <param name="context">The context for this restoration operation</param>
     void LoadSaveDataWithContext(object data, RestoreContext context);
+}
+
+/// <summary>
+/// Defines the context for data restoration operations
+/// This tells restoration systems WHY they're being called and what they should restore
+/// </summary>
+public enum RestoreContext
+{
+    /// <summary>
+    /// Player is transitioning through a doorway/portal
+    /// - Restore player stats, inventory, equipment, abilities
+    /// - Do NOT restore player position (doorway will set position)
+    /// - Restore scene-dependent data for the target scene
+    /// </summary>
+    DoorwayTransition,
+
+    /// <summary>
+    /// Player is loading from a save file
+    /// - Restore ALL player data INCLUDING position
+    /// - Restore scene-dependent data from save file
+    /// - This is a complete state restoration
+    /// </summary>
+    SaveFileLoad,
+
+    /// <summary>
+    /// New game initialization
+    /// - Set default player stats
+    /// - Clear inventory/equipment
+    /// - Set starting position
+    /// </summary>
+    NewGame
 }

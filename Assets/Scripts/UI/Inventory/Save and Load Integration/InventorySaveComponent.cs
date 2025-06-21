@@ -1,12 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// REFACTORED: InventorySaveComponent now handles ALL inventory data management
-/// Extracts data from InventoryManager during saves
-/// Restores data back to InventoryManager during loads
-/// InventoryManager becomes a pure data holder
+/// ENHANCED: InventorySaveComponent now implements IPlayerDependentSaveable for true modularity
+/// Handles its own data extraction, default creation, and contribution to unified saves
+/// No longer requires hardcoded knowledge in PlayerPersistenceManager
 /// </summary>
-public class InventorySaveComponent : SaveComponentBase
+public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
     [Header("Component References")]
     [SerializeField] private InventoryManager inventoryManager;
@@ -97,7 +96,7 @@ public class InventorySaveComponent : SaveComponentBase
     {
         var saveData = new InventorySaveData(inventoryManager.GridWidth, inventoryManager.GridHeight);
 
-        // Get the next item ID using the new public property
+        // Get the next item ID using the public property
         saveData.nextItemId = inventoryManager.NextItemId;
 
         // Extract all items from the inventory data
@@ -235,21 +234,98 @@ public class InventorySaveComponent : SaveComponentBase
             }
         }
 
-        // Set the complete data to the manager using the new helper method
+        // Set the complete data to the manager using the helper method
         inventoryManager.SetInventoryData(newInventoryData, saveData.nextItemId);
 
         DebugLog($"Restored inventory: {newInventoryData.ItemCount} items");
     }
 
+    #region IPlayerDependentSaveable Implementation - NEW MODULAR INTERFACE
 
     /// <summary>
-    /// Set the next item ID to the manager using the new public property
+    /// MODULAR: Extract inventory data from unified save structure
+    /// This component knows how to get its data from PlayerPersistentData
     /// </summary>
-    private void SetNextItemIdToManager(int nextItemId)
+    public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
     {
-        inventoryManager.NextItemId = nextItemId;
-        DebugLog($"Set next item ID to: {nextItemId}");
+        if (unifiedData == null) return null;
+
+        DebugLog("Using modular extraction from unified save data");
+
+        // First try to get from legacy field for backward compatibility
+        if (unifiedData.inventoryData != null)
+        {
+            DebugLog($"Extracted inventory from legacy field: {unifiedData.inventoryData.ItemCount} items");
+            return unifiedData.inventoryData;
+        }
+
+        // Then try dynamic component data storage
+        var inventoryData = unifiedData.GetComponentData<InventorySaveData>(SaveID);
+        if (inventoryData != null)
+        {
+            DebugLog($"Extracted inventory from dynamic storage: {inventoryData.ItemCount} items");
+            return inventoryData;
+        }
+
+        // Return empty inventory if nothing found
+        DebugLog("No inventory data found in unified save - returning empty inventory");
+        return new InventorySaveData();
     }
+
+    /// <summary>
+    /// MODULAR: Create default inventory data for new games
+    /// This component knows what its default state should be
+    /// </summary>
+    public object CreateDefaultData()
+    {
+        DebugLog("Creating default inventory data for new game");
+
+        // Get grid size from manager if available, otherwise use defaults
+        int gridWidth = 10;
+        int gridHeight = 10;
+
+        if (inventoryManager != null)
+        {
+            gridWidth = inventoryManager.GridWidth;
+            gridHeight = inventoryManager.GridHeight;
+        }
+
+        var defaultData = new InventorySaveData(gridWidth, gridHeight);
+
+        // Start with next item ID of 1
+        defaultData.nextItemId = 1;
+
+        DebugLog($"Default inventory data created: {gridWidth}x{gridHeight} grid, empty");
+        return defaultData;
+    }
+
+    /// <summary>
+    /// MODULAR: Contribute inventory data to unified save structure
+    /// This component knows how to store its data in PlayerPersistentData
+    /// </summary>
+    public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
+    {
+        if (componentData is InventorySaveData inventoryData && unifiedData != null)
+        {
+            DebugLog($"Contributing inventory data to unified save structure: {inventoryData.ItemCount} items");
+
+            // Store in legacy field for backward compatibility
+            unifiedData.inventoryData = inventoryData;
+
+            // Also store in dynamic storage for consistency
+            unifiedData.SetComponentData(SaveID, inventoryData);
+
+            DebugLog($"Inventory data contributed: {inventoryData.ItemCount} items stored in both legacy and dynamic storage");
+        }
+        else
+        {
+            DebugLog($"Invalid data for contribution - expected InventorySaveData, got {componentData?.GetType().Name ?? "null"}");
+        }
+    }
+
+    #endregion
+
+    #region Lifecycle and Utility Methods
 
     /// <summary>
     /// Called before save operations
@@ -333,4 +409,38 @@ public class InventorySaveComponent : SaveComponentBase
     {
         return inventoryManager?.HasSpaceForItem(itemData) ?? false;
     }
+
+    /// <summary>
+    /// Get inventory grid dimensions
+    /// </summary>
+    public (int width, int height) GetGridDimensions()
+    {
+        if (inventoryManager != null)
+        {
+            return (inventoryManager.GridWidth, inventoryManager.GridHeight);
+        }
+        return (0, 0);
+    }
+
+    /// <summary>
+    /// Check if inventory is empty
+    /// </summary>
+    public bool IsInventoryEmpty()
+    {
+        return GetCurrentItemCount() == 0;
+    }
+
+    /// <summary>
+    /// Get debug information about current inventory state
+    /// </summary>
+    public string GetInventoryDebugInfo()
+    {
+        if (inventoryManager == null)
+            return "InventoryManager: null";
+
+        var stats = GetInventoryStats();
+        return $"Inventory: {stats.itemCount} items, {stats.occupiedCells}/{stats.totalCells} cells used";
+    }
+
+    #endregion
 }
