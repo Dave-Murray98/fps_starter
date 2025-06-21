@@ -134,6 +134,7 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
 
     /// <summary>
     /// For PlayerPersistenceManager - extract only the data we need
+    /// CLEANED: Now fully modular - no legacy field references
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
@@ -147,7 +148,7 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
         }
         else if (saveContainer is PlayerPersistentData persistentData)
         {
-            // Extract from persistent data structure (this typically doesn't have position)
+            // Extract from persistent data structure - create a basic PlayerSaveData
             var extractedData = new PlayerSaveData
             {
                 currentHealth = persistentData.currentHealth,
@@ -155,10 +156,27 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
                 canSprint = persistentData.canSprint,
                 canCrouch = persistentData.canCrouch,
                 position = Vector3.zero, // Persistent data doesn't contain position
-                rotation = Vector3.zero,
-                inventoryData = persistentData.inventoryData,
-                equipmentData = persistentData.equipmentData
+                rotation = Vector3.zero
             };
+
+            // Try to get additional data from dynamic storage
+            var fullPlayerData = persistentData.GetComponentData<PlayerSaveData>(SaveID);
+            if (fullPlayerData != null)
+            {
+                // Merge additional data that might be stored
+                extractedData.lookSensitivity = fullPlayerData.lookSensitivity;
+                extractedData.masterVolume = fullPlayerData.masterVolume;
+                extractedData.sfxVolume = fullPlayerData.sfxVolume;
+                extractedData.musicVolume = fullPlayerData.musicVolume;
+                extractedData.level = fullPlayerData.level;
+                extractedData.experience = fullPlayerData.experience;
+                extractedData.maxHealth = fullPlayerData.maxHealth;
+                extractedData.currentScene = fullPlayerData.currentScene;
+
+                // Merge custom data
+                extractedData.MergeCustomDataFrom(fullPlayerData);
+            }
+
             DebugLog($"Extracted from persistent data: Health={extractedData.currentHealth}, Pos={extractedData.position}");
             return extractedData;
         }
@@ -174,6 +192,7 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
     /// <summary>
     /// MODULAR: Extract player data from unified save structure
     /// This component knows how to get its data from PlayerPersistentData
+    /// CLEANED: No more legacy field references
     /// </summary>
     public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
     {
@@ -191,9 +210,7 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
             // Note: Position is intentionally not extracted from persistent data
             // Position should come from save files, not scene transitions
             position = Vector3.zero,
-            rotation = Vector3.zero,
-            inventoryData = unifiedData.inventoryData,
-            equipmentData = unifiedData.equipmentData
+            rotation = Vector3.zero
         };
 
         // Try to get additional data from dynamic storage
@@ -207,15 +224,21 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
             playerSaveData.musicVolume = additionalData.musicVolume;
             playerSaveData.level = additionalData.level;
             playerSaveData.experience = additionalData.experience;
+            playerSaveData.maxHealth = additionalData.maxHealth;
+            playerSaveData.currentScene = additionalData.currentScene;
+
+            // Merge any custom data
+            playerSaveData.MergeCustomDataFrom(additionalData);
         }
 
-        DebugLog($"Modular extraction complete: Health={playerSaveData.currentHealth}, Abilities set");
+        DebugLog($"Modular extraction complete: Health={playerSaveData.currentHealth}, Abilities set, Custom data: {playerSaveData.CustomDataCount}");
         return playerSaveData;
     }
 
     /// <summary>
     /// MODULAR: Create default player data for new games
     /// This component knows what its default state should be
+    /// CLEANED: No more legacy field references
     /// </summary>
     public object CreateDefaultData()
     {
@@ -256,9 +279,8 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
         defaultData.rotation = Vector3.zero;
         defaultData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
-        // Initialize empty inventory and equipment
-        defaultData.inventoryData = new InventorySaveData();
-        defaultData.equipmentData = new EquipmentSaveData();
+        // Note: No hardcoded component data initialization
+        // Other components will handle their own default data creation
 
         DebugLog($"Default player data created: Health={defaultData.currentHealth}, Abilities enabled");
         return defaultData;
@@ -283,7 +305,7 @@ public class PlayerSaveComponent : SaveComponentBase, IContextAwareSaveable, IPl
             // Store complete player data in dynamic storage for full preservation
             unifiedData.SetComponentData(SaveID, playerData);
 
-            DebugLog($"Player data contributed: Health={playerData.currentHealth}, Abilities set, Full data stored");
+            DebugLog($"Player data contributed: Health={playerData.currentHealth}, Abilities set, Full data stored in dynamic storage");
         }
         else
         {

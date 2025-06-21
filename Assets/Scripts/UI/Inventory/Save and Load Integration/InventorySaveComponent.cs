@@ -115,6 +115,7 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
     /// <summary>
     /// For PlayerPersistenceManager - extract only inventory data
+    /// CLEANED: Now fully modular - no legacy field references
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
@@ -128,17 +129,16 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
         if (saveContainer is PlayerSaveData playerSaveData)
         {
-            // Extract inventory data from player save
-            if (playerSaveData.inventoryData != null && playerSaveData.inventoryData.ItemCount > 0)
+            // Check if PlayerSaveData has inventory data in its custom stats or dynamic storage
+            if (playerSaveData.customStats.TryGetValue("inventoryData", out object invDataObj) &&
+                invDataObj is InventorySaveData invData)
             {
-                DebugLog($"Extracted inventory data from PlayerSaveData: {playerSaveData.inventoryData.ItemCount} items");
-                return playerSaveData.inventoryData;
+                DebugLog($"Extracted inventory data from PlayerSaveData customStats: {invData.ItemCount} items");
+                return invData;
             }
-            else
-            {
-                DebugLog("No valid inventory data found in PlayerSaveData - returning empty inventory");
-                return new InventorySaveData();
-            }
+
+            DebugLog("No inventory data found in PlayerSaveData - returning empty inventory");
+            return new InventorySaveData();
         }
         else if (saveContainer is InventorySaveData inventorySaveData)
         {
@@ -148,11 +148,12 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         }
         else if (saveContainer is PlayerPersistentData persistentData)
         {
-            // Extract from persistent data structure
-            if (persistentData.inventoryData != null)
+            // Extract from dynamic component storage
+            var inventoryData = persistentData.GetComponentData<InventorySaveData>(SaveID);
+            if (inventoryData != null)
             {
-                DebugLog($"Extracted inventory from persistent data: {persistentData.inventoryData.ItemCount} items");
-                return persistentData.inventoryData;
+                DebugLog($"Extracted inventory from persistent data dynamic storage: {inventoryData.ItemCount} items");
+                return inventoryData;
             }
             else
             {
@@ -252,14 +253,7 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
         DebugLog("Using modular extraction from unified save data");
 
-        // First try to get from legacy field for backward compatibility
-        if (unifiedData.inventoryData != null)
-        {
-            DebugLog($"Extracted inventory from legacy field: {unifiedData.inventoryData.ItemCount} items");
-            return unifiedData.inventoryData;
-        }
-
-        // Then try dynamic component data storage
+        // Get from dynamic component data storage
         var inventoryData = unifiedData.GetComponentData<InventorySaveData>(SaveID);
         if (inventoryData != null)
         {
@@ -309,13 +303,10 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         {
             DebugLog($"Contributing inventory data to unified save structure: {inventoryData.ItemCount} items");
 
-            // Store in legacy field for backward compatibility
-            unifiedData.inventoryData = inventoryData;
-
-            // Also store in dynamic storage for consistency
+            // Store in dynamic storage
             unifiedData.SetComponentData(SaveID, inventoryData);
 
-            DebugLog($"Inventory data contributed: {inventoryData.ItemCount} items stored in both legacy and dynamic storage");
+            DebugLog($"Inventory data contributed: {inventoryData.ItemCount} items stored in dynamic storage");
         }
         else
         {

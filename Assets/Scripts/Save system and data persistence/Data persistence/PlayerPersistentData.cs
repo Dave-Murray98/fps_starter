@@ -2,25 +2,18 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// Enhanced PlayerPersistentData that supports modular save components
-/// ENHANCED: Added dynamic component data storage while maintaining backward compatibility
+/// Clean PlayerPersistentData that supports fully modular save components
+/// CLEANED: Removed legacy backward compatibility fields - all data now uses dynamic storage
+/// This is the final, clean version with no hardcoded component knowledge
 /// </summary>
 [System.Serializable]
 public class PlayerPersistentData
 {
-    [Header("Health System")]
+    [Header("Basic Player Stats")]
     public float currentHealth = 100f;
-
-    [Header("Abilities")]
     public bool canJump = true;
     public bool canSprint = true;
     public bool canCrouch = true;
-
-    [Header("Inventory - Backward Compatibility")]
-    public InventorySaveData inventoryData;
-
-    [Header("Equipment - Backward Compatibility")]
-    public EquipmentSaveData equipmentData;
 
     [Header("Dynamic Component Data")]
     [SerializeField] private Dictionary<string, object> componentData = new Dictionary<string, object>();
@@ -28,13 +21,10 @@ public class PlayerPersistentData
     // Default constructor
     public PlayerPersistentData()
     {
-        // Default values
-        inventoryData = new InventorySaveData();
-        equipmentData = new EquipmentSaveData();
         componentData = new Dictionary<string, object>();
     }
 
-    // SIMPLIFIED: Copy constructor using proper copy constructors
+    // Copy constructor - now much simpler without legacy fields
     public PlayerPersistentData(PlayerPersistentData other)
     {
         // Copy basic player data
@@ -42,40 +32,6 @@ public class PlayerPersistentData
         canJump = other.canJump;
         canSprint = other.canSprint;
         canCrouch = other.canCrouch;
-
-        // Deep copy inventory data
-        if (other.inventoryData != null)
-        {
-            inventoryData = new InventorySaveData(other.inventoryData.gridWidth, other.inventoryData.gridHeight);
-            inventoryData.nextItemId = other.inventoryData.nextItemId;
-
-            // Copy all items
-            foreach (var item in other.inventoryData.items)
-            {
-                var itemCopy = new InventoryItemSaveData(item.itemID, item.itemDataName, item.gridPosition, item.currentRotation);
-                itemCopy.stackCount = item.stackCount;
-                inventoryData.AddItem(itemCopy);
-            }
-        }
-        else
-        {
-            inventoryData = new InventorySaveData();
-        }
-
-        // SIMPLIFIED: Use the EquipmentSaveData copy constructor
-        if (other.equipmentData != null)
-        {
-            equipmentData = new EquipmentSaveData(other.equipmentData);
-
-            // Debug log to verify copy worked
-            var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-            Debug.Log($"[PlayerPersistentData] Copy constructor: Copied equipment data with {assignedCount} hotkey assignments");
-        }
-        else
-        {
-            Debug.Log("[PlayerPersistentData] Equipment data is null, creating new EquipmentSaveData");
-            equipmentData = new EquipmentSaveData();
-        }
 
         // Deep copy component data dictionary
         componentData = new Dictionary<string, object>();
@@ -86,6 +42,8 @@ public class PlayerPersistentData
                 componentData[kvp.Key] = kvp.Value; // Note: This is a shallow copy of the values
             }
         }
+
+        Debug.Log($"[PlayerPersistentData] Copy constructor: Copied {componentData.Count} component data entries");
     }
 
     #region Dynamic Component Data Management
@@ -100,13 +58,6 @@ public class PlayerPersistentData
     {
         if (string.IsNullOrEmpty(saveID))
             return null;
-
-        // Handle legacy backward compatibility
-        if (saveID == "Inventory_Main" && inventoryData != null)
-            return inventoryData as T;
-
-        if (saveID == "Equipment_Main" && equipmentData != null)
-            return equipmentData as T;
 
         // Check dynamic storage
         if (componentData.TryGetValue(saveID, out object data))
@@ -127,21 +78,6 @@ public class PlayerPersistentData
         if (string.IsNullOrEmpty(saveID))
             return;
 
-        // Handle legacy backward compatibility
-        if (saveID == "Inventory_Main" && data is InventorySaveData invData)
-        {
-            inventoryData = invData;
-            componentData[saveID] = data; // Also store in dynamic storage for consistency
-            return;
-        }
-
-        if (saveID == "Equipment_Main" && data is EquipmentSaveData eqData)
-        {
-            equipmentData = eqData;
-            componentData[saveID] = data; // Also store in dynamic storage for consistency
-            return;
-        }
-
         // Store in dynamic storage
         componentData[saveID] = data;
     }
@@ -156,14 +92,6 @@ public class PlayerPersistentData
         if (string.IsNullOrEmpty(saveID))
             return false;
 
-        // Check legacy fields
-        if (saveID == "Inventory_Main")
-            return inventoryData != null;
-
-        if (saveID == "Equipment_Main")
-            return equipmentData != null;
-
-        // Check dynamic storage
         return componentData.ContainsKey(saveID);
     }
 
@@ -177,29 +105,7 @@ public class PlayerPersistentData
         if (string.IsNullOrEmpty(saveID))
             return false;
 
-        bool removed = false;
-
-        // Handle legacy fields
-        if (saveID == "Inventory_Main")
-        {
-            inventoryData = null;
-            removed = true;
-        }
-
-        if (saveID == "Equipment_Main")
-        {
-            equipmentData = null;
-            removed = true;
-        }
-
-        // Remove from dynamic storage
-        if (componentData.ContainsKey(saveID))
-        {
-            componentData.Remove(saveID);
-            removed = true;
-        }
-
-        return removed;
+        return componentData.Remove(saveID);
     }
 
     /// <summary>
@@ -208,19 +114,7 @@ public class PlayerPersistentData
     /// <returns>Collection of save IDs that have data</returns>
     public IEnumerable<string> GetStoredComponentIDs()
     {
-        var ids = new List<string>();
-
-        // Add legacy IDs if they have data
-        if (inventoryData != null)
-            ids.Add("Inventory_Main");
-
-        if (equipmentData != null)
-            ids.Add("Equipment_Main");
-
-        // Add dynamic storage IDs
-        ids.AddRange(componentData.Keys);
-
-        return ids;
+        return componentData.Keys;
     }
 
     /// <summary>
@@ -228,10 +122,13 @@ public class PlayerPersistentData
     /// </summary>
     public void ClearAllComponentData()
     {
-        inventoryData = null;
-        equipmentData = null;
         componentData.Clear();
     }
+
+    /// <summary>
+    /// Get count of stored component data entries
+    /// </summary>
+    public int ComponentDataCount => componentData.Count;
 
     #endregion
 
@@ -248,15 +145,27 @@ public class PlayerPersistentData
         info.AppendLine($"Health: {currentHealth}");
         info.AppendLine($"Abilities: Jump={canJump}, Sprint={canSprint}, Crouch={canCrouch}");
 
-        // Legacy data info
-        info.AppendLine($"Legacy Inventory: {(inventoryData != null ? $"{inventoryData.ItemCount} items" : "null")}");
-        info.AppendLine($"Legacy Equipment: {(equipmentData != null ? "present" : "null")}");
-
-        // Dynamic data info
-        info.AppendLine($"Dynamic Component Data: {componentData.Count} entries");
+        // Component data info
+        info.AppendLine($"Component Data: {componentData.Count} entries");
         foreach (var kvp in componentData)
         {
-            info.AppendLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name ?? "null"}");
+            string dataInfo = "null";
+            if (kvp.Value != null)
+            {
+                dataInfo = kvp.Value.GetType().Name;
+
+                // Add more specific info for known types
+                if (kvp.Value is InventorySaveData invData)
+                {
+                    dataInfo += $" ({invData.ItemCount} items)";
+                }
+                else if (kvp.Value is EquipmentSaveData eqData)
+                {
+                    var assignedCount = eqData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                    dataInfo += $" ({assignedCount} hotkeys assigned)";
+                }
+            }
+            info.AppendLine($"  - {kvp.Key}: {dataInfo}");
         }
 
         return info.ToString();
@@ -272,16 +181,117 @@ public class PlayerPersistentData
         if (currentHealth < 0)
             return false;
 
-        // Validate inventory data if present
-        if (inventoryData != null && !inventoryData.IsValid())
+        // Validate that component data dictionary is not null
+        if (componentData == null)
             return false;
 
-        // Validate equipment data if present
-        if (equipmentData != null && !equipmentData.IsValid())
-            return false;
+        // Validate specific component data if present
+        foreach (var kvp in componentData)
+        {
+            if (string.IsNullOrEmpty(kvp.Key))
+                return false;
+
+            // Validate specific data types
+            if (kvp.Value is InventorySaveData invData && !invData.IsValid())
+                return false;
+
+            if (kvp.Value is EquipmentSaveData eqData && !eqData.IsValid())
+                return false;
+        }
 
         return true;
     }
 
+    /// <summary>
+    /// Get component data entries as a list for debugging
+    /// </summary>
+    /// <returns>List of component data entries</returns>
+    public List<ComponentDataEntry> GetComponentDataEntries()
+    {
+        var entries = new List<ComponentDataEntry>();
+        foreach (var kvp in componentData)
+        {
+            entries.Add(new ComponentDataEntry
+            {
+                SaveID = kvp.Key,
+                DataType = kvp.Value?.GetType().Name ?? "null",
+                HasData = kvp.Value != null
+            });
+        }
+        return entries;
+    }
+
+    /// <summary>
+    /// Merge data from another PlayerPersistentData instance
+    /// Useful for combining data from different sources
+    /// </summary>
+    /// <param name="other">Other data to merge</param>
+    /// <param name="overwriteExisting">Whether to overwrite existing entries</param>
+    public void MergeFrom(PlayerPersistentData other, bool overwriteExisting = true)
+    {
+        if (other == null) return;
+
+        // Merge basic stats (always overwrite)
+        currentHealth = other.currentHealth;
+        canJump = other.canJump;
+        canSprint = other.canSprint;
+        canCrouch = other.canCrouch;
+
+        // Merge component data
+        foreach (var kvp in other.componentData)
+        {
+            if (overwriteExisting || !componentData.ContainsKey(kvp.Key))
+            {
+                componentData[kvp.Key] = kvp.Value;
+            }
+        }
+
+        Debug.Log($"[PlayerPersistentData] Merged data from other instance: {other.componentData.Count} entries");
+    }
+
+    /// <summary>
+    /// Create a snapshot with only specific component data
+    /// Useful for partial saves or specific system backups
+    /// </summary>
+    /// <param name="saveIDs">Component IDs to include</param>
+    /// <returns>New instance with only specified data</returns>
+    public PlayerPersistentData CreatePartialSnapshot(params string[] saveIDs)
+    {
+        var snapshot = new PlayerPersistentData();
+
+        // Copy basic stats
+        snapshot.currentHealth = currentHealth;
+        snapshot.canJump = canJump;
+        snapshot.canSprint = canSprint;
+        snapshot.canCrouch = canCrouch;
+
+        // Copy only specified component data
+        foreach (string saveID in saveIDs)
+        {
+            if (componentData.TryGetValue(saveID, out object data))
+            {
+                snapshot.componentData[saveID] = data;
+            }
+        }
+
+        return snapshot;
+    }
+
     #endregion
+}
+
+/// <summary>
+/// Helper class for debugging component data entries
+/// </summary>
+[System.Serializable]
+public class ComponentDataEntry
+{
+    public string SaveID;
+    public string DataType;
+    public bool HasData;
+
+    public override string ToString()
+    {
+        return $"{SaveID}: {DataType} (HasData: {HasData})";
+    }
 }

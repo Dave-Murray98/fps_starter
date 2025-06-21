@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 /// <summary>
 /// ENHANCED: EquipmentSaveComponent now implements IPlayerDependentSaveable for true modularity
@@ -109,6 +110,7 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
     /// <summary>
     /// For PlayerPersistenceManager - extract only equipment data
+    /// CLEANED: Now fully modular - no legacy field references
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
@@ -122,18 +124,17 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
         if (saveContainer is PlayerSaveData playerSaveData)
         {
-            // Extract equipment data from player save
-            if (playerSaveData.equipmentData != null)
+            // Check if PlayerSaveData has equipment data in its custom stats or dynamic storage
+            if (playerSaveData.customStats.TryGetValue("equipmentData", out object eqDataObj) &&
+                eqDataObj is EquipmentSaveData eqData)
             {
-                var assignedCount = playerSaveData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-                DebugLog($"Extracted equipment data from PlayerSaveData: {assignedCount} hotkey assignments, equipped: {playerSaveData.equipmentData.equippedItem?.isEquipped == true}");
-                return playerSaveData.equipmentData;
+                var assignedCount = eqData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"Extracted equipment data from PlayerSaveData customStats: {assignedCount} hotkey assignments, equipped: {eqData.equippedItem?.isEquipped == true}");
+                return eqData;
             }
-            else
-            {
-                DebugLog("No equipment data found in PlayerSaveData - returning empty equipment");
-                return new EquipmentSaveData();
-            }
+
+            DebugLog("No equipment data found in PlayerSaveData - returning empty equipment");
+            return new EquipmentSaveData();
         }
         else if (saveContainer is EquipmentSaveData equipmentSaveData)
         {
@@ -144,12 +145,13 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         }
         else if (saveContainer is PlayerPersistentData persistentData)
         {
-            // Extract from persistent data structure
-            if (persistentData.equipmentData != null)
+            // Extract from dynamic component storage
+            var equipmentData = persistentData.GetComponentData<EquipmentSaveData>(SaveID);
+            if (equipmentData != null)
             {
-                var assignedCount = persistentData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-                DebugLog($"Extracted equipment from persistent data: {assignedCount} hotkey assignments");
-                return persistentData.equipmentData;
+                var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
+                DebugLog($"Extracted equipment from persistent data dynamic storage: {assignedCount} hotkey assignments");
+                return equipmentData;
             }
             else
             {
@@ -235,15 +237,7 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
 
         DebugLog("Using modular extraction from unified save data");
 
-        // First try to get from legacy field for backward compatibility
-        if (unifiedData.equipmentData != null)
-        {
-            var assignedCount = unifiedData.equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
-            DebugLog($"Extracted equipment from legacy field: {assignedCount} hotkey assignments");
-            return unifiedData.equipmentData;
-        }
-
-        // Then try dynamic component data storage
+        // Get from dynamic component data storage
         var equipmentData = unifiedData.GetComponentData<EquipmentSaveData>(SaveID);
         if (equipmentData != null)
         {
@@ -283,13 +277,10 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
             var assignedCount = equipmentData.hotkeyBindings?.FindAll(h => h.isAssigned)?.Count ?? 0;
             DebugLog($"Contributing equipment data to unified save structure: {assignedCount} hotkey assignments");
 
-            // Store in legacy field for backward compatibility
-            unifiedData.equipmentData = equipmentData;
-
-            // Also store in dynamic storage for consistency
+            // Store in dynamic storage
             unifiedData.SetComponentData(SaveID, equipmentData);
 
-            DebugLog($"Equipment data contributed: {assignedCount} hotkey assignments stored in both legacy and dynamic storage");
+            DebugLog($"Equipment data contributed: {assignedCount} hotkey assignments stored in dynamic storage");
         }
         else
         {

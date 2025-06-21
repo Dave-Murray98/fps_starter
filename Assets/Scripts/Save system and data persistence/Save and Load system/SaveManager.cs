@@ -4,9 +4,8 @@ using System.Linq;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// REFACTORED: SaveManager now delegates scene loading to SceneTransitionManager
-/// No longer subscribes to OnSceneLoaded - much cleaner separation of concerns
-/// Focuses purely on file I/O and data preparation
+/// FIXED: SaveManager with corrected load logic for modular save system
+/// The issue was in how we prepare save data for SceneTransitionManager
 /// </summary>
 public class SaveManager : MonoBehaviour
 {
@@ -93,6 +92,11 @@ public class SaveManager : MonoBehaviour
             currentSaveData.playerPersistentData = PlayerPersistenceManager.Instance.GetPersistentDataForSave();
             SavePlayerPositionData();
             currentSaveData.SetPlayerSaveDataToPlayerPersistentData();
+
+            // DEBUGGING: Log what we're about to save
+            DebugLog($"Saving player data: Health={currentSaveData.playerPersistentData.currentHealth}");
+            DebugLog($"Player persistent component data: {currentSaveData.playerPersistentData.ComponentDataCount} entries");
+            DebugLog($"Player save custom data: {currentSaveData.playersaveData?.CustomDataCount ?? 0} entries");
         }
 
         LoadingScreenManager.Instance?.SetProgress(0.5f);
@@ -129,8 +133,8 @@ public class SaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// REFACTORED: LoadGame now delegates to SceneTransitionManager instead of handling OnSceneLoaded
-    /// Much cleaner separation of concerns - SaveManager handles file I/O, SceneTransitionManager handles restoration
+    /// FIXED: LoadGame now properly converts save data for SceneTransitionManager
+    /// The issue was in the data preparation - we need to rebuild PlayerPersistentData from the saved data
     /// </summary>
     private System.Collections.IEnumerator LoadGameCoroutine()
     {
@@ -142,7 +146,7 @@ public class SaveManager : MonoBehaviour
             yield break;
         }
 
-        // Prepare save data for SceneTransitionManager
+        // FIXED: Prepare save data properly for SceneTransitionManager
         var saveDataForTransition = PrepareSaveDataForTransition();
 
         // Get target scene from save data
@@ -175,23 +179,50 @@ public class SaveManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Prepare save data in a format that SceneTransitionManager can use for restoration
+    /// FIXED: Prepare save data in a format that SceneTransitionManager can use for restoration
+    /// The key fix: We need to rebuild PlayerPersistentData from the custom data in PlayerSaveData
     /// </summary>
     private Dictionary<string, object> PrepareSaveDataForTransition()
     {
         var transitionData = new Dictionary<string, object>();
 
-        // Add player data
-        if (currentSaveData.playerPersistentData != null)
+        // CRITICAL FIX: Rebuild PlayerPersistentData from the loaded save data
+        if (currentSaveData.playersaveData != null)
         {
-            transitionData["playerPersistentData"] = currentSaveData.playerPersistentData;
+            DebugLog("REBUILDING PlayerPersistentData from loaded save data...");
+
+            // Create new PlayerPersistentData
+            var rebuiltPersistentData = new PlayerPersistentData();
+
+            // Copy basic stats
+            rebuiltPersistentData.currentHealth = currentSaveData.playersaveData.currentHealth;
+            rebuiltPersistentData.canJump = currentSaveData.playersaveData.canJump;
+            rebuiltPersistentData.canSprint = currentSaveData.playersaveData.canSprint;
+            rebuiltPersistentData.canCrouch = currentSaveData.playersaveData.canCrouch;
+
+            // CRITICAL: Copy all component data from PlayerSaveData.customStats to PlayerPersistentData.componentData
+            foreach (string componentKey in currentSaveData.playersaveData.GetCustomDataKeys())
+            {
+                var componentData = currentSaveData.playersaveData.GetCustomData<object>(componentKey);
+                if (componentData != null)
+                {
+                    rebuiltPersistentData.SetComponentData(componentKey, componentData);
+                    DebugLog($"Rebuilt component data for {componentKey}: {componentData.GetType().Name}");
+                }
+            }
+
+            DebugLog($"Rebuilt PlayerPersistentData with {rebuiltPersistentData.ComponentDataCount} component entries");
+            transitionData["playerPersistentData"] = rebuiltPersistentData;
         }
 
+        // Add direct PlayerSaveData (contains position info)
         if (currentSaveData.playersaveData != null)
         {
             transitionData["playerSaveData"] = currentSaveData.playersaveData;
+            DebugLog($"Added PlayerSaveData with {currentSaveData.playersaveData.CustomDataCount} custom data entries");
         }
 
+        // Add position data
         if (currentSaveData.playerPositionData != null)
         {
             transitionData["playerPositionData"] = currentSaveData.playerPositionData;
@@ -218,7 +249,21 @@ public class SaveManager : MonoBehaviour
         try
         {
             currentSaveData = ES3.Load<GameSaveData>("gameData", saveFileName + ".es3");
+
+            // DEBUGGING: Log what we loaded
             DebugLog($"Save file loaded successfully - Scene: {currentSaveData.currentScene}");
+            DebugLog($"Loaded player health: {currentSaveData.playersaveData?.currentHealth ?? 0}");
+            DebugLog($"Loaded custom data entries: {currentSaveData.playersaveData?.CustomDataCount ?? 0}");
+
+            if (currentSaveData.playersaveData != null)
+            {
+                foreach (string key in currentSaveData.playersaveData.GetCustomDataKeys())
+                {
+                    var data = currentSaveData.playersaveData.GetCustomData<object>(key);
+                    DebugLog($"  Loaded custom data - {key}: {data?.GetType().Name ?? "null"}");
+                }
+            }
+
             return true;
         }
         catch (System.Exception e)

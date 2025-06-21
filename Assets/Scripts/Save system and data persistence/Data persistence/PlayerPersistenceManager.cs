@@ -271,7 +271,7 @@ public class PlayerPersistenceManager : MonoBehaviour
             }
         }
 
-        // PRIORITY 2: Check for PlayerPersistentData - using new MODULAR APPROACH
+        // PRIORITY 2: Check for PlayerPersistentData - MODULAR APPROACH
         if (saveData.ContainsKey("playerPersistentData"))
         {
             var persistentData = saveData["playerPersistentData"] as PlayerPersistentData;
@@ -295,42 +295,43 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     /// <summary>
     /// MODULAR: Extract data for a specific component from PlayerPersistentData
-    /// Uses the new interface system - no more hardcoded switch statements!
+    /// Now only uses the enhanced interface - no legacy fallback needed
     /// </summary>
     private object ExtractFromPlayerPersistentDataModular(ISaveable saveable, PlayerPersistentData persistentData)
     {
         if (persistentData == null) return null;
 
-        // ENHANCED: Use the new interface if available
+        // Use the enhanced interface - all components should implement this now
         if (saveable is IPlayerDependentSaveable enhancedSaveable)
         {
             DebugLog($"Using enhanced extraction for {saveable.SaveID}");
             return enhancedSaveable.ExtractFromUnifiedSave(persistentData);
         }
 
-        // FALLBACK: Legacy extraction using ExtractRelevantData
-        DebugLog($"Using legacy extraction for {saveable.SaveID}");
+        // If we reach here, the component hasn't been updated to the new interface
+        Debug.LogError($"Component {saveable.SaveID} ({saveable.GetType().Name}) doesn't implement IPlayerDependentSaveable! Please update it to use the modular interface.");
+
+        // Try fallback to ExtractRelevantData as last resort
+        DebugLog($"Attempting fallback extraction for {saveable.SaveID}");
         return saveable.ExtractRelevantData(persistentData);
     }
 
     /// <summary>
     /// MODULAR: Create default data for a component (new game initialization)
-    /// Uses the new interface system - no more hardcoded switch statements!
+    /// Now only uses the enhanced interface - no legacy fallbacks needed
     /// </summary>
     private object CreateDefaultDataForComponent(ISaveable saveable)
     {
-        // ENHANCED: Use the new interface if available
+        // Use the enhanced interface - all components should implement this now
         if (saveable is IPlayerDependentSaveable enhancedSaveable)
         {
             DebugLog($"Using enhanced default data creation for {saveable.SaveID}");
             return enhancedSaveable.CreateDefaultData();
         }
-        else
-        {
-            DebugLog($"No default data creation for component: {saveable.SaveID} as it does not implement IPlayerDependentSaveable");
-            return null;
-        }
 
+        // If we reach here, the component hasn't been updated to the new interface
+        Debug.LogError($"Component {saveable.SaveID} ({saveable.GetType().Name}) doesn't implement IPlayerDependentSaveable! Please update it to use the modular interface.");
+        return null;
     }
 
     /// <summary>
@@ -367,11 +368,11 @@ public class PlayerPersistenceManager : MonoBehaviour
 
     /// <summary>
     /// MODULAR: Helper method to let save components contribute to the unified save data
-    /// Uses the new interface system - no more hardcoded switch statements!
+    /// Now only uses the enhanced interface - no legacy fallbacks needed
     /// </summary>
     private void ContributeToSaveDataModular(ISaveable saveable, object data, PlayerPersistentData saveData)
     {
-        // ENHANCED: Use the new interface if available
+        // Use the enhanced interface - all components should implement this now
         if (saveable is IPlayerDependentSaveable enhancedSaveable)
         {
             DebugLog($"Using enhanced contribution for {saveable.SaveID}");
@@ -379,6 +380,12 @@ public class PlayerPersistenceManager : MonoBehaviour
             return;
         }
 
+        // If we reach here, the component hasn't been updated to the new interface
+        Debug.LogError($"Component {saveable.SaveID} ({saveable.GetType().Name}) doesn't implement IPlayerDependentSaveable! Please update it to use the modular interface.");
+
+        // Fallback: Store in dynamic storage
+        DebugLog($"Using fallback dynamic storage for {saveable.SaveID}");
+        saveData.SetComponentData(saveable.SaveID, data);
     }
 
     /// <summary>
