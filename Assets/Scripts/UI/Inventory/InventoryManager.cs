@@ -105,15 +105,35 @@ public class InventoryManager : MonoBehaviour
     /// </summary>
     public bool RemoveItem(string itemId)
     {
-        if (inventoryData.RemoveItem(itemId))
+        Debug.Log($"[InventoryManager] RemoveItem called for: {itemId}");
+
+        // Check if item exists
+        var item = inventoryData.GetItem(itemId);
+        if (item == null)
         {
+            Debug.LogWarning($"[InventoryManager] RemoveItem failed: Item {itemId} not found in inventory");
+            return false;
+        }
+
+        Debug.Log($"[InventoryManager] Found item {itemId} ({item.ItemData?.itemName}) at position {item.GridPosition}");
+
+        // Attempt removal
+        bool success = inventoryData.RemoveItem(itemId);
+
+        if (success)
+        {
+            Debug.Log($"[InventoryManager] Successfully removed {itemId} from inventory grid");
             OnItemRemoved?.Invoke(itemId);
             OnInventoryDataChanged?.Invoke(inventoryData);
+            Debug.Log($"[InventoryManager] Events fired for item removal: {itemId}");
             return true;
         }
-        return false;
+        else
+        {
+            Debug.LogError($"[InventoryManager] Failed to remove {itemId} from inventory grid - item may not exist in grid");
+            return false;
+        }
     }
-
     /// <summary>
     /// Moves an item to a new grid position with collision validation.
     /// Temporarily removes item to test placement, then restores if invalid.

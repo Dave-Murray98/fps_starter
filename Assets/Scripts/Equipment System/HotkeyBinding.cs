@@ -145,7 +145,7 @@ public class HotkeyBinding
     /// </summary>
     public bool RemoveItem(string itemIdToRemove)
     {
-        Debug.Log($"Hotkey {slotNumber}: Removing {itemIdToRemove} from {itemDataName} stack");
+        //        Debug.Log($"Hotkey {slotNumber}: Removing {itemIdToRemove} from {itemDataName} stack");
 
         bool removed = stackedItemIds.Remove(itemIdToRemove);
 

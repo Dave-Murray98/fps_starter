@@ -183,10 +183,10 @@ public class InventoryItemVisualRenderer : MonoBehaviour
     {
         if (hotkeyIndicator != null)
             hotkeyIndicator.RefreshDisplay();
-        else
-        {
-            Debug.Log("InventoryItemVisualRenderer.RefreshHotkeyIndicatorVisuals: No hotkey indicator found");
-        }
+        // else
+        // {
+        //     Debug.Log("InventoryItemVisualRenderer.RefreshHotkeyIndicatorVisuals: No hotkey indicator found");
+        // }
     }
 
     private void RefreshImageAndHotkeyIndicatorVisuals()

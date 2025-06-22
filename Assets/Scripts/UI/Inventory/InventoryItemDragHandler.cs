@@ -4,8 +4,8 @@ using UnityEngine.EventSystems;
 using DG.Tweening;
 
 /// <summary>
-/// Enhanced drag handler with stats display integration and drop-outside-inventory functionality
-/// UPDATED: Now triggers stats display on click/drag and handles dropping outside inventory
+/// PHASE 2 UPDATE: Enhanced drag handler with comprehensive clothing slot integration
+/// Now properly detects and handles drag operations over clothing slots with visual feedback
 /// </summary>
 public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
@@ -212,6 +212,9 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         transform.SetAsLastSibling();
     }
 
+    /// <summary>
+    /// PHASE 2: Enhanced drag detection to support clothing slot drops
+    /// </summary>
     public void OnDrag(PointerEventData eventData)
     {
         if (eventData.button != PointerEventData.InputButton.Left)
@@ -222,31 +225,81 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         // Move the visual with the mouse
         rectTransform.localPosition += (Vector3)(eventData.delta / canvas.scaleFactor);
 
-        // NEW: Check if we're outside inventory bounds
-        CheckIfOutsideInventoryBounds();
+        // Check if we're over a clothing slot or over inventory
+        CheckDragOverTargets(eventData);
 
-        // Get grid position under mouse
-        Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
-
-        // Create temporary item for testing position
-        var tempItem = new InventoryItemData(itemData.ID + "_temp", itemData.ItemData, gridPos);
-        tempItem.SetRotation(itemData.currentRotation);
-
-        bool isValid = !isDraggedOutsideInventory && gridVisual.GridData.IsValidPosition(gridPos, tempItem);
-
-        // Show placement preview
-        if (!isDraggedOutsideInventory)
+        // PHASE 2: Only show inventory preview if we're not over a clothing slot
+        if (!isDraggedOutsideInventory && !IsOverClothingSlot(eventData))
         {
+            // Get grid position under mouse for inventory preview
+            Vector2Int gridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
+
+            // Create temporary item for testing position
+            var tempItem = new InventoryItemData(itemData.ID + "_temp", itemData.ItemData, gridPos);
+            tempItem.SetRotation(itemData.currentRotation);
+
+            bool isValid = gridVisual.GridData.IsValidPosition(gridPos, tempItem);
             gridVisual.ShowPlacementPreview(gridPos, tempItem, isValid);
+            wasValidPlacement = isValid;
         }
         else
         {
+            // Clear inventory preview when over clothing slots or outside inventory
             gridVisual.ClearPlacementPreview();
+            wasValidPlacement = false;
         }
-
-        wasValidPlacement = isValid;
     }
 
+    /// <summary>
+    /// PHASE 2: Check what we're dragging over and provide appropriate feedback
+    /// </summary>
+    private void CheckDragOverTargets(PointerEventData eventData)
+    {
+        // First check if we're outside inventory bounds
+        CheckIfOutsideInventoryBounds();
+
+        // If we're outside inventory, we might be over clothing slots
+        if (isDraggedOutsideInventory)
+        {
+            // Check if we're over a clothing slot
+            if (IsOverClothingSlot(eventData))
+            {
+                // Clothing slot will handle its own visual feedback
+                // We just need to ensure inventory preview is cleared
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// PHASE 2: Check if the drag is over a valid clothing slot
+    /// </summary>
+    private bool IsOverClothingSlot(PointerEventData eventData)
+    {
+        // Check if we're over any clothing slot UI
+        var clothingSlotUI = GetClothingSlotUnderMouse(eventData);
+        return clothingSlotUI != null && CanEquipToClothingSlot(clothingSlotUI);
+    }
+
+    /// <summary>
+    /// PHASE 2: Get the clothing slot UI under the mouse cursor using helper
+    /// </summary>
+    private ClothingSlotUI GetClothingSlotUnderMouse(PointerEventData eventData)
+    {
+        return ClothingDragDropHelper.GetClothingSlotUnderPointer(eventData);
+    }
+
+    /// <summary>
+    /// PHASE 2: Check if the current item can be equipped to the specified clothing slot using helper
+    /// </summary>
+    private bool CanEquipToClothingSlot(ClothingSlotUI clothingSlot)
+    {
+        return ClothingDragDropHelper.CanEquipToSlot(itemData, clothingSlot);
+    }
+
+    /// <summary>
+    /// PHASE 2: Enhanced end drag handling with clothing slot drop detection
+    /// </summary>
     public void OnEndDrag(PointerEventData eventData)
     {
         if (eventData.button != PointerEventData.InputButton.Left)
@@ -257,13 +310,33 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         isDragging = false;
         canvasGroup.alpha = 1f;
 
-        // NEW: Handle drop outside inventory
+        // PHASE 2: Check if we dropped on a clothing slot
+        var droppedOnClothingSlot = GetClothingSlotUnderMouse(eventData);
+        if (droppedOnClothingSlot != null && CanEquipToClothingSlot(droppedOnClothingSlot))
+        {
+            Debug.Log($"[DragHandler] Dropped {itemData.ItemData?.itemName} on clothing slot {droppedOnClothingSlot.TargetLayer}");
+
+            // Let the clothing slot handle the drop - it will call back to the clothing manager
+            // We just need to ensure the item gets back to its original state if the drop fails
+
+            // The clothing slot's OnDrop method will handle the actual equipment
+            // If it succeeds, the item will be removed from inventory automatically
+            // If it fails, we need to revert to original position
+
+            // We'll let the clothing slot's drop handler manage this completely
+            // and just clear our preview
+            gridVisual.ClearPlacementPreview();
+            return;
+        }
+
+        // PHASE 2: Handle drop outside inventory (existing behavior)
         if (isDraggedOutsideInventory)
         {
             HandleDropOutsideInventory();
             return;
         }
 
+        // Original inventory placement logic
         Vector2Int targetGridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
 
         if (wasValidPlacement)
@@ -667,7 +740,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     }
 
     /// <summary>
-    /// Equips the item to the specified clothing layer
+    /// ENHANCED: Equips the item to the specified clothing layer with improved error handling
     /// </summary>
     private void WearInSlot(ClothingLayer targetLayer)
     {
@@ -685,6 +758,27 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
 
         Debug.Log($"Equipping {itemData.ItemData.itemName} to {targetLayer}");
 
+        // PHASE 1: Use enhanced validation
+        var validation = ClothingInventoryUtilities.ValidateClothingEquip(itemData, targetLayer);
+        if (!validation.IsValid)
+        {
+            Debug.LogWarning($"Cannot equip {itemData.ItemData.itemName} to {targetLayer}: {validation.Message}");
+            return;
+        }
+
+        // Check for swap scenario and validate
+        var slot = ClothingManager.Instance.GetSlot(targetLayer);
+        if (slot != null && !slot.IsEmpty)
+        {
+            var swapValidation = ClothingInventoryUtilities.ValidateSwapOperation(itemData, targetLayer);
+            if (!swapValidation.IsValid)
+            {
+                Debug.LogWarning($"Cannot swap {itemData.ItemData.itemName}: {swapValidation.Message}");
+                return;
+            }
+        }
+
+        // Attempt to equip with enhanced system
         bool success = ClothingManager.Instance.EquipItemToLayer(itemData.ID, targetLayer);
         if (success)
         {

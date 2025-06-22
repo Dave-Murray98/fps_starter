@@ -149,7 +149,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   saveFileName: GameSave
-  showDebugLogs: 1
+  showDebugLogs: 0
   itemDataPath: Data/Items/
 --- !u!4 &94847456
 Transform:
@@ -882,7 +882,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a25a136db20da054185d806464d0e234, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!4 &748011756
 Transform:
   m_ObjectHideFlags: 0
@@ -1075,7 +1075,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f04ffbbda60b09c4c9d08cd806f177de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!4 &1070227893
 Transform:
   m_ObjectHideFlags: 0
@@ -1470,7 +1470,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   minLoadingTime: 1
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!4 &1497029598
 Transform:
   m_ObjectHideFlags: 0
@@ -2064,6 +2064,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5b7efca451cac134ca786d79ab57a904, type: 2}
   - {fileID: 11400000, guid: 6132496edea20744ea16347c695d1195, type: 2}
   - {fileID: 11400000, guid: 59bff772d251af141b774e9b6bfe9e8c, type: 2}
+  - {fileID: 11400000, guid: db630477b7311fa45baf9b59852c5a1d, type: 2}
 --- !u!1 &2133065632
 GameObject:
   m_ObjectHideFlags: 0

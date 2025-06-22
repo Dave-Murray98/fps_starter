@@ -5,8 +5,8 @@ using Sirenix.OdinInspector;
 
 /// <summary>
 /// Core clothing system manager handling equipment, stats, and UI coordination.
-/// Follows the same patterns as InventoryManager for consistency and modularity.
-/// Persists across scenes and fires events for UI synchronization.
+/// PHASE 1 ENHANCEMENT: Now properly removes items from inventory when equipped,
+/// handles swapping with validation, and returns items to inventory when unequipped.
 /// </summary>
 public class ClothingManager : MonoBehaviour
 {
@@ -23,6 +23,9 @@ public class ClothingManager : MonoBehaviour
     public event Action<ClothingSlot, string> OnItemUnequipped;
     public event Action<string, float> OnClothingConditionChanged;
     public event Action OnClothingDataChanged;
+
+    // NEW: Events for swap operations
+    public event Action<ClothingSlot, string, string> OnItemSwapped; // slot, oldItemId, newItemId
 
     // Cached stats for performance
     private float cachedTotalDefense = 0f;
@@ -89,7 +92,8 @@ public class ClothingManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Equips an item from inventory to the specified clothing layer
+    /// ENHANCED: Equips an item from inventory to the specified clothing layer.
+    /// Now properly removes item from inventory and handles swapping with validation.
     /// </summary>
     public bool EquipItemToLayer(string itemId, ClothingLayer targetLayer)
     {
@@ -99,6 +103,7 @@ public class ClothingManager : MonoBehaviour
             return false;
         }
 
+        // Get the item from inventory
         var item = InventoryManager.Instance.InventoryData.GetItem(itemId);
         if (item == null)
         {
@@ -106,22 +111,9 @@ public class ClothingManager : MonoBehaviour
             return false;
         }
 
-        if (item.ItemData?.itemType != ItemType.Clothing)
+        // Validate item type and compatibility
+        if (!ValidateItemForEquipping(item, targetLayer))
         {
-            DebugLog($"Cannot equip item {itemId} - not a clothing item");
-            return false;
-        }
-
-        var clothingData = item.ItemData.ClothingData;
-        if (clothingData == null)
-        {
-            DebugLog($"Cannot equip item {itemId} - no clothing data");
-            return false;
-        }
-
-        if (!clothingData.CanEquipToLayer(targetLayer))
-        {
-            DebugLog($"Cannot equip {item.ItemData.itemName} to layer {targetLayer} - not compatible");
             return false;
         }
 
@@ -132,35 +124,372 @@ public class ClothingManager : MonoBehaviour
             return false;
         }
 
-        // Handle slot swapping if occupied
-        string previousItemId = null;
-        if (targetSlot.IsOccupied)
+        // Handle different scenarios: empty slot vs occupied slot
+        if (targetSlot.IsEmpty)
         {
-            previousItemId = targetSlot.UnequipItem();
-            DebugLog($"Unequipped {previousItemId} from {targetLayer} for swapping");
+            return EquipToEmptySlot(item, targetSlot);
+        }
+        else
+        {
+            return EquipWithSwap(item, targetSlot);
+        }
+    }
+
+    /// <summary>
+    /// NEW: Validates that an item can be equipped to the target layer
+    /// </summary>
+    private bool ValidateItemForEquipping(InventoryItemData item, ClothingLayer targetLayer)
+    {
+        if (item.ItemData?.itemType != ItemType.Clothing)
+        {
+            DebugLog($"Cannot equip item {item.ID} - not a clothing item");
+            return false;
         }
 
-        // Equip the new item
-        targetSlot.EquipItem(itemId);
-        InvalidateStatsCache();
-
-        // Fire events
-        OnItemEquipped?.Invoke(targetSlot, item);
-        OnClothingDataChanged?.Invoke();
-
-        DebugLog($"Equipped {item.ItemData.itemName} to {targetLayer}");
-
-        // If there was a previous item, it stays in inventory (swap behavior)
-        if (!string.IsNullOrEmpty(previousItemId))
+        var clothingData = item.ItemData.ClothingData;
+        if (clothingData == null)
         {
-            DebugLog($"Swapped items - {previousItemId} returned to inventory");
+            DebugLog($"Cannot equip item {item.ID} - no clothing data");
+            return false;
+        }
+
+        if (!clothingData.CanEquipToLayer(targetLayer))
+        {
+            DebugLog($"Cannot equip {item.ItemData.itemName} to layer {targetLayer} - not compatible");
+            return false;
         }
 
         return true;
     }
 
     /// <summary>
-    /// Unequips an item from the specified layer, returning it to inventory
+    /// NEW: Equips item to an empty slot (simple case)
+    /// </summary>
+    private bool EquipToEmptySlot(InventoryItemData item, ClothingSlot targetSlot)
+    {
+        // Remove from inventory first
+        if (!InventoryManager.Instance.RemoveItem(item.ID))
+        {
+            DebugLog($"Failed to remove item {item.ID} from inventory");
+            return false;
+        }
+
+        // FIXED: Equip to slot with ItemData reference
+        targetSlot.EquipItem(item.ID, item.ItemData);
+        InvalidateStatsCache();
+
+        // Fire events
+        OnItemEquipped?.Invoke(targetSlot, item);
+        OnClothingDataChanged?.Invoke();
+
+        DebugLog($"Equipped {item.ItemData.itemName} to {targetSlot.layer} (empty slot)");
+        return true;
+    }
+
+    /// <summary>
+    /// ENHANCED: Equips item with swapping logic - validates inventory space first
+    /// Added comprehensive pre-validation to prevent failures
+    /// </summary>
+    private bool EquipWithSwap(InventoryItemData newItem, ClothingSlot targetSlot)
+    {
+        string currentItemId = targetSlot.equippedItemId;
+
+        DebugLog($"Attempting to swap {newItem.ItemData.itemName} with currently equipped item in {targetSlot.layer}");
+
+        // FIXED: Get the currently equipped item data from the slot
+        var currentItemData = targetSlot.GetEquippedItemData();
+        if (currentItemData == null)
+        {
+            DebugLog($"Warning: Currently equipped item {currentItemId} has no ItemData - treating as empty slot");
+            return EquipToEmptySlot(newItem, targetSlot);
+        }
+
+        // Pre-validation: Check all conditions before attempting swap
+        if (!PreValidateSwapOperation(newItem, currentItemData, targetSlot))
+        {
+            return false;
+        }
+
+        // Perform the swap operation
+        return ExecuteSwapOperation(newItem, currentItemData, targetSlot);
+    }
+
+    /// <summary>
+    /// NEW: Comprehensive pre-validation for swap operations
+    /// </summary>
+    private bool PreValidateSwapOperation(InventoryItemData newItem, ItemData currentItemData, ClothingSlot targetSlot)
+    {
+        // DEBUG: Log the complete state before validation
+        DebugSwapOperation(newItem.ID, targetSlot.layer);
+
+        // 1. Verify new item exists in inventory
+        var inventoryItem = InventoryManager.Instance.InventoryData.GetItem(newItem.ID);
+        if (inventoryItem == null)
+        {
+            DebugLog($"Pre-validation failed: Item {newItem.ID} not found in inventory");
+            return false;
+        }
+
+        // 2. Verify current item data is valid
+        if (currentItemData == null)
+        {
+            DebugLog($"Pre-validation failed: Current equipped item has no ItemData");
+            return false;
+        }
+
+        // 3. Check if inventory will have space for displaced item
+        if (!ValidateSwapInventorySpace(newItem.ID, currentItemData))
+        {
+            DebugLog($"Pre-validation failed: Insufficient inventory space for {currentItemData.itemName}");
+            return false;
+        }
+
+        // 4. Verify the new item can actually be equipped to this layer
+        if (newItem.ItemData?.ClothingData == null || !newItem.ItemData.ClothingData.CanEquipToLayer(targetSlot.layer))
+        {
+            DebugLog($"Pre-validation failed: {newItem.ItemData?.itemName} cannot be equipped to {targetSlot.layer}");
+            return false;
+        }
+
+        DebugLog($"Pre-validation passed for swap: {newItem.ItemData.itemName} <-> {currentItemData.itemName}");
+        return true;
+    }
+
+    /// <summary>
+    /// REFACTORED: Validates swap by checking if displaced item can fit in the same space
+    /// Now implements "same-space swap" - displaced item goes to the exact position of the new item
+    /// </summary>
+    private bool ValidateSwapInventorySpace(string itemToRemoveId, ItemData itemToAdd)
+    {
+        var inventory = InventoryManager.Instance;
+
+        // Get the item that we plan to remove from inventory (the one being equipped)
+        var itemToRemove = inventory.InventoryData.GetItem(itemToRemoveId);
+        if (itemToRemove == null)
+        {
+            DebugLog($"Item {itemToRemoveId} not found in inventory for swap validation");
+            return false;
+        }
+
+        // Store the original position and rotation of the item being equipped
+        Vector2Int originalPosition = itemToRemove.GridPosition;
+        int originalRotation = itemToRemove.currentRotation;
+
+        DebugLog($"Validating same-space swap: {itemToAdd.itemName} -> position {originalPosition} (rotation {originalRotation})");
+
+        // Create a temporary test item for the displaced clothing at the original position
+        var tempDisplacedItem = new InventoryItemData("temp_displaced", itemToAdd, originalPosition);
+
+        // Try each possible rotation of the displaced item to see if it fits
+        int maxRotations = TetrominoDefinitions.GetRotationCount(tempDisplacedItem.shapeType);
+
+        for (int rotation = 0; rotation < maxRotations; rotation++)
+        {
+            tempDisplacedItem.SetRotation(rotation);
+
+            // Temporarily remove the original item to test if displaced item fits in its space
+            inventory.InventoryData.RemoveItem(itemToRemoveId);
+
+            // Test if the displaced item can fit at the original position with this rotation
+            bool canFitAtOriginalPosition = inventory.InventoryData.IsValidPosition(originalPosition, tempDisplacedItem);
+
+            // Restore the original item
+            itemToRemove.SetRotation(originalRotation); // Ensure original rotation is preserved
+            inventory.InventoryData.PlaceItem(itemToRemove);
+
+            if (canFitAtOriginalPosition)
+            {
+                DebugLog($"Same-space swap validated: {itemToAdd.itemName} can fit at position {originalPosition} with rotation {rotation}");
+                return true;
+            }
+        }
+
+        DebugLog($"Same-space swap failed: {itemToAdd.itemName} cannot fit at position {originalPosition} with any rotation");
+        return false;
+    }
+
+    /// <summary>
+    /// REFACTORED: Executes same-space swap operation
+    /// The displaced item goes exactly where the new item was in inventory
+    /// </summary>
+    private bool ExecuteSwapOperation(InventoryItemData newItem, ItemData currentItemData, ClothingSlot targetSlot)
+    {
+        string newItemId = newItem.ID;
+        string currentItemId = targetSlot.equippedItemId;
+
+        DebugLog($"Executing same-space swap: {newItem.ItemData.itemName} (from inventory) <-> {currentItemData.itemName} (from {targetSlot.layer})");
+
+        // Store the original position and rotation where the new item was located
+        Vector2Int originalPosition = newItem.GridPosition;
+        int originalRotation = newItem.currentRotation;
+
+        DebugLog($"Original inventory position: {originalPosition}, rotation: {originalRotation}");
+
+        // Verify the new item is actually in inventory before trying to remove it
+        var inventoryItem = InventoryManager.Instance.InventoryData.GetItem(newItemId);
+        if (inventoryItem == null)
+        {
+            DebugLog($"Same-space swap failed: Item {newItemId} not found in inventory");
+            return false;
+        }
+
+        // Step 1: Remove new item from inventory
+        DebugLog($"Step 1: Removing {newItemId} from inventory position {originalPosition}");
+        if (!InventoryManager.Instance.RemoveItem(newItemId))
+        {
+            DebugLog($"Same-space swap failed: Could not remove {newItemId} from inventory");
+            return false;
+        }
+
+        // Step 2: Unequip current item from slot
+        DebugLog($"Step 2: Unequipping {currentItemId} from {targetSlot.layer}");
+        string unequippedItemId = targetSlot.UnequipItem();
+        if (unequippedItemId != currentItemId)
+        {
+            DebugLog($"Warning: Unequipped item ID mismatch. Expected: {currentItemId}, Got: {unequippedItemId}");
+        }
+
+        // Step 3: Equip new item to slot
+        DebugLog($"Step 3: Equipping {newItemId} to {targetSlot.layer}");
+        targetSlot.EquipItem(newItemId, newItem.ItemData);
+
+        // Step 4: Place displaced item at the exact same position with optimal rotation
+        DebugLog($"Step 4: Placing displaced item {currentItemData.itemName} at position {originalPosition}");
+        if (PlaceDisplacedItemAtOriginalPosition(currentItemData, originalPosition))
+        {
+            // Success! Complete the swap
+            InvalidateStatsCache();
+
+            // Fire events
+            OnItemSwapped?.Invoke(targetSlot, currentItemId, newItemId);
+            OnItemEquipped?.Invoke(targetSlot, newItem);
+            OnClothingDataChanged?.Invoke();
+
+            DebugLog($"Same-space swap completed successfully: {newItem.ItemData.itemName} equipped to {targetSlot.layer}, {currentItemData.itemName} placed at {originalPosition}");
+            return true;
+        }
+        else
+        {
+            // Rollback: swap failed to place displaced item at original position
+            DebugLog($"Same-space swap rollback: Failed to place {currentItemData.itemName} at original position {originalPosition}");
+
+            // Restore original equipped state
+            targetSlot.UnequipItem();
+            targetSlot.EquipItem(currentItemId, currentItemData);
+
+            // Return new item to inventory at original position
+            if (!InventoryManager.Instance.AddItem(newItem.ItemData, originalPosition))
+            {
+                // If exact position fails, try any position
+                if (!InventoryManager.Instance.AddItem(newItem.ItemData))
+                {
+                    DebugLog($"CRITICAL: Failed to restore {newItem.ItemData.itemName} to inventory during rollback!");
+                }
+            }
+            else
+            {
+                DebugLog($"Rollback successful: {newItem.ItemData.itemName} returned to original position {originalPosition}");
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// NEW: Places the displaced item at the original position with the best fitting rotation
+    /// </summary>
+    private bool PlaceDisplacedItemAtOriginalPosition(ItemData displacedItemData, Vector2Int originalPosition)
+    {
+        var inventory = InventoryManager.Instance;
+
+        // Try to add the displaced item back to inventory at the original position
+        // The InventoryManager.AddItem method will handle rotation and placement validation
+        if (inventory.AddItem(displacedItemData, originalPosition))
+        {
+            DebugLog($"Successfully placed displaced item {displacedItemData.itemName} at original position {originalPosition}");
+            return true;
+        }
+
+        // If that fails, try without specifying position (let InventoryManager find best fit)
+        if (inventory.AddItem(displacedItemData))
+        {
+            DebugLog($"Placed displaced item {displacedItemData.itemName} at alternative position (original position occupied)");
+            return true;
+        }
+
+        DebugLog($"Failed to place displaced item {displacedItemData.itemName} anywhere in inventory");
+        return false;
+    }
+
+    /// <summary>
+    /// FIXED: Gets equipped item data by reconstructing it from ItemData
+    /// Since equipped items aren't in inventory, we need to recreate the data
+    /// </summary>
+    private InventoryItemData GetEquippedItemData(string equippedItemId)
+    {
+        var slot = GetSlotForItem(equippedItemId);
+        if (slot == null) return null;
+
+        // Try to get the equipped item through the slot's method
+        var equippedItem = slot.GetEquippedItem();
+        if (equippedItem != null)
+        {
+            return equippedItem;
+        }
+
+        // If that fails, we need to reconstruct the data
+        // This happens because equipped items are no longer in inventory
+        // We need to find the ItemData some other way
+
+        // For now, let's create a method to find ItemData by the equipped item ID
+        // The equipped item ID should contain information about the original item
+        var itemData = FindItemDataByEquippedId(equippedItemId);
+        if (itemData != null)
+        {
+            // Create new InventoryItemData for the equipped item
+            return new InventoryItemData(equippedItemId, itemData, Vector2Int.zero);
+        }
+
+        Debug.LogWarning($"Could not find ItemData for equipped item: {equippedItemId}");
+        return null;
+    }
+
+    /// <summary>
+    /// NEW: Find ItemData by equipped item ID
+    /// This is a workaround for the current system limitation
+    /// </summary>
+    private ItemData FindItemDataByEquippedId(string equippedItemId)
+    {
+        // Try to extract the original item name from the equipped item ID
+        // This assumes the equipped item ID is the same as the original inventory item ID
+
+        // First, try to find it in the save manager's item data path
+        string itemDataPath = SaveManager.Instance?.itemDataPath ?? "Data/Items/";
+
+        // Load all ItemData assets and search for a match
+        ItemData[] allItemData = Resources.FindObjectsOfTypeAll<ItemData>();
+
+        // For now, we'll try a simple approach - if the equipped item ID contains
+        // information about the original item, we can use that
+        // Otherwise, we might need to store more information about equipped items
+
+        foreach (var itemData in allItemData)
+        {
+            // This is a basic approach - you might need to adjust this based on
+            // how your item IDs are structured
+            if (equippedItemId.Contains(itemData.name) ||
+                itemData.name.Contains(equippedItemId.Replace("item_", "")))
+            {
+                return itemData;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// ENHANCED: Unequips an item from the specified layer and returns it to inventory
+    /// Now properly validates inventory space and handles failures gracefully
     /// </summary>
     public bool UnequipItemFromLayer(ClothingLayer layer)
     {
@@ -171,15 +500,103 @@ public class ClothingManager : MonoBehaviour
             return false;
         }
 
-        string itemId = slot.UnequipItem();
+        string itemId = slot.equippedItemId;
+        var equippedItem = slot.GetEquippedItem();
+
+        if (equippedItem?.ItemData == null)
+        {
+            DebugLog($"Cannot unequip {itemId} - item data not found");
+            return false;
+        }
+
+        // Check if inventory has space
+        if (!InventoryManager.Instance.HasSpaceForItem(equippedItem.ItemData))
+        {
+            DebugLog($"Cannot unequip {equippedItem.ItemData.itemName} - inventory full");
+            return false;
+        }
+
+        // Unequip from slot
+        slot.UnequipItem();
         InvalidateStatsCache();
 
-        // Fire events
-        OnItemUnequipped?.Invoke(slot, itemId);
-        OnClothingDataChanged?.Invoke();
+        // Add to inventory
+        if (InventoryManager.Instance.AddItem(equippedItem.ItemData))
+        {
+            // Success
+            OnItemUnequipped?.Invoke(slot, itemId);
+            OnClothingDataChanged?.Invoke();
 
-        DebugLog($"Unequipped item {itemId} from {layer}");
-        return true;
+            DebugLog($"Unequipped {equippedItem.ItemData.itemName} from {layer} and returned to inventory");
+            return true;
+        }
+        else
+        {
+            // Failed to add to inventory - restore to slot
+            slot.EquipItem(itemId);
+            InvalidateStatsCache();
+
+            DebugLog($"Failed to return {equippedItem.ItemData.itemName} to inventory - restored to slot");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// NEW: Attempts to unequip item and drop it in the world if inventory is full
+    /// </summary>
+    public bool UnequipAndDropItem(ClothingLayer layer)
+    {
+        var slot = GetSlot(layer);
+        if (slot == null || slot.IsEmpty)
+        {
+            DebugLog($"Cannot unequip from {layer} - slot empty or not found");
+            return false;
+        }
+
+        string itemId = slot.equippedItemId;
+        var equippedItem = slot.GetEquippedItem();
+
+        if (equippedItem?.ItemData == null)
+        {
+            DebugLog($"Cannot unequip {itemId} - item data not found");
+            return false;
+        }
+
+        // Try to return to inventory first
+        if (InventoryManager.Instance.HasSpaceForItem(equippedItem.ItemData))
+        {
+            return UnequipItemFromLayer(layer);
+        }
+
+        // If inventory is full, drop in world
+        if (!equippedItem.ItemData.CanDrop)
+        {
+            DebugLog($"Cannot drop {equippedItem.ItemData.itemName} - it's a key item");
+            return false;
+        }
+
+        // Unequip from slot
+        slot.UnequipItem();
+        InvalidateStatsCache();
+
+        // Drop in world using ItemDropSystem
+        if (ItemDropSystem.Instance != null && ItemDropSystem.Instance.DropItem(equippedItem.ItemData))
+        {
+            OnItemUnequipped?.Invoke(slot, itemId);
+            OnClothingDataChanged?.Invoke();
+
+            DebugLog($"Unequipped {equippedItem.ItemData.itemName} from {layer} and dropped in world (inventory full)");
+            return true;
+        }
+        else
+        {
+            // Failed to drop - restore to slot
+            slot.EquipItem(itemId);
+            InvalidateStatsCache();
+
+            DebugLog($"Failed to drop {equippedItem.ItemData.itemName} - restored to slot");
+            return false;
+        }
     }
 
     /// <summary>
@@ -435,6 +852,104 @@ public class ClothingManager : MonoBehaviour
         foreach (var slot in clothingSlots)
         {
             DebugLog(slot.GetDebugInfo());
+        }
+    }
+
+    [Button("Debug Complete System State")]
+    private void DebugCompleteSystemState()
+    {
+        DebugLog("=== COMPLETE CLOTHING SYSTEM DEBUG ===");
+
+        // Debug all clothing slots
+        foreach (var slot in clothingSlots)
+        {
+            DebugLog($"Slot {slot.layer}:");
+            DebugLog($"  IsEmpty: {slot.IsEmpty}");
+            DebugLog($"  EquippedItemId: {slot.equippedItemId}");
+
+            var itemData = slot.GetEquippedItemData();
+            if (itemData != null)
+            {
+                DebugLog($"  ItemData: {itemData.itemName}");
+                DebugLog($"  ItemType: {itemData.itemType}");
+            }
+            else
+            {
+                DebugLog($"  ItemData: NULL");
+            }
+
+            var inventoryItem = slot.GetEquippedItem();
+            if (inventoryItem != null)
+            {
+                DebugLog($"  InventoryItem: {inventoryItem.ItemData?.itemName}");
+            }
+            else
+            {
+                DebugLog($"  InventoryItem: NULL");
+            }
+        }
+
+        // Debug inventory state
+        if (InventoryManager.Instance != null)
+        {
+            var stats = InventoryManager.Instance.GetInventoryStats();
+            DebugLog($"\nInventory Stats: {stats.itemCount} items, {stats.occupiedCells}/{stats.totalCells} cells");
+
+            var allItems = InventoryManager.Instance.InventoryData.GetAllItems();
+            DebugLog("Items in inventory:");
+            foreach (var item in allItems)
+            {
+                DebugLog($"  {item.ID}: {item.ItemData?.itemName} at {item.GridPosition}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// NEW: Debug method specifically for swap operations
+    /// </summary>
+    public void DebugSwapOperation(string newItemId, ClothingLayer targetLayer)
+    {
+        DebugLog($"=== SWAP OPERATION DEBUG for {newItemId} -> {targetLayer} ===");
+
+        // Check inventory item
+        var inventoryItem = InventoryManager.Instance?.InventoryData.GetItem(newItemId);
+        if (inventoryItem != null)
+        {
+            DebugLog($"New item found in inventory: {inventoryItem.ItemData?.itemName} at {inventoryItem.GridPosition}");
+        }
+        else
+        {
+            DebugLog($"ERROR: New item {newItemId} NOT found in inventory!");
+        }
+
+        // Check target slot
+        var targetSlot = GetSlot(targetLayer);
+        if (targetSlot != null)
+        {
+            DebugLog($"Target slot {targetLayer}:");
+            DebugLog($"  IsEmpty: {targetSlot.IsEmpty}");
+            DebugLog($"  EquippedItemId: {targetSlot.equippedItemId}");
+
+            var currentItemData = targetSlot.GetEquippedItemData();
+            if (currentItemData != null)
+            {
+                DebugLog($"  Current ItemData: {currentItemData.itemName}");
+            }
+            else
+            {
+                DebugLog($"  Current ItemData: NULL");
+            }
+        }
+        else
+        {
+            DebugLog($"ERROR: Target slot {targetLayer} not found!");
+        }
+
+        // Check inventory space
+        if (inventoryItem?.ItemData != null && targetSlot?.GetEquippedItemData() != null)
+        {
+            bool hasSpace = InventoryManager.Instance.HasSpaceForItem(targetSlot.GetEquippedItemData());
+            DebugLog($"Inventory has space for displaced item: {hasSpace}");
         }
     }
 

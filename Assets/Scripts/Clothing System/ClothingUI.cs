@@ -20,8 +20,8 @@ public class ClothingUI : MonoBehaviour
     [SerializeField] private bool autoFindSlotUIs = true;
     [SerializeField] private GameObject slotUIPrefab;
 
-    [Header("Layout Settings")]
-    [SerializeField] private float slotSpacing = 10f;
+    // [Header("Layout Settings")]
+    // [SerializeField] private float slotSpacing = 10f;
 
     // Reference to clothing system
     private ClothingManager clothingManager;

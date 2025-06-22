@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Represents a single clothing slot where items can be equipped.
-/// Handles validation and state management for each equippable layer.
+/// FIXED: Enhanced ClothingSlot that properly stores equipped item data
+/// Now stores ItemData reference to fix display issues and swap validation
 /// </summary>
 [System.Serializable]
 public class ClothingSlot
@@ -17,6 +17,10 @@ public class ClothingSlot
     [Header("Current State")]
     [Tooltip("ID of the currently equipped item (empty if none)")]
     public string equippedItemId = "";
+
+    [Header("Equipped Item Data")]
+    [Tooltip("ItemData of the currently equipped item")]
+    [SerializeField] private ItemData equippedItemData;
 
     /// <summary>
     /// Checks if this slot is currently empty
@@ -36,6 +40,7 @@ public class ClothingSlot
         layer = slotLayer;
         displayName = GetDefaultDisplayName(slotLayer);
         equippedItemId = "";
+        equippedItemData = null;
     }
 
     /// <summary>
@@ -46,6 +51,7 @@ public class ClothingSlot
         layer = slotLayer;
         displayName = customDisplayName;
         equippedItemId = "";
+        equippedItemData = null;
     }
 
     /// <summary>
@@ -72,32 +78,51 @@ public class ClothingSlot
     }
 
     /// <summary>
-    /// Equips an item to this slot
+    /// ENHANCED: Equips an item to this slot and stores the ItemData reference
     /// </summary>
-    public void EquipItem(string itemId)
+    public void EquipItem(string itemId, ItemData itemData = null)
     {
         equippedItemId = itemId;
+
+        // Store the ItemData reference for proper UI display and validation
+        if (itemData != null)
+        {
+            equippedItemData = itemData;
+        }
+        else
+        {
+            // Try to find the ItemData if not provided
+            equippedItemData = FindItemDataById(itemId);
+        }
+
+        if (equippedItemData == null)
+        {
+            Debug.LogWarning($"Could not find ItemData for equipped item: {itemId}");
+        }
     }
 
     /// <summary>
-    /// Unequips the current item from this slot
+    /// ENHANCED: Unequips the current item from this slot and clears data
     /// </summary>
     public string UnequipItem()
     {
         string previousItemId = equippedItemId;
         equippedItemId = "";
+        equippedItemData = null;
         return previousItemId;
     }
 
     /// <summary>
-    /// Gets the currently equipped item from the inventory system
+    /// FIXED: Gets the currently equipped item data
+    /// Now creates proper InventoryItemData from stored references
     /// </summary>
     public InventoryItemData GetEquippedItem()
     {
-        if (IsEmpty || InventoryManager.Instance == null)
+        if (IsEmpty || equippedItemData == null)
             return null;
 
-        return InventoryManager.Instance.InventoryData.GetItem(equippedItemId);
+        // Create InventoryItemData from the stored ItemData
+        return new InventoryItemData(equippedItemId, equippedItemData, Vector2Int.zero);
     }
 
     /// <summary>
@@ -105,8 +130,10 @@ public class ClothingSlot
     /// </summary>
     public ClothingData GetEquippedClothingData()
     {
-        var equippedItem = GetEquippedItem();
-        return equippedItem?.ItemData?.ClothingData;
+        if (equippedItemData == null)
+            return null;
+
+        return equippedItemData.ClothingData;
     }
 
     /// <summary>
@@ -114,8 +141,10 @@ public class ClothingSlot
     /// </summary>
     public string GetEquippedItemDisplayName()
     {
-        var equippedItem = GetEquippedItem();
-        return equippedItem?.ItemData?.itemName ?? "Empty";
+        if (equippedItemData != null)
+            return equippedItemData.itemName;
+
+        return "Empty";
     }
 
     /// <summary>
@@ -134,6 +163,39 @@ public class ClothingSlot
     {
         var clothingData = GetEquippedClothingData();
         return clothingData?.IsDamaged ?? false;
+    }
+
+    /// <summary>
+    /// NEW: Gets the ItemData of the equipped item (for validation and display)
+    /// </summary>
+    public ItemData GetEquippedItemData()
+    {
+        return equippedItemData;
+    }
+
+    /// <summary>
+    /// NEW: Helper method to find ItemData by item ID
+    /// </summary>
+    private ItemData FindItemDataById(string itemId)
+    {
+        // First try to find it in Resources
+        string itemDataPath = SaveManager.Instance?.itemDataPath ?? "Data/Items/";
+
+        // Load all ItemData assets
+        ItemData[] allItemData = Resources.FindObjectsOfTypeAll<ItemData>();
+
+        foreach (var itemData in allItemData)
+        {
+            // Try different matching strategies
+            if (itemData.name == itemId ||
+                itemId.Contains(itemData.name) ||
+                itemData.name.Contains(itemId.Replace("item_", "")))
+            {
+                return itemData;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -181,10 +243,10 @@ public class ClothingSlot
     /// </summary>
     public ClothingSlot CreateCopy()
     {
-        return new ClothingSlot(layer, displayName)
-        {
-            equippedItemId = this.equippedItemId
-        };
+        var copy = new ClothingSlot(layer, displayName);
+        copy.equippedItemId = this.equippedItemId;
+        copy.equippedItemData = this.equippedItemData;
+        return copy;
     }
 
     /// <summary>
@@ -192,18 +254,19 @@ public class ClothingSlot
     /// </summary>
     public bool IsValid()
     {
-        // If we have an equipped item, verify it exists in inventory
-        if (IsOccupied && InventoryManager.Instance != null)
+        // If we have an equipped item, verify the data is consistent
+        if (IsOccupied)
         {
-            var item = InventoryManager.Instance.InventoryData.GetItem(equippedItemId);
-            if (item == null)
+            if (equippedItemData == null)
             {
-                Debug.LogWarning($"Clothing slot {layer} references non-existent item {equippedItemId}");
+                Debug.LogWarning($"Clothing slot {layer} has equipped item ID but no ItemData");
                 return false;
             }
 
             // Verify the item can actually be equipped to this slot
-            if (!CanEquip(item))
+            if (equippedItemData.itemType != ItemType.Clothing ||
+                equippedItemData.ClothingData == null ||
+                !equippedItemData.ClothingData.CanEquipToLayer(layer))
             {
                 Debug.LogWarning($"Item {equippedItemId} cannot be equipped to slot {layer}");
                 return false;
@@ -221,11 +284,8 @@ public class ClothingSlot
         if (IsEmpty)
             return $"{layer}: Empty";
 
-        var equippedItem = GetEquippedItem();
-        if (equippedItem == null)
-            return $"{layer}: {equippedItemId} (MISSING!)";
-
+        string itemName = equippedItemData?.itemName ?? "UNKNOWN";
         var condition = GetEquippedItemCondition();
-        return $"{layer}: {equippedItem.ItemData?.itemName} ({condition:P0} condition)";
+        return $"{layer}: {itemName} ({condition:P0} condition)";
     }
 }

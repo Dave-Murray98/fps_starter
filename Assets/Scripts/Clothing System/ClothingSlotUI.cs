@@ -5,11 +5,10 @@ using TMPro;
 using DG.Tweening;
 
 /// <summary>
-/// Individual clothing slot UI component that handles display and drag/drop interaction.
-/// Represents a single clothing layer where items can be equipped.
-/// Supports drag and drop from inventory and unequipping back to inventory.
+/// PHASE 2 ENHANCEMENT: Enhanced individual clothing slot UI component 
+/// Now supports full drag-and-drop functionality with visual feedback and validation
 /// </summary>
-public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IDragHandler, IBeginDragHandler, IEndDragHandler
 {
     [Header("UI Components")]
     [SerializeField] private Image backgroundImage;
@@ -33,6 +32,8 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     [Header("Animation Settings")]
     [SerializeField] private float hoverAnimationDuration = 0.2f;
     [SerializeField] private float equipAnimationDuration = 0.3f;
+    [SerializeField] private float errorShakeDuration = 0.5f;
+    [SerializeField] private float errorShakeStrength = 10f;
 
     // Configuration
     [SerializeField] private ClothingLayer targetLayer;
@@ -45,6 +46,9 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     // State
     private bool isHovering = false;
     private bool isDragOver = false;
+
+    // NEW: Error handling and feedback
+    private Tween currentAnimation;
 
     public ClothingLayer TargetLayer => targetLayer;
 
@@ -61,6 +65,42 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         if (!isInitialized)
         {
             Debug.LogWarning($"ClothingSlotUI {name} was not properly initialized!");
+        }
+
+        // Subscribe to clothing events for automatic updates
+        SubscribeToClothingEvents();
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeFromClothingEvents();
+    }
+
+    /// <summary>
+    /// NEW: Subscribe to clothing manager events for automatic UI updates
+    /// </summary>
+    private void SubscribeToClothingEvents()
+    {
+        if (clothingManager != null)
+        {
+            clothingManager.OnItemEquipped += OnItemEquipped;
+            clothingManager.OnItemUnequipped += OnItemUnequipped;
+            clothingManager.OnItemSwapped += OnItemSwapped;
+            clothingManager.OnClothingConditionChanged += OnConditionChanged;
+        }
+    }
+
+    /// <summary>
+    /// NEW: Unsubscribe from clothing manager events
+    /// </summary>
+    private void UnsubscribeFromClothingEvents()
+    {
+        if (clothingManager != null)
+        {
+            clothingManager.OnItemEquipped -= OnItemEquipped;
+            clothingManager.OnItemUnequipped -= OnItemUnequipped;
+            clothingManager.OnItemSwapped -= OnItemSwapped;
+            clothingManager.OnClothingConditionChanged -= OnConditionChanged;
         }
     }
 
@@ -342,7 +382,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         if (eventData.button == PointerEventData.InputButton.Right)
         {
             // Right click to unequip
-            UnequipItem();
+            TryUnequipItem();
         }
     }
 
@@ -352,7 +392,8 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
         if (backgroundImage != null)
         {
-            backgroundImage.DOColor(hoverColor, hoverAnimationDuration);
+            StopCurrentAnimation();
+            currentAnimation = backgroundImage.DOColor(hoverColor, hoverAnimationDuration);
         }
 
         // Could show tooltip here in the future
@@ -365,14 +406,18 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         if (!isDragOver && backgroundImage != null)
         {
             Color targetColor = GetCurrentTargetColor();
-            backgroundImage.DOColor(targetColor, hoverAnimationDuration);
+            StopCurrentAnimation();
+            currentAnimation = backgroundImage.DOColor(targetColor, hoverAnimationDuration);
         }
     }
 
-    public void OnDrop(PointerEventData eventData)
-    {
-        isDragOver = false;
+    #region Drag and Drop Implementation
 
+    /// <summary>
+    /// PHASE 2: Handle drag enter events for visual feedback
+    /// </summary>
+    public void OnDragEnter(PointerEventData eventData)
+    {
         var draggedObject = eventData.pointerDrag;
         if (draggedObject == null) return;
 
@@ -381,37 +426,193 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
         // Get the item data from the drag handler
         var itemData = GetItemDataFromDragHandler(dragHandler);
-        if (itemData == null || itemData.ItemData?.itemType != ItemType.Clothing)
+        if (itemData == null) return;
+
+        // Check if this is a valid drop target
+        bool isValidDrop = ValidateDropTarget(itemData);
+
+        // Set visual feedback
+        isDragOver = true;
+        SetDragOverVisualFeedback(isValidDrop);
+
+        DebugLog($"Drag entered clothing slot {targetLayer}: {(isValidDrop ? "Valid" : "Invalid")} drop for {itemData.ItemData?.itemName}");
+    }
+
+    /// <summary>
+    /// PHASE 2: Handle drag exit events
+    /// </summary>
+    public void OnDragExit(PointerEventData eventData)
+    {
+        isDragOver = false;
+        ClearDragOverVisualFeedback();
+
+        DebugLog($"Drag exited clothing slot {targetLayer}");
+    }
+
+    /// <summary>
+    /// PHASE 2: Enhanced drop handling with comprehensive validation and feedback
+    /// </summary>
+    public void OnDrop(PointerEventData eventData)
+    {
+        isDragOver = false;
+        ClearDragOverVisualFeedback();
+
+        var draggedObject = eventData.pointerDrag;
+        if (draggedObject == null)
         {
-            Debug.Log("Cannot equip - not a clothing item");
-            RefreshDisplay();
+            DebugLog("Drop failed: No dragged object");
             return;
+        }
+
+        var dragHandler = draggedObject.GetComponent<InventoryItemDragHandler>();
+        if (dragHandler == null)
+        {
+            DebugLog("Drop failed: No drag handler found");
+            return;
+        }
+
+        // Get the item data from the drag handler
+        var itemData = GetItemDataFromDragHandler(dragHandler);
+        if (itemData == null)
+        {
+            ShowErrorFeedback("No item data found");
+            return;
+        }
+
+        // Comprehensive drop validation
+        var validationResult = ValidateDropOperation(itemData);
+        if (!validationResult.IsValid)
+        {
+            ShowErrorFeedback(validationResult.Message);
+            return;
+        }
+
+        // Execute the drop operation
+        ExecuteDropOperation(itemData);
+    }
+
+    /// <summary>
+    /// PHASE 2: Validates if an item can be dropped on this clothing slot
+    /// </summary>
+    private ValidationResult ValidateDropOperation(InventoryItemData itemData)
+    {
+        // Basic item validation
+        if (itemData?.ItemData == null)
+        {
+            return new ValidationResult(false, "Invalid item data");
+        }
+
+        if (itemData.ItemData.itemType != ItemType.Clothing)
+        {
+            return new ValidationResult(false, "Not a clothing item");
         }
 
         var clothingData = itemData.ItemData.ClothingData;
-        if (clothingData == null || !clothingData.CanEquipToLayer(targetLayer))
+        if (clothingData == null)
         {
-            Debug.Log($"Cannot equip {itemData.ItemData.itemName} to {targetLayer} - not compatible");
-            RefreshDisplay();
-            return;
+            return new ValidationResult(false, "No clothing data found");
         }
 
-        // Equip the item
+        // Layer compatibility check
+        if (!clothingData.CanEquipToLayer(targetLayer))
+        {
+            string layerName = ClothingInventoryUtilities.GetShortLayerName(targetLayer);
+            return new ValidationResult(false, $"Cannot equip to {layerName}");
+        }
+
+        // Check for swap scenario if slot is occupied
+        if (!isInitialized || clothingManager == null)
+        {
+            return new ValidationResult(false, "Clothing system not initialized");
+        }
+
+        var slot = clothingManager.GetSlot(targetLayer);
+        if (slot == null)
+        {
+            return new ValidationResult(false, "Clothing slot not found");
+        }
+
+        // If slot is occupied, validate swap operation
+        if (!slot.IsEmpty)
+        {
+            var swapValidation = ClothingInventoryUtilities.ValidateSwapOperation(itemData, targetLayer);
+            if (!swapValidation.IsValid)
+            {
+                return new ValidationResult(false, $"Cannot swap: {swapValidation.Message}");
+            }
+        }
+
+        return new ValidationResult(true, "Drop operation valid");
+    }
+
+    /// <summary>
+    /// PHASE 2: Simple validation for drag-over visual feedback
+    /// </summary>
+    private bool ValidateDropTarget(InventoryItemData itemData)
+    {
+        if (itemData?.ItemData?.itemType != ItemType.Clothing)
+            return false;
+
+        var clothingData = itemData.ItemData.ClothingData;
+        if (clothingData == null)
+            return false;
+
+        return clothingData.CanEquipToLayer(targetLayer);
+    }
+
+    /// <summary>
+    /// PHASE 2: Executes the actual drop operation
+    /// </summary>
+    private void ExecuteDropOperation(InventoryItemData itemData)
+    {
+        DebugLog($"Executing drop operation: {itemData.ItemData.itemName} -> {targetLayer}");
+
+        // Use the enhanced clothing manager to handle the equipment
         bool success = clothingManager.EquipItemToLayer(itemData.ID, targetLayer);
+
         if (success)
         {
-            Debug.Log($"Successfully equipped {itemData.ItemData.itemName} to {targetLayer}");
+            DebugLog($"Successfully equipped {itemData.ItemData.itemName} to {targetLayer} via drag and drop");
+            ShowSuccessFeedback();
 
-            // Animate the equipping
-            AnimateItemEquipped();
+            // The inventory drag handler will handle cleaning up the drag state
+            // and the clothing system events will update our display
         }
         else
         {
-            Debug.LogWarning($"Failed to equip {itemData.ItemData.itemName} to {targetLayer}");
+            DebugLog($"Failed to equip {itemData.ItemData.itemName} to {targetLayer} via drag and drop");
+            ShowErrorFeedback("Equipment failed");
         }
-
-        RefreshDisplay();
     }
+
+    /// <summary>
+    /// PHASE 2: Set visual feedback during drag-over operations
+    /// </summary>
+    private void SetDragOverVisualFeedback(bool isValidDrop)
+    {
+        if (backgroundImage != null)
+        {
+            StopCurrentAnimation();
+
+            Color feedbackColor = isValidDrop ? validDropColor : invalidDropColor;
+            currentAnimation = backgroundImage.DOColor(feedbackColor, hoverAnimationDuration);
+        }
+    }
+
+    /// <summary>
+    /// PHASE 2: Clear drag-over visual feedback
+    /// </summary>
+    private void ClearDragOverVisualFeedback()
+    {
+        if (backgroundImage != null)
+        {
+            Color targetColor = GetCurrentTargetColor();
+            StopCurrentAnimation();
+            currentAnimation = backgroundImage.DOColor(targetColor, hoverAnimationDuration);
+        }
+    }
+
+    #endregion
 
     /// <summary>
     /// Get item data from drag handler using reflection
@@ -427,20 +628,98 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
     #endregion
 
+    #region User Feedback Methods
+
+    /// <summary>
+    /// NEW: Show visual feedback for successful operations
+    /// </summary>
+    private void ShowSuccessFeedback()
+    {
+        if (backgroundImage != null)
+        {
+            StopCurrentAnimation();
+
+            // Brief green flash
+            var originalColor = backgroundImage.color;
+            backgroundImage.color = validDropColor;
+
+            currentAnimation = backgroundImage.DOColor(originalColor, 0.3f).SetDelay(0.1f);
+        }
+    }
+
+    /// <summary>
+    /// NEW: Show visual feedback for failed operations
+    /// </summary>
+    private void ShowErrorFeedback(string message = "")
+    {
+        Debug.LogWarning($"ClothingSlotUI Error: {message}");
+
+        if (backgroundImage != null)
+        {
+            StopCurrentAnimation();
+
+            // Red flash and shake
+            var originalColor = backgroundImage.color;
+            var originalPosition = transform.localPosition;
+
+            // Color flash
+            backgroundImage.color = invalidDropColor;
+            backgroundImage.DOColor(originalColor, 0.3f);
+
+            // Shake animation
+            currentAnimation = transform.DOShakePosition(errorShakeDuration, errorShakeStrength, 10, 90, false, true)
+                .OnComplete(() => transform.localPosition = originalPosition);
+        }
+    }
+
+    /// <summary>
+    /// NEW: Stop any current animation to prevent conflicts
+    /// </summary>
+    private void StopCurrentAnimation()
+    {
+        if (currentAnimation != null && currentAnimation.IsActive())
+        {
+            currentAnimation.Kill();
+            currentAnimation = null;
+        }
+    }
+
+    #endregion
+
     #region Helper Methods
 
     /// <summary>
-    /// Unequip the currently equipped item
+    /// ENHANCED: Try to unequip item with better error handling and user feedback
     /// </summary>
-    private void UnequipItem()
+    private void TryUnequipItem()
     {
         if (!isInitialized || clothingManager == null) return;
+
+        var slot = clothingManager.GetSlot(targetLayer);
+        if (slot == null || slot.IsEmpty)
+        {
+            ShowErrorFeedback("No item equipped");
+            return;
+        }
+
+        // Check if inventory has space
+        var equippedItem = slot.GetEquippedItem();
+        if (equippedItem?.ItemData != null && !inventoryManager.HasSpaceForItem(equippedItem.ItemData))
+        {
+            ShowErrorFeedback("Inventory full");
+            return;
+        }
 
         bool success = clothingManager.UnequipItemFromLayer(targetLayer);
         if (success)
         {
             Debug.Log($"Unequipped item from {targetLayer}");
+            ShowSuccessFeedback();
             RefreshDisplay();
+        }
+        else
+        {
+            ShowErrorFeedback("Unequip failed");
         }
     }
 
@@ -471,7 +750,71 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
     #endregion
 
-    #region Debug
+    #region Clothing Event Handlers
+
+    /// <summary>
+    /// NEW: Handle item equipped events
+    /// </summary>
+    private void OnItemEquipped(ClothingSlot slot, InventoryItemData item)
+    {
+        if (slot.layer == targetLayer)
+        {
+            RefreshDisplay();
+            AnimateItemEquipped();
+        }
+    }
+
+    /// <summary>
+    /// NEW: Handle item unequipped events
+    /// </summary>
+    private void OnItemUnequipped(ClothingSlot slot, string itemId)
+    {
+        if (slot.layer == targetLayer)
+        {
+            RefreshDisplay();
+        }
+    }
+
+    /// <summary>
+    /// NEW: Handle item swapped events
+    /// </summary>
+    private void OnItemSwapped(ClothingSlot slot, string oldItemId, string newItemId)
+    {
+        if (slot.layer == targetLayer)
+        {
+            RefreshDisplay();
+            AnimateItemEquipped();
+        }
+    }
+
+    /// <summary>
+    /// NEW: Handle condition changes for equipped items
+    /// </summary>
+    private void OnConditionChanged(string itemId, float newCondition)
+    {
+        var slot = clothingManager?.GetSlot(targetLayer);
+        if (slot != null && slot.equippedItemId == itemId)
+        {
+            UpdateConditionBar(slot);
+        }
+    }
+
+    #region Additional Drag Event Handlers
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// PHASE 2: Debug logging helper
+    /// </summary>
+    private void DebugLog(string message)
+    {
+        Debug.Log($"[ClothingSlotUI:{targetLayer}] {message}");
+    }
+
+    #endregion
+
 
     /// <summary>
     /// Get debug information about this slot
@@ -484,6 +827,33 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         if (slot == null) return $"Slot[{targetLayer}]: No clothing slot found";
 
         return slot.GetDebugInfo();
+    }
+
+    /// <summary>
+    /// PHASE 2: Required by IDragHandler - not used for clothing slots but needed for interface
+    /// </summary>
+    public void OnDrag(PointerEventData eventData)
+    {
+        // Clothing slots don't initiate drags, only receive them
+        // This is required by IDragHandler interface but not used
+    }
+
+    /// <summary>
+    /// PHASE 2: Required by IBeginDragHandler - not used for clothing slots but needed for interface
+    /// </summary>
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        // Clothing slots don't initiate drags, only receive them
+        // This is required by IBeginDragHandler interface but not used
+    }
+
+    /// <summary>
+    /// PHASE 2: Required by IEndDragHandler - not used for clothing slots but needed for interface
+    /// </summary>
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        // Clothing slots don't initiate drags, only receive them
+        // This is required by IEndDragHandler interface but not used
     }
 
     #endregion
