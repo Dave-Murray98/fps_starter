@@ -50,7 +50,7 @@ public static class ClothingDragDropHelper
     }
 
     /// <summary>
-    /// Gets user-friendly feedback message for invalid drops
+    /// ENHANCED: Gets detailed user-friendly feedback message for invalid drops
     /// </summary>
     public static string GetDropErrorMessage(InventoryItemData itemData, ClothingSlotUI clothingSlot)
     {
@@ -58,16 +58,30 @@ public static class ClothingDragDropHelper
             return "Invalid item";
 
         if (itemData.ItemData.itemType != ItemType.Clothing)
-            return "Not a clothing item";
+        {
+            string itemTypeName = itemData.ItemData.itemType.ToString();
+            return $"{itemData.ItemData.itemName} is {itemTypeName}, not clothing";
+        }
 
         var clothingData = itemData.ItemData.ClothingData;
         if (clothingData == null)
-            return "No clothing data";
+            return $"{itemData.ItemData.itemName} has no clothing data";
 
         if (!clothingData.CanEquipToLayer(clothingSlot.TargetLayer))
         {
-            string layerName = ClothingInventoryUtilities.GetShortLayerName(clothingSlot.TargetLayer);
-            return $"Cannot equip to {layerName}";
+            string itemName = itemData.ItemData.itemName;
+            string targetSlotName = ClothingInventoryUtilities.GetFriendlyLayerName(clothingSlot.TargetLayer);
+
+            // Get valid layers for better error message
+            if (clothingData.validLayers != null && clothingData.validLayers.Length > 0)
+            {
+                string validLayersText = GetValidLayersDisplayText(clothingData.validLayers);
+                return $"{itemName} cannot be worn on {targetSlotName}. Can be worn on: {validLayersText}";
+            }
+            else
+            {
+                return $"{itemName} cannot be worn on {targetSlotName}";
+            }
         }
 
         return "Unknown error";
@@ -422,5 +436,82 @@ public static class ClothingDragDropHelper
         }
 
         Debug.Log("[ClothingDragDropHelper] Drag drop state reset");
+    }
+
+
+    /// <summary>
+    /// ENHANCED: Get formatted text for valid clothing layers
+    /// </summary>
+    private static string GetValidLayersDisplayText(ClothingLayer[] validLayers)
+    {
+        if (validLayers == null || validLayers.Length == 0)
+            return "nowhere";
+
+        string[] layerNames = new string[validLayers.Length];
+        for (int i = 0; i < validLayers.Length; i++)
+        {
+            layerNames[i] = ClothingInventoryUtilities.GetFriendlyLayerName(validLayers[i]);
+        }
+
+        if (layerNames.Length == 1)
+            return layerNames[0];
+        else if (layerNames.Length == 2)
+            return $"{layerNames[0]} or {layerNames[1]}";
+        else
+            return string.Join(", ", layerNames, 0, layerNames.Length - 1) + $", or {layerNames[layerNames.Length - 1]}";
+    }
+
+    /// <summary>
+    /// ENHANCED: Validates compatibility with detailed error information
+    /// </summary>
+    public static ValidationResult ValidateClothingDropWithDetails(InventoryItemData itemData, ClothingLayer targetLayer)
+    {
+        if (itemData?.ItemData == null)
+            return new ValidationResult(false, "No item data");
+
+        if (itemData.ItemData.itemType != ItemType.Clothing)
+        {
+            string itemTypeName = itemData.ItemData.itemType.ToString();
+            return new ValidationResult(false, $"{itemData.ItemData.itemName} is {itemTypeName}, not clothing");
+        }
+
+        var clothingData = itemData.ItemData.ClothingData;
+        if (clothingData == null)
+            return new ValidationResult(false, $"{itemData.ItemData.itemName} has no clothing data");
+
+        if (!clothingData.CanEquipToLayer(targetLayer))
+        {
+            string itemName = itemData.ItemData.itemName;
+            string targetSlotName = ClothingInventoryUtilities.GetFriendlyLayerName(targetLayer);
+            string validLayersText = GetValidLayersDisplayText(clothingData.validLayers);
+
+            return new ValidationResult(false, $"{itemName} cannot be worn on {targetSlotName}. Valid slots: {validLayersText}");
+        }
+
+        return new ValidationResult(true, "Valid clothing item for this slot");
+    }
+
+    /// <summary>
+    /// ENHANCED: Provides comprehensive rejection handling for invalid clothing drops
+    /// </summary>
+    public static bool HandleInvalidClothingDrop(InventoryItemData itemData, ClothingSlotUI clothingSlot)
+    {
+        if (itemData?.ItemData == null || clothingSlot == null)
+            return false;
+
+        // Get detailed validation result
+        var validationResult = ValidateClothingDropWithDetails(itemData, clothingSlot.TargetLayer);
+
+        Debug.LogWarning($"[ClothingDragDropHelper] Invalid drop rejected: {validationResult.Message}");
+
+        // Log additional context for debugging
+        if (itemData.ItemData.itemType == ItemType.Clothing && itemData.ItemData.ClothingData != null)
+        {
+            var validLayers = itemData.ItemData.ClothingData.validLayers;
+            string validLayersDebug = validLayers != null ? string.Join(", ", validLayers) : "None";
+            Debug.Log($"[ClothingDragDropHelper] Item {itemData.ItemData.itemName} valid layers: {validLayersDebug}, Target: {clothingSlot.TargetLayer}");
+        }
+
+        return false; // Always return false for invalid drops
     }
 }

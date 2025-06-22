@@ -279,7 +279,7 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     }
 
     /// <summary>
-    /// FIXED: Enhanced end drag handling with proper clothing slot detection
+    /// ENHANCED: End drag handling with comprehensive clothing slot validation and rejection
     /// </summary>
     public void OnEndDrag(PointerEventData eventData)
     {
@@ -294,63 +294,87 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         // Clear any clothing slot feedback
         ClothingSlotUI.ClearAllDragFeedback();
 
-        // FIXED: Check if we dropped on a clothing slot
+        // ENHANCED: Check if we dropped on a clothing slot with comprehensive validation
         var droppedOnClothingSlot = ClothingDragDropHelper.GetClothingSlotUnderPointer(eventData);
 
-        if (droppedOnClothingSlot != null && ClothingDragDropHelper.CanEquipToSlot(itemData, droppedOnClothingSlot))
+        if (droppedOnClothingSlot != null)
         {
-            Debug.Log($"[DragHandler] Attempting to equip {itemData.ItemData?.itemName} to clothing slot {droppedOnClothingSlot.TargetLayer}");
-
-            // FIXED: Restore item to inventory first if it was removed during drag
-            if (itemRemovedFromGrid)
+            // Check if this is a valid clothing item for ANY clothing slot
+            if (itemData.ItemData?.itemType == ItemType.Clothing)
             {
-                itemData.SetGridPosition(originalGridPosition);
-                itemData.SetRotation(originalRotation);
-
-                if (gridVisual.GridData.PlaceItem(itemData))
+                // Check if it can be equipped to THIS specific slot
+                if (ClothingDragDropHelper.CanEquipToSlot(itemData, droppedOnClothingSlot))
                 {
-                    itemRemovedFromGrid = false;
-                    Debug.Log($"[DragHandler] Restored item {itemData.ID} to inventory before equipment");
+                    Debug.Log($"[DragHandler] Attempting to equip {itemData.ItemData?.itemName} to clothing slot {droppedOnClothingSlot.TargetLayer}");
+
+                    // Restore item to inventory first if it was removed during drag
+                    if (itemRemovedFromGrid)
+                    {
+                        if (!RestoreItemToInventoryForEquipment())
+                        {
+                            RevertToOriginalState();
+                            return;
+                        }
+                    }
+
+                    // Attempt equipment
+                    bool success = ClothingDragDropHelper.HandleClothingSlotDrop(itemData, droppedOnClothingSlot);
+
+                    if (success)
+                    {
+                        Debug.Log($"[DragHandler] Successfully equipped {itemData.ItemData?.itemName} to {droppedOnClothingSlot.TargetLayer}");
+                        OnItemDeselected?.Invoke();
+                        // The clothing system will handle removing the item from inventory
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[DragHandler] Failed to equip {itemData.ItemData?.itemName} to {droppedOnClothingSlot.TargetLayer}");
+                        RevertToOriginalState();
+                    }
                 }
                 else
                 {
-                    Debug.LogError($"[DragHandler] Failed to restore item {itemData.ID} to inventory!");
-                    RevertToOriginalState();
-                    return;
+                    // ENHANCED: This is a clothing item but wrong slot - show detailed rejection
+                    var clothingData = itemData.ItemData.ClothingData;
+                    string itemName = itemData.ItemData.itemName;
+                    string targetSlotName = ClothingInventoryUtilities.GetFriendlyLayerName(droppedOnClothingSlot.TargetLayer);
+
+                    if (clothingData != null && clothingData.validLayers.Length > 0)
+                    {
+                        string validSlots = GetValidSlotsText(clothingData.validLayers);
+                        Debug.LogWarning($"[DragHandler] Invalid clothing slot: {itemName} cannot be worn on {targetSlotName}. Can be worn on: {validSlots}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[DragHandler] Invalid clothing slot: {itemName} cannot be worn on {targetSlotName}");
+                    }
+
+                    // Revert to original position with special rejection feedback
+                    RevertToOriginalStateWithRejectionFeedback();
                 }
-            }
-
-            // Now attempt to equip using the helper
-            bool success = ClothingDragDropHelper.HandleClothingSlotDrop(itemData, droppedOnClothingSlot);
-
-            if (success)
-            {
-                Debug.Log($"[DragHandler] Successfully equipped {itemData.ItemData?.itemName} to {droppedOnClothingSlot.TargetLayer}");
-
-                // Clear stats display since item is no longer in inventory
-                OnItemDeselected?.Invoke();
-
-                // The clothing system will handle removing the item from inventory
-                // and the visual will be destroyed automatically
             }
             else
             {
-                Debug.LogWarning($"[DragHandler] Failed to equip {itemData.ItemData?.itemName} to {droppedOnClothingSlot.TargetLayer}");
-                RevertToOriginalState();
+                // ENHANCED: Not a clothing item at all - show specific rejection
+                string itemTypeName = itemData.ItemData?.itemType.ToString() ?? "Unknown";
+                Debug.LogWarning($"[DragHandler] Non-clothing item rejected: {itemData.ItemData?.itemName} is {itemTypeName}, not clothing");
+
+                // Revert to original position with rejection feedback
+                RevertToOriginalStateWithRejectionFeedback();
             }
 
             gridVisual.ClearPlacementPreview();
             return;
         }
 
-        // Handle drop outside inventory
+        // Handle drop outside inventory (existing logic)
         if (isDraggedOutsideInventory)
         {
             HandleDropOutsideInventory();
             return;
         }
 
-        // Original inventory placement logic
+        // Original inventory placement logic (unchanged)
         Vector2Int targetGridPos = gridVisual.GetGridPosition(rectTransform.localPosition);
 
         if (wasValidPlacement)
@@ -375,6 +399,127 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         }
 
         gridVisual.ClearPlacementPreview();
+    }
+
+    /// <summary>
+    /// ENHANCED: Get user-friendly text for valid clothing slots
+    /// </summary>
+    private string GetValidSlotsText(ClothingLayer[] validLayers)
+    {
+        if (validLayers == null || validLayers.Length == 0)
+            return "nowhere";
+
+        string[] slotNames = new string[validLayers.Length];
+        for (int i = 0; i < validLayers.Length; i++)
+        {
+            slotNames[i] = ClothingInventoryUtilities.GetFriendlyLayerName(validLayers[i]);
+        }
+
+        if (slotNames.Length == 1)
+            return slotNames[0];
+        else if (slotNames.Length == 2)
+            return $"{slotNames[0]} or {slotNames[1]}";
+        else
+            return string.Join(", ", slotNames, 0, slotNames.Length - 1) + $", or {slotNames[slotNames.Length - 1]}";
+    }
+
+    /// <summary>
+    /// ENHANCED: Restore item to inventory specifically for equipment operations
+    /// </summary>
+    private bool RestoreItemToInventoryForEquipment()
+    {
+        Debug.Log($"[DragHandler] Restoring item {itemData.ID} to inventory before equipment");
+
+        itemData.SetGridPosition(originalGridPosition);
+        itemData.SetRotation(originalRotation);
+
+        if (gridVisual.GridData.PlaceItem(itemData))
+        {
+            itemRemovedFromGrid = false;
+            Debug.Log($"[DragHandler] Item {itemData.ID} restored to inventory successfully");
+            return true;
+        }
+        else
+        {
+            Debug.LogError($"[DragHandler] Failed to restore item {itemData.ID} to inventory!");
+            gridVisual.GridData.RemoveItem(itemData.ID);
+            if (!gridVisual.GridData.PlaceItem(itemData))
+            {
+                Debug.LogError($"[DragHandler] Could not restore item to inventory - aborting equipment");
+                return false;
+            }
+            itemRemovedFromGrid = false;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// ENHANCED: Revert to original state with special rejection feedback
+    /// </summary>
+    private void RevertToOriginalStateWithRejectionFeedback()
+    {
+        Debug.Log($"[DragHandler] Reverting {itemData.ItemData?.itemName} to original position due to invalid drop");
+
+        // Revert rotation if changed
+        if (itemData.currentRotation != originalRotation)
+        {
+            itemData.SetRotation(originalRotation);
+            visualRenderer?.RefreshVisual();
+        }
+
+        // Restore original position
+        itemData.SetGridPosition(originalGridPosition);
+
+        // Place item back in grid at original position
+        if (itemRemovedFromGrid)
+        {
+            if (gridVisual.GridData.PlaceItem(itemData))
+            {
+                itemRemovedFromGrid = false;
+            }
+            else
+            {
+                Debug.LogError($"[DragHandler] Failed to restore item {itemData.ID} to original position!");
+            }
+        }
+
+        // ENHANCED: Animate back with special rejection animation
+        AnimateToOriginalPositionWithRejectionFeedback();
+        visualRenderer.RefreshHotkeyIndicatorVisuals();
+    }
+
+    /// <summary>
+    /// ENHANCED: Animate back to original position with rejection feedback
+    /// </summary>
+    private void AnimateToOriginalPositionWithRejectionFeedback()
+    {
+        // First shake the item to indicate rejection
+        var originalPos = originalPosition;
+
+        // Quick shake animation
+        rectTransform.DOShakePosition(0.3f, 15f, 10, 90, false, true)
+            .OnComplete(() =>
+            {
+                // Then smoothly animate back to original position
+                rectTransform.DOLocalMove(originalPos, snapAnimationDuration * 1.5f)
+                    .SetEase(Ease.OutBack);
+            });
+
+        // Also add a brief color flash to the visual renderer if possible
+        if (visualRenderer != null)
+        {
+            visualRenderer.SetAlpha(0.5f);
+            DOVirtual.Float(0.5f, 1f, 0.5f, (alpha) => visualRenderer.SetAlpha(alpha));
+        }
+    }
+
+    /// <summary>
+    /// ENHANCED: Method that can be called by ClothingSlotUI to indicate invalid drop
+    /// </summary>
+    private void HandleInvalidClothingDrop()
+    {
+        Debug.Log($"[DragHandler] Handling invalid clothing drop notification from ClothingSlotUI");
+        RevertToOriginalStateWithRejectionFeedback();
     }
 
     /// <summary>

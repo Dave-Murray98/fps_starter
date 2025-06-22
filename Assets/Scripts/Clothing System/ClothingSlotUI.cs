@@ -400,8 +400,8 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// FIXED: Simplified drop handler that works with the existing drag system
-    /// Now just provides visual feedback and validates, letting the drag handler do the actual work
+    /// ENHANCED: Drop handler with comprehensive validation and rejection feedback
+    /// Properly rejects invalid clothing items and provides clear user feedback
     /// </summary>
     public void OnDrop(PointerEventData eventData)
     {
@@ -430,14 +430,16 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         if (itemData == null)
         {
             DebugLog("Drop failed: No item data found");
-            ShowErrorFeedback("No item data found");
+            //ShowErrorFeedback("No item data found");
+            // Signal the drag handler that this was an invalid drop
+            NotifyDragHandlerOfInvalidDrop(dragHandler);
             return;
         }
 
-        // Validate the drop
-        bool isValidDrop = ClothingDragDropHelper.CanEquipToSlot(itemData, this);
+        // ENHANCED: Comprehensive validation with detailed rejection handling
+        var validationResult = ValidateClothingDrop(itemData);
 
-        if (isValidDrop)
+        if (validationResult.IsValid)
         {
             DebugLog($"Valid drop detected: {itemData.ItemData?.itemName} -> {targetLayer}");
 
@@ -452,14 +454,116 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             else
             {
                 DebugLog($"Failed to equip {itemData.ItemData?.itemName} to {targetLayer}");
-                ShowErrorFeedback("Equipment failed");
+                //ShowErrorFeedback("Equipment failed");
+                // Signal the drag handler to revert since equipment failed
+                NotifyDragHandlerOfInvalidDrop(dragHandler);
             }
         }
         else
         {
-            string errorMessage = ClothingDragDropHelper.GetDropErrorMessage(itemData, this);
-            DebugLog($"Invalid drop: {errorMessage}");
-            ShowErrorFeedback(errorMessage);
+            // ENHANCED: Detailed rejection with specific feedback
+            DebugLog($"Invalid drop rejected: {validationResult.Message}");
+            ShowRejectionFeedback(validationResult.Message, itemData);
+
+            // Signal the drag handler that this was an invalid drop so it can revert
+            NotifyDragHandlerOfInvalidDrop(dragHandler);
+        }
+    }
+
+    /// <summary>
+    /// ENHANCED: Comprehensive validation for clothing drops with detailed error messages
+    /// </summary>
+    private ValidationResult ValidateClothingDrop(InventoryItemData itemData)
+    {
+        // Check if it's a clothing item at all
+        if (itemData?.ItemData?.itemType != ItemType.Clothing)
+        {
+            if (itemData?.ItemData != null)
+            {
+                string itemTypeName = itemData.ItemData.itemType.ToString();
+                return new ValidationResult(false, $"{itemData.ItemData.itemName} is {itemTypeName}, not clothing");
+            }
+            return new ValidationResult(false, "Not a clothing item");
+        }
+
+        var clothingData = itemData.ItemData.ClothingData;
+        if (clothingData == null)
+        {
+            return new ValidationResult(false, $"{itemData.ItemData.itemName} has no clothing data");
+        }
+
+        // Check if it can be equipped to this specific layer
+        if (!clothingData.CanEquipToLayer(targetLayer))
+        {
+            string itemName = itemData.ItemData.itemName;
+            string slotName = ClothingInventoryUtilities.GetFriendlyLayerName(targetLayer);
+
+            // Get the valid layers for this item for better error messages
+            string validLayersText = GetValidLayersText(clothingData.validLayers);
+
+            return new ValidationResult(false, $"{itemName} cannot be worn on {slotName}. Can be worn on: {validLayersText}");
+        }
+
+        // Additional validation using the utility system
+        var utilityValidation = ClothingInventoryUtilities.ValidateClothingEquip(itemData, targetLayer);
+        if (!utilityValidation.IsValid)
+        {
+            return utilityValidation;
+        }
+
+        return new ValidationResult(true, "Valid clothing drop");
+    }
+
+    /// <summary>
+    /// ENHANCED: Get user-friendly text for valid clothing layers
+    /// </summary>
+    private string GetValidLayersText(ClothingLayer[] validLayers)
+    {
+        if (validLayers == null || validLayers.Length == 0)
+            return "nowhere";
+
+        string[] layerNames = new string[validLayers.Length];
+        for (int i = 0; i < validLayers.Length; i++)
+        {
+            layerNames[i] = ClothingInventoryUtilities.GetFriendlyLayerName(validLayers[i]);
+        }
+
+        if (layerNames.Length == 1)
+            return layerNames[0];
+        else if (layerNames.Length == 2)
+            return $"{layerNames[0]} or {layerNames[1]}";
+        else
+            return string.Join(", ", layerNames, 0, layerNames.Length - 1) + $", or {layerNames[layerNames.Length - 1]}";
+    }
+
+    /// <summary>
+    /// ENHANCED: Notify the drag handler that the drop was invalid so it can revert
+    /// </summary>
+    private void NotifyDragHandlerOfInvalidDrop(InventoryItemDragHandler dragHandler)
+    {
+        // Use reflection to call a method on the drag handler to indicate invalid drop
+        var method = dragHandler.GetType().GetMethod("HandleInvalidClothingDrop",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        if (method != null)
+        {
+            method.Invoke(dragHandler, null);
+        }
+        else
+        {
+            // Fallback: try to access the revert method directly
+            var revertMethod = dragHandler.GetType().GetMethod("RevertToOriginalState",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (revertMethod != null)
+            {
+                revertMethod.Invoke(dragHandler, null);
+                DebugLog("Invoked drag handler revert method as fallback");
+            }
+            else
+            {
+                Debug.LogWarning("[ClothingSlotUI] Could not notify drag handler of invalid drop - methods not found");
+            }
         }
     }
 
@@ -560,11 +664,11 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// Show visual feedback for failed operations
+    /// ENHANCED: Show enhanced rejection feedback with detailed messaging
     /// </summary>
-    private void ShowErrorFeedback(string message = "")
+    private void ShowRejectionFeedback(string message, InventoryItemData itemData)
     {
-        Debug.LogWarning($"ClothingSlotUI Error: {message}");
+        Debug.LogWarning($"ClothingSlotUI Rejection: {message}");
 
         if (backgroundImage != null)
         {
@@ -573,11 +677,19 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             var originalColor = backgroundImage.color;
             var originalPosition = transform.localPosition;
 
+            // Enhanced rejection animation - more noticeable shake and color
             backgroundImage.color = invalidDropColor;
-            backgroundImage.DOColor(originalColor, 0.3f);
+            backgroundImage.DOColor(originalColor, 0.5f);
 
-            currentAnimation = transform.DOShakePosition(errorShakeDuration, errorShakeStrength, 10, 90, false, true)
+            // More pronounced shake for rejections vs regular errors
+            currentAnimation = transform.DOShakePosition(errorShakeDuration * 1.5f, errorShakeStrength * 1.5f, 15, 90, false, true)
                 .OnComplete(() => transform.localPosition = originalPosition);
+        }
+
+        // Could also trigger a UI message or sound effect here for rejection
+        if (itemData?.ItemData != null)
+        {
+            Debug.Log($"[ClothingSlotUI] Rejected {itemData.ItemData.itemName}: {message}");
         }
     }
 
@@ -607,14 +719,14 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         var slot = clothingManager.GetSlot(targetLayer);
         if (slot == null || slot.IsEmpty)
         {
-            ShowErrorFeedback("No item equipped");
+            //ShowErrorFeedback("No item equipped");
             return;
         }
 
         var equippedItem = slot.GetEquippedItem();
         if (equippedItem?.ItemData != null && !inventoryManager.HasSpaceForItem(equippedItem.ItemData))
         {
-            ShowErrorFeedback("Inventory full");
+            //ShowErrorFeedback("Inventory full");
             return;
         }
 
@@ -627,7 +739,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         }
         else
         {
-            ShowErrorFeedback("Unequip failed");
+            //ShowErrorFeedback("Unequip failed");
         }
     }
 
