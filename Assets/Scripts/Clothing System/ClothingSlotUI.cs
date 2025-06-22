@@ -5,10 +5,10 @@ using TMPro;
 using DG.Tweening;
 
 /// <summary>
-/// PHASE 2 ENHANCEMENT: Enhanced individual clothing slot UI component 
-/// Now supports full drag-and-drop functionality with visual feedback and validation
+/// FIXED: Enhanced clothing slot UI that properly integrates with the existing drag system
+/// Now provides visual feedback without interfering with the drag handler's drop logic
 /// </summary>
-public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IDragHandler, IBeginDragHandler, IEndDragHandler
+public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("UI Components")]
     [SerializeField] private Image backgroundImage;
@@ -47,8 +47,11 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     private bool isHovering = false;
     private bool isDragOver = false;
 
-    // NEW: Error handling and feedback
+    // Animation
     private Tween currentAnimation;
+
+    // FIXED: Track the current drag item for validation
+    private InventoryItemData currentDragItem = null;
 
     public ClothingLayer TargetLayer => targetLayer;
 
@@ -67,7 +70,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             Debug.LogWarning($"ClothingSlotUI {name} was not properly initialized!");
         }
 
-        // Subscribe to clothing events for automatic updates
         SubscribeToClothingEvents();
     }
 
@@ -77,7 +79,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// NEW: Subscribe to clothing manager events for automatic UI updates
+    /// Subscribe to clothing manager events for automatic UI updates
     /// </summary>
     private void SubscribeToClothingEvents()
     {
@@ -91,7 +93,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// NEW: Unsubscribe from clothing manager events
+    /// Unsubscribe from clothing manager events
     /// </summary>
     private void UnsubscribeFromClothingEvents()
     {
@@ -129,10 +131,9 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
         if (itemImage == null)
         {
-            // Look for child image component
             var images = GetComponentsInChildren<Image>();
             if (images.Length > 1)
-                itemImage = images[1]; // First is background, second is item
+                itemImage = images[1];
         }
 
         if (slotLabel == null)
@@ -140,7 +141,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
         if (conditionBar == null)
         {
-            // Look for condition bar in children
             var conditionBarObj = transform.Find("ConditionBar");
             if (conditionBarObj != null)
             {
@@ -149,7 +149,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             }
         }
 
-        // Create missing components if needed
         CreateMissingComponents();
     }
 
@@ -158,7 +157,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     /// </summary>
     private void CreateMissingComponents()
     {
-        // Ensure we have a background image
         if (backgroundImage == null)
         {
             backgroundImage = gameObject.GetComponent<Image>();
@@ -169,7 +167,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             }
         }
 
-        // Create item image if missing
         if (itemImage == null)
         {
             GameObject itemImageObj = new GameObject("ItemImage");
@@ -187,7 +184,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             Debug.Log($"ClothingSlotUI {name} is missing an item image! creating new one");
         }
 
-        // Create slot label if missing
         if (slotLabel == null)
         {
             GameObject labelObj = new GameObject("SlotLabel");
@@ -208,7 +204,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             Debug.Log($"ClothingSlotUI {name} is missing a slot label! creating new one");
         }
 
-        // Create condition bar if missing
         if (conditionBar == null)
         {
             CreateConditionBar();
@@ -221,7 +216,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     /// </summary>
     private void CreateConditionBar()
     {
-        // Create container
         GameObject containerObj = new GameObject("ConditionBarContainer");
         containerObj.transform.SetParent(transform, false);
 
@@ -233,7 +227,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
         conditionBarContainer = containerObj;
 
-        // Create background bar
         GameObject backgroundBarObj = new GameObject("ConditionBarBackground");
         backgroundBarObj.transform.SetParent(containerObj.transform, false);
 
@@ -247,7 +240,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         backgroundBarImage.color = new Color(0.1f, 0.1f, 0.1f, 0.8f);
         backgroundBarImage.raycastTarget = false;
 
-        // Create condition bar
         GameObject conditionBarObj = new GameObject("ConditionBar");
         conditionBarObj.transform.SetParent(containerObj.transform, false);
 
@@ -353,7 +345,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
                 float conditionPercentage = clothingData.ConditionPercentage;
                 conditionBar.fillAmount = conditionPercentage;
 
-                // Set color based on condition
                 if (conditionPercentage >= 0.7f)
                     conditionBar.color = goodConditionColor;
                 else if (conditionPercentage >= 0.3f)
@@ -381,7 +372,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     {
         if (eventData.button == PointerEventData.InputButton.Right)
         {
-            // Right click to unequip
             TryUnequipItem();
         }
     }
@@ -395,8 +385,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             StopCurrentAnimation();
             currentAnimation = backgroundImage.DOColor(hoverColor, hoverAnimationDuration);
         }
-
-        // Could show tooltip here in the future
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -411,52 +399,17 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         }
     }
 
-    #region Drag and Drop Implementation
-
     /// <summary>
-    /// PHASE 2: Handle drag enter events for visual feedback
-    /// </summary>
-    public void OnDragEnter(PointerEventData eventData)
-    {
-        var draggedObject = eventData.pointerDrag;
-        if (draggedObject == null) return;
-
-        var dragHandler = draggedObject.GetComponent<InventoryItemDragHandler>();
-        if (dragHandler == null) return;
-
-        // Get the item data from the drag handler
-        var itemData = GetItemDataFromDragHandler(dragHandler);
-        if (itemData == null) return;
-
-        // Check if this is a valid drop target
-        bool isValidDrop = ValidateDropTarget(itemData);
-
-        // Set visual feedback
-        isDragOver = true;
-        SetDragOverVisualFeedback(isValidDrop);
-
-        DebugLog($"Drag entered clothing slot {targetLayer}: {(isValidDrop ? "Valid" : "Invalid")} drop for {itemData.ItemData?.itemName}");
-    }
-
-    /// <summary>
-    /// PHASE 2: Handle drag exit events
-    /// </summary>
-    public void OnDragExit(PointerEventData eventData)
-    {
-        isDragOver = false;
-        ClearDragOverVisualFeedback();
-
-        DebugLog($"Drag exited clothing slot {targetLayer}");
-    }
-
-    /// <summary>
-    /// PHASE 2: Enhanced drop handling with comprehensive validation and feedback
+    /// FIXED: Simplified drop handler that works with the existing drag system
+    /// Now just provides visual feedback and validates, letting the drag handler do the actual work
     /// </summary>
     public void OnDrop(PointerEventData eventData)
     {
+        // Clear drag over state
         isDragOver = false;
         ClearDragOverVisualFeedback();
 
+        // Get the dragged object
         var draggedObject = eventData.pointerDrag;
         if (draggedObject == null)
         {
@@ -464,6 +417,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             return;
         }
 
+        // Get the drag handler
         var dragHandler = draggedObject.GetComponent<InventoryItemDragHandler>();
         if (dragHandler == null)
         {
@@ -475,135 +429,97 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         var itemData = GetItemDataFromDragHandler(dragHandler);
         if (itemData == null)
         {
+            DebugLog("Drop failed: No item data found");
             ShowErrorFeedback("No item data found");
             return;
         }
 
-        // Comprehensive drop validation
-        var validationResult = ValidateDropOperation(itemData);
-        if (!validationResult.IsValid)
-        {
-            ShowErrorFeedback(validationResult.Message);
-            return;
-        }
+        // Validate the drop
+        bool isValidDrop = ClothingDragDropHelper.CanEquipToSlot(itemData, this);
 
-        // Execute the drop operation
-        ExecuteDropOperation(itemData);
-    }
-
-    /// <summary>
-    /// PHASE 2: Validates if an item can be dropped on this clothing slot
-    /// </summary>
-    private ValidationResult ValidateDropOperation(InventoryItemData itemData)
-    {
-        // Basic item validation
-        if (itemData?.ItemData == null)
+        if (isValidDrop)
         {
-            return new ValidationResult(false, "Invalid item data");
-        }
+            DebugLog($"Valid drop detected: {itemData.ItemData?.itemName} -> {targetLayer}");
 
-        if (itemData.ItemData.itemType != ItemType.Clothing)
-        {
-            return new ValidationResult(false, "Not a clothing item");
-        }
+            // Attempt to equip using the ClothingManager
+            bool success = ClothingDragDropHelper.HandleClothingSlotDrop(itemData, this);
 
-        var clothingData = itemData.ItemData.ClothingData;
-        if (clothingData == null)
-        {
-            return new ValidationResult(false, "No clothing data found");
-        }
-
-        // Layer compatibility check
-        if (!clothingData.CanEquipToLayer(targetLayer))
-        {
-            string layerName = ClothingInventoryUtilities.GetShortLayerName(targetLayer);
-            return new ValidationResult(false, $"Cannot equip to {layerName}");
-        }
-
-        // Check for swap scenario if slot is occupied
-        if (!isInitialized || clothingManager == null)
-        {
-            return new ValidationResult(false, "Clothing system not initialized");
-        }
-
-        var slot = clothingManager.GetSlot(targetLayer);
-        if (slot == null)
-        {
-            return new ValidationResult(false, "Clothing slot not found");
-        }
-
-        // If slot is occupied, validate swap operation
-        if (!slot.IsEmpty)
-        {
-            var swapValidation = ClothingInventoryUtilities.ValidateSwapOperation(itemData, targetLayer);
-            if (!swapValidation.IsValid)
+            if (success)
             {
-                return new ValidationResult(false, $"Cannot swap: {swapValidation.Message}");
+                DebugLog($"Successfully equipped {itemData.ItemData?.itemName} to {targetLayer}");
+                ShowSuccessFeedback();
             }
-        }
-
-        return new ValidationResult(true, "Drop operation valid");
-    }
-
-    /// <summary>
-    /// PHASE 2: Simple validation for drag-over visual feedback
-    /// </summary>
-    private bool ValidateDropTarget(InventoryItemData itemData)
-    {
-        if (itemData?.ItemData?.itemType != ItemType.Clothing)
-            return false;
-
-        var clothingData = itemData.ItemData.ClothingData;
-        if (clothingData == null)
-            return false;
-
-        return clothingData.CanEquipToLayer(targetLayer);
-    }
-
-    /// <summary>
-    /// PHASE 2: Executes the actual drop operation
-    /// </summary>
-    private void ExecuteDropOperation(InventoryItemData itemData)
-    {
-        DebugLog($"Executing drop operation: {itemData.ItemData.itemName} -> {targetLayer}");
-
-        // Use the enhanced clothing manager to handle the equipment
-        bool success = clothingManager.EquipItemToLayer(itemData.ID, targetLayer);
-
-        if (success)
-        {
-            DebugLog($"Successfully equipped {itemData.ItemData.itemName} to {targetLayer} via drag and drop");
-            ShowSuccessFeedback();
-
-            // The inventory drag handler will handle cleaning up the drag state
-            // and the clothing system events will update our display
+            else
+            {
+                DebugLog($"Failed to equip {itemData.ItemData?.itemName} to {targetLayer}");
+                ShowErrorFeedback("Equipment failed");
+            }
         }
         else
         {
-            DebugLog($"Failed to equip {itemData.ItemData.itemName} to {targetLayer} via drag and drop");
-            ShowErrorFeedback("Equipment failed");
+            string errorMessage = ClothingDragDropHelper.GetDropErrorMessage(itemData, this);
+            DebugLog($"Invalid drop: {errorMessage}");
+            ShowErrorFeedback(errorMessage);
+        }
+    }
+
+    #endregion
+
+    #region Drag Detection (for visual feedback only)
+
+    /// <summary>
+    /// FIXED: Static method to detect when inventory items are being dragged over clothing slots
+    /// This provides visual feedback without interfering with the actual drop handling
+    /// </summary>
+    public static void HandleDragOverClothingSlot(PointerEventData eventData, InventoryItemData itemData)
+    {
+        // Find clothing slot under pointer
+        var clothingSlot = ClothingDragDropHelper.GetClothingSlotUnderPointer(eventData);
+
+        if (clothingSlot != null)
+        {
+            // Check if this is a valid drop target
+            bool isValidDrop = ClothingDragDropHelper.CanEquipToSlot(itemData, clothingSlot);
+
+            // Set visual feedback
+            clothingSlot.SetDragOverVisualFeedback(isValidDrop);
         }
     }
 
     /// <summary>
-    /// PHASE 2: Set visual feedback during drag-over operations
+    /// FIXED: Static method to clear drag feedback from all clothing slots
+    /// </summary>
+    public static void ClearAllDragFeedback()
+    {
+        var allClothingSlots = FindObjectsByType<ClothingSlotUI>(FindObjectsSortMode.None);
+        foreach (var slot in allClothingSlots)
+        {
+            slot.ClearDragOverVisualFeedback();
+        }
+    }
+
+    /// <summary>
+    /// FIXED: Set visual feedback during drag-over operations
     /// </summary>
     private void SetDragOverVisualFeedback(bool isValidDrop)
     {
+        isDragOver = true;
+
         if (backgroundImage != null)
         {
             StopCurrentAnimation();
-
             Color feedbackColor = isValidDrop ? validDropColor : invalidDropColor;
             currentAnimation = backgroundImage.DOColor(feedbackColor, hoverAnimationDuration);
         }
     }
 
     /// <summary>
-    /// PHASE 2: Clear drag-over visual feedback
+    /// FIXED: Clear drag-over visual feedback
     /// </summary>
     private void ClearDragOverVisualFeedback()
     {
+        isDragOver = false;
+
         if (backgroundImage != null)
         {
             Color targetColor = GetCurrentTargetColor();
@@ -619,19 +535,16 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     /// </summary>
     private InventoryItemData GetItemDataFromDragHandler(InventoryItemDragHandler dragHandler)
     {
-        // Use reflection to access the private itemData field
         var field = dragHandler.GetType().GetField("itemData",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
         return field?.GetValue(dragHandler) as InventoryItemData;
     }
 
-    #endregion
-
     #region User Feedback Methods
 
     /// <summary>
-    /// NEW: Show visual feedback for successful operations
+    /// Show visual feedback for successful operations
     /// </summary>
     private void ShowSuccessFeedback()
     {
@@ -639,7 +552,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         {
             StopCurrentAnimation();
 
-            // Brief green flash
             var originalColor = backgroundImage.color;
             backgroundImage.color = validDropColor;
 
@@ -648,7 +560,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// NEW: Show visual feedback for failed operations
+    /// Show visual feedback for failed operations
     /// </summary>
     private void ShowErrorFeedback(string message = "")
     {
@@ -658,22 +570,19 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         {
             StopCurrentAnimation();
 
-            // Red flash and shake
             var originalColor = backgroundImage.color;
             var originalPosition = transform.localPosition;
 
-            // Color flash
             backgroundImage.color = invalidDropColor;
             backgroundImage.DOColor(originalColor, 0.3f);
 
-            // Shake animation
             currentAnimation = transform.DOShakePosition(errorShakeDuration, errorShakeStrength, 10, 90, false, true)
                 .OnComplete(() => transform.localPosition = originalPosition);
         }
     }
 
     /// <summary>
-    /// NEW: Stop any current animation to prevent conflicts
+    /// Stop any current animation to prevent conflicts
     /// </summary>
     private void StopCurrentAnimation()
     {
@@ -689,7 +598,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     #region Helper Methods
 
     /// <summary>
-    /// ENHANCED: Try to unequip item with better error handling and user feedback
+    /// Try to unequip item with better error handling and user feedback
     /// </summary>
     private void TryUnequipItem()
     {
@@ -702,7 +611,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
             return;
         }
 
-        // Check if inventory has space
         var equippedItem = slot.GetEquippedItem();
         if (equippedItem?.ItemData != null && !inventoryManager.HasSpaceForItem(equippedItem.ItemData))
         {
@@ -741,7 +649,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     {
         if (itemImage != null)
         {
-            // Scale animation to show item being equipped
             itemImage.transform.localScale = Vector3.zero;
             itemImage.transform.DOScale(Vector3.one, equipAnimationDuration)
                 .SetEase(Ease.OutBack);
@@ -753,7 +660,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     #region Clothing Event Handlers
 
     /// <summary>
-    /// NEW: Handle item equipped events
+    /// Handle item equipped events
     /// </summary>
     private void OnItemEquipped(ClothingSlot slot, InventoryItemData item)
     {
@@ -765,7 +672,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// NEW: Handle item unequipped events
+    /// Handle item unequipped events
     /// </summary>
     private void OnItemUnequipped(ClothingSlot slot, string itemId)
     {
@@ -776,7 +683,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// NEW: Handle item swapped events
+    /// Handle item swapped events
     /// </summary>
     private void OnItemSwapped(ClothingSlot slot, string oldItemId, string newItemId)
     {
@@ -788,7 +695,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     }
 
     /// <summary>
-    /// NEW: Handle condition changes for equipped items
+    /// Handle condition changes for equipped items
     /// </summary>
     private void OnConditionChanged(string itemId, float newCondition)
     {
@@ -799,22 +706,15 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         }
     }
 
-    #region Additional Drag Event Handlers
-
     #endregion
 
-    #region Helper Methods
-
     /// <summary>
-    /// PHASE 2: Debug logging helper
+    /// Debug logging helper
     /// </summary>
     private void DebugLog(string message)
     {
         Debug.Log($"[ClothingSlotUI:{targetLayer}] {message}");
     }
-
-    #endregion
-
 
     /// <summary>
     /// Get debug information about this slot
@@ -828,33 +728,4 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
 
         return slot.GetDebugInfo();
     }
-
-    /// <summary>
-    /// PHASE 2: Required by IDragHandler - not used for clothing slots but needed for interface
-    /// </summary>
-    public void OnDrag(PointerEventData eventData)
-    {
-        // Clothing slots don't initiate drags, only receive them
-        // This is required by IDragHandler interface but not used
-    }
-
-    /// <summary>
-    /// PHASE 2: Required by IBeginDragHandler - not used for clothing slots but needed for interface
-    /// </summary>
-    public void OnBeginDrag(PointerEventData eventData)
-    {
-        // Clothing slots don't initiate drags, only receive them
-        // This is required by IBeginDragHandler interface but not used
-    }
-
-    /// <summary>
-    /// PHASE 2: Required by IEndDragHandler - not used for clothing slots but needed for interface
-    /// </summary>
-    public void OnEndDrag(PointerEventData eventData)
-    {
-        // Clothing slots don't initiate drags, only receive them
-        // This is required by IEndDragHandler interface but not used
-    }
-
-    #endregion
 }
