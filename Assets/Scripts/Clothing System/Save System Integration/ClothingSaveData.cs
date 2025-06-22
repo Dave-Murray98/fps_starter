@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Complete clothing system state for saving/loading.
-/// Contains all slot assignments and equipped item references.
+/// ENHANCED: Complete clothing system state for saving/loading with ItemData references
+/// Now stores ItemData names for equipped items to properly restore them
 /// </summary>
 [System.Serializable]
 public class ClothingSaveData
@@ -124,6 +124,20 @@ public class ClothingSaveData
     }
 
     /// <summary>
+    /// ENHANCED: Get all equipped ItemData names for restoration
+    /// </summary>
+    public List<string> GetAllEquippedItemDataNames()
+    {
+        var itemDataNames = new List<string>();
+        foreach (var slot in slots)
+        {
+            if (!string.IsNullOrEmpty(slot.equippedItemDataName))
+                itemDataNames.Add(slot.equippedItemDataName);
+        }
+        return itemDataNames;
+    }
+
+    /// <summary>
     /// Validate that the save data is consistent
     /// </summary>
     public bool IsValid()
@@ -153,7 +167,7 @@ public class ClothingSaveData
     }
 
     /// <summary>
-    /// Gets debug information about the clothing save data
+    /// ENHANCED: Gets debug information about the clothing save data including ItemData names
     /// </summary>
     public string GetDebugInfo()
     {
@@ -164,8 +178,17 @@ public class ClothingSaveData
 
         foreach (var slot in slots)
         {
-            string itemInfo = string.IsNullOrEmpty(slot.equippedItemId) ? "Empty" : slot.equippedItemId;
-            info.AppendLine($"  {slot.layer}: {itemInfo}");
+            if (string.IsNullOrEmpty(slot.equippedItemId))
+            {
+                info.AppendLine($"  {slot.layer}: Empty");
+            }
+            else
+            {
+                string itemDataInfo = !string.IsNullOrEmpty(slot.equippedItemDataName)
+                    ? $" ({slot.equippedItemDataName})"
+                    : " (No ItemData name)";
+                info.AppendLine($"  {slot.layer}: {slot.equippedItemId}{itemDataInfo}");
+            }
         }
 
         return info.ToString();
@@ -186,6 +209,7 @@ public class ClothingSaveData
                 if (overwriteExisting)
                 {
                     existingSlot.equippedItemId = otherSlot.equippedItemId;
+                    existingSlot.equippedItemDataName = otherSlot.equippedItemDataName;
                 }
             }
             else
@@ -193,7 +217,8 @@ public class ClothingSaveData
                 AddSlot(new ClothingSlotSaveData
                 {
                     layer = otherSlot.layer,
-                    equippedItemId = otherSlot.equippedItemId
+                    equippedItemId = otherSlot.equippedItemId,
+                    equippedItemDataName = otherSlot.equippedItemDataName
                 });
             }
         }
@@ -201,7 +226,7 @@ public class ClothingSaveData
 }
 
 /// <summary>
-/// Save data for an individual clothing slot
+/// ENHANCED: Save data for an individual clothing slot with ItemData reference
 /// </summary>
 [System.Serializable]
 public class ClothingSlotSaveData
@@ -211,6 +236,9 @@ public class ClothingSlotSaveData
 
     [Header("Equipped Item")]
     public string equippedItemId = "";
+
+    [Header("ItemData Reference")]
+    public string equippedItemDataName = ""; // NEW: Store ItemData name for restoration
 
     /// <summary>
     /// Checks if this slot is empty
@@ -223,7 +251,7 @@ public class ClothingSlotSaveData
     public bool IsOccupied => !IsEmpty;
 
     /// <summary>
-    /// Create save data from a ClothingSlot
+    /// ENHANCED: Create save data from a ClothingSlot with ItemData reference
     /// </summary>
     public static ClothingSlotSaveData FromClothingSlot(ClothingSlot clothingSlot)
     {
@@ -233,15 +261,27 @@ public class ClothingSlotSaveData
             return null;
         }
 
-        return new ClothingSlotSaveData
+        var saveData = new ClothingSlotSaveData
         {
             layer = clothingSlot.layer,
             equippedItemId = clothingSlot.equippedItemId
         };
+
+        // ENHANCED: Store ItemData name if item is equipped
+        if (!clothingSlot.IsEmpty)
+        {
+            var itemData = clothingSlot.GetEquippedItemData();
+            if (itemData != null)
+            {
+                saveData.equippedItemDataName = itemData.name;
+            }
+        }
+
+        return saveData;
     }
 
     /// <summary>
-    /// Apply this save data to a ClothingSlot
+    /// ENHANCED: Apply this save data to a ClothingSlot with ItemData loading
     /// </summary>
     public void ApplyToClothingSlot(ClothingSlot clothingSlot)
     {
@@ -263,8 +303,50 @@ public class ClothingSlotSaveData
         }
         else
         {
-            clothingSlot.EquipItem(equippedItemId);
+            // ENHANCED: Load ItemData and equip with it
+            ItemData itemData = null;
+            if (!string.IsNullOrEmpty(equippedItemDataName))
+            {
+                itemData = LoadItemDataByName(equippedItemDataName);
+            }
+
+            if (itemData != null)
+            {
+                clothingSlot.EquipItem(equippedItemId, itemData);
+            }
+            else
+            {
+                Debug.LogWarning($"Could not load ItemData '{equippedItemDataName}' for equipped item {equippedItemId}");
+                // Fallback: equip without ItemData (may cause issues)
+                clothingSlot.EquipItem(equippedItemId);
+            }
         }
+    }
+
+    /// <summary>
+    /// ENHANCED: Load ItemData by name for restoration
+    /// </summary>
+    private ItemData LoadItemDataByName(string itemDataName)
+    {
+        if (string.IsNullOrEmpty(itemDataName))
+            return null;
+
+        // Try to load from Resources
+        string resourcePath = $"{SaveManager.Instance?.itemDataPath ?? "Data/Items/"}{itemDataName}";
+        ItemData itemData = Resources.Load<ItemData>(resourcePath);
+
+        if (itemData != null)
+            return itemData;
+
+        // Fallback: Search all ItemData assets
+        ItemData[] allItemData = Resources.FindObjectsOfTypeAll<ItemData>();
+        foreach (var data in allItemData)
+        {
+            if (data.name == itemDataName)
+                return data;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -280,27 +362,39 @@ public class ClothingSlotSaveData
         if (!string.IsNullOrEmpty(equippedItemId) && equippedItemId.Trim().Length == 0)
             return false;
 
+        // ENHANCED: Check ItemData name consistency
+        if (!string.IsNullOrEmpty(equippedItemId) && string.IsNullOrEmpty(equippedItemDataName))
+        {
+            Debug.LogWarning($"Equipped item {equippedItemId} has no ItemData name - may cause restoration issues");
+        }
+
         return true;
     }
 
     /// <summary>
-    /// Get a debug string representation
+    /// ENHANCED: Get a debug string representation with ItemData info
     /// </summary>
     public override string ToString()
     {
-        string itemInfo = IsEmpty ? "Empty" : equippedItemId;
-        return $"Slot[{layer}] = {itemInfo}";
+        if (IsEmpty)
+            return $"Slot[{layer}] = Empty";
+
+        string itemDataInfo = !string.IsNullOrEmpty(equippedItemDataName)
+            ? $" ({equippedItemDataName})"
+            : "";
+        return $"Slot[{layer}] = {equippedItemId}{itemDataInfo}";
     }
 
     /// <summary>
-    /// Creates a copy of this slot save data
+    /// ENHANCED: Creates a copy of this slot save data
     /// </summary>
     public ClothingSlotSaveData CreateCopy()
     {
         return new ClothingSlotSaveData
         {
             layer = this.layer,
-            equippedItemId = this.equippedItemId
+            equippedItemId = this.equippedItemId,
+            equippedItemDataName = this.equippedItemDataName
         };
     }
 }

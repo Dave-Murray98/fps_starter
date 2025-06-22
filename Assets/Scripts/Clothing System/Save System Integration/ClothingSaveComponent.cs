@@ -1,9 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Handles saving and loading of the clothing system including equipped items,
-/// their conditions, and slot assignments. Integrates with the modular save system
-/// following the same patterns as InventorySaveComponent.
+/// FIXED: Enhanced clothing save component that properly handles equipped items
+/// Now saves ItemData references directly and recreates items during load instead of relying on inventory
 /// </summary>
 public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -61,7 +60,7 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
     }
 
     /// <summary>
-    /// Extracts complete clothing state including all slots and equipped items.
+    /// ENHANCED: Extracts complete clothing state including ItemData for equipped items
     /// </summary>
     public override object GetDataToSave()
     {
@@ -77,7 +76,7 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
     }
 
     /// <summary>
-    /// Extracts clothing data from the manager by accessing all slots.
+    /// ENHANCED: Extracts clothing data including ItemData references for equipped items
     /// </summary>
     private ClothingSaveData ExtractClothingDataFromManager()
     {
@@ -91,6 +90,14 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
                 layer = slot.layer,
                 equippedItemId = slot.equippedItemId
             };
+
+            // ENHANCED: Store ItemData reference for equipped items
+            if (!slot.IsEmpty && slot.GetEquippedItemData() != null)
+            {
+                slotSaveData.equippedItemDataName = slot.GetEquippedItemData().name;
+                DebugLog($"Saving equipped item: {slot.equippedItemId} ({slotSaveData.equippedItemDataName}) in {slot.layer}");
+            }
+
             saveData.AddSlot(slotSaveData);
         }
 
@@ -149,8 +156,7 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
     }
 
     /// <summary>
-    /// Restores clothing data to the manager. Clothing restoration is the same
-    /// regardless of context - equipped items are always fully restored.
+    /// ENHANCED: Restores clothing data with proper ItemData reconstruction
     /// </summary>
     public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
@@ -188,7 +194,7 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
     }
 
     /// <summary>
-    /// Restores complete clothing state by setting all slot data.
+    /// ENHANCED: Restores clothing state by recreating ItemData for equipped items
     /// </summary>
     private void RestoreClothingDataToManager(ClothingSaveData saveData)
     {
@@ -208,30 +214,67 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
             slot.UnequipItem();
         }
 
-        // Restore equipment from save data
+        // ENHANCED: Restore equipment by recreating ItemData
         foreach (var slotSaveData in saveData.slots)
         {
             var slot = clothingManager.GetSlot(slotSaveData.layer);
             if (slot != null && !string.IsNullOrEmpty(slotSaveData.equippedItemId))
             {
-                // Verify the item exists in inventory before equipping
-                if (InventoryManager.Instance != null)
+                // ENHANCED: Try to load ItemData from save data
+                ItemData itemData = null;
+
+                if (!string.IsNullOrEmpty(slotSaveData.equippedItemDataName))
                 {
-                    var item = InventoryManager.Instance.InventoryData.GetItem(slotSaveData.equippedItemId);
-                    if (item != null)
-                    {
-                        slot.EquipItem(slotSaveData.equippedItemId);
-                        DebugLog($"Restored {slotSaveData.equippedItemId} to {slotSaveData.layer}");
-                    }
-                    else
-                    {
-                        DebugLog($"Warning: Item {slotSaveData.equippedItemId} not found in inventory - skipping");
-                    }
+                    itemData = LoadItemDataByName(slotSaveData.equippedItemDataName);
+                }
+
+                if (itemData != null)
+                {
+                    // Equip the item with the ItemData reference
+                    slot.EquipItem(slotSaveData.equippedItemId, itemData);
+                    DebugLog($"Restored {slotSaveData.equippedItemId} ({itemData.itemName}) to {slotSaveData.layer}");
+                }
+                else
+                {
+                    DebugLog($"Warning: Could not load ItemData for {slotSaveData.equippedItemId} - ItemData name: {slotSaveData.equippedItemDataName}");
                 }
             }
         }
 
-        DebugLog($"Restored clothing: {saveData.GetEquippedCount()} items equipped");
+        DebugLog($"Restored clothing: {saveData.GetEquippedCount()} items processed");
+    }
+
+    /// <summary>
+    /// ENHANCED: Load ItemData by name from Resources
+    /// </summary>
+    private ItemData LoadItemDataByName(string itemDataName)
+    {
+        if (string.IsNullOrEmpty(itemDataName))
+            return null;
+
+        // Try to load from Resources using the standard path
+        string resourcePath = $"{SaveManager.Instance?.itemDataPath ?? "Data/Items/"}{itemDataName}";
+        ItemData itemData = Resources.Load<ItemData>(resourcePath);
+
+        if (itemData != null)
+        {
+            DebugLog($"Loaded ItemData from Resources: {resourcePath}");
+            return itemData;
+        }
+
+        // Fallback: Search all ItemData assets
+        ItemData[] allItemData = Resources.FindObjectsOfTypeAll<ItemData>();
+        foreach (var data in allItemData)
+        {
+            if (data.name == itemDataName)
+            {
+                DebugLog($"Found ItemData via search: {itemDataName}");
+                return data;
+            }
+        }
+
+        Debug.LogWarning($"Could not find ItemData: {itemDataName}");
+        return null;
     }
 
     #region IPlayerDependentSaveable Implementation
@@ -271,7 +314,8 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
             defaultData.AddSlot(new ClothingSlotSaveData
             {
                 layer = layer,
-                equippedItemId = ""
+                equippedItemId = "",
+                equippedItemDataName = ""
             });
         }
 
