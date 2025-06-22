@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3943def95315f084d917e2efd64303a2, type: 3}
+  m_Name: Black T-Shirt
+  m_EditorClassIdentifier: 
+  itemName: Black T-Shirt
+  description: Light T-shirt
+  itemType: 5
+  shapeType: 2
+  itemSprite: {fileID: 21300000, guid: f2021b663f2cc404bba42bb40d362ff5, type: 3}
+  spriteScale: 1
+  spriteOffset: {x: 0, y: -1}
+  cellColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  stackSize: 1
+  isRotatable: 1
+  degradationType: 0
+  maxDurability: 100
+  degradationRate: 1
+  degradationInterval: 1
+  consumableData:
+    healthRestore: 0
+    hungerRestore: 0
+    thirstRestore: 0
+    consumeTime: 2
+    multiUse: 0
+    maxUses: 1
+  weaponData:
+    damage: 10
+    range: 5
+    fireRate: 1
+    requiredAmmoType: {fileID: 0}
+    maxAmmo: 30
+    currentAmmo: 0
+  equipmentData:
+    compatibleInteractionTags: []
+    useRange: 2
+    useTime: 1
+    hasLimitedUses: 0
+    maxUses: 10
+  ammoData:
+    compatibleWeapons: []
+    damageModifier: 1
+  clothingData:
+    clothingType: 1
+    validLayers: 02000000
+    defenseValue: 1
+    warmthValue: 1
+    rainResistance: 1
+    maxCondition: 100
+    currentCondition: 100
+    damageRate: 1
+    canBeRepaired: 1
+    minimumRepairCondition: 99
+  showDebugInfo: 0

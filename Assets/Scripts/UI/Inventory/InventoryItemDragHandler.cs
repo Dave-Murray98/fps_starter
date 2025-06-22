@@ -460,6 +460,17 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
     {
         if (selectedItem != itemData) return;
 
+        // Handle clothing wear actions
+        if (actionId.StartsWith("wear_"))
+        {
+            string layerName = actionId.Substring(5); // Remove "wear_" prefix
+            if (System.Enum.TryParse<ClothingLayer>(layerName, out ClothingLayer targetLayer))
+            {
+                WearInSlot(targetLayer);
+            }
+            return;
+        }
+
         switch (actionId)
         {
             case "consume":
@@ -652,6 +663,39 @@ public class InventoryItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragH
         else
         {
             Debug.LogWarning($"Failed to drop {itemData.ItemData?.itemName}");
+        }
+    }
+
+    /// <summary>
+    /// Equips the item to the specified clothing layer
+    /// </summary>
+    private void WearInSlot(ClothingLayer targetLayer)
+    {
+        if (itemData?.ItemData?.itemType != ItemType.Clothing)
+        {
+            Debug.LogWarning("Cannot wear - not a clothing item");
+            return;
+        }
+
+        if (ClothingManager.Instance == null)
+        {
+            Debug.LogWarning("ClothingManager not found - cannot equip clothing");
+            return;
+        }
+
+        Debug.Log($"Equipping {itemData.ItemData.itemName} to {targetLayer}");
+
+        bool success = ClothingManager.Instance.EquipItemToLayer(itemData.ID, targetLayer);
+        if (success)
+        {
+            Debug.Log($"Successfully equipped {itemData.ItemData.itemName} to {targetLayer}");
+
+            // Clear stats display since item is no longer in inventory
+            OnItemDeselected?.Invoke();
+        }
+        else
+        {
+            Debug.LogWarning($"Failed to equip {itemData.ItemData.itemName} to {targetLayer}");
         }
     }
 

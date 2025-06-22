@@ -423,14 +423,48 @@ public class InventoryDropdownMenu : MonoBehaviour
                 actions.Add(new DropdownAction("Assign Hotkey", "assign_hotkey", true));
                 actions.Add(new DropdownAction("Drop", "drop", true));
                 break;
+            case ItemType.Clothing:
+                // Get clothing data to determine valid layers
+                var clothingData = currentItem?.ItemData?.ClothingData;
+                if (clothingData != null)
+                {
+                    // Add "Wear in [Layer]" button for each valid layer
+                    foreach (var validLayer in clothingData.validLayers)
+                    {
+                        string displayName = GetClothingWearButtonText(validLayer);
+                        string actionId = $"wear_{validLayer}";
+                        actions.Add(new DropdownAction(displayName, actionId, true));
+                    }
+                }
+                actions.Add(new DropdownAction("Drop", "drop", true));
+                break;
         }
 
         return actions;
     }
 
     /// <summary>
+    /// Gets user-friendly button text for clothing layers
+    /// </summary>
+    private string GetClothingWearButtonText(ClothingLayer layer)
+    {
+        return layer switch
+        {
+            ClothingLayer.HeadUpper => "Wear on Head (Upper)",
+            ClothingLayer.HeadLower => "Wear on Head (Lower)",
+            ClothingLayer.TorsoInner => "Wear on Torso (Inner)",
+            ClothingLayer.TorsoOuter => "Wear on Torso (Outer)",
+            ClothingLayer.LegsInner => "Wear on Legs (Inner)",
+            ClothingLayer.LegsOuter => "Wear on Legs (Outer)",
+            ClothingLayer.Hands => "Wear on Hands",
+            ClothingLayer.Socks => "Wear as Socks",
+            ClothingLayer.Shoes => "Wear as Shoes",
+            _ => $"Wear as {layer}"
+        };
+    }
+
+    /// <summary>
     /// Create a button for the specified action
-    /// FIXED: Better button creation with proper sizing
     /// </summary>
     private void CreateActionButton(DropdownAction action)
     {

@@ -2,6 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Item type enumeration for different item categories
+/// UPDATED: Added Clothing type
 /// </summary>
 public enum ItemType
 {
@@ -9,8 +10,8 @@ public enum ItemType
     Weapon,     // Guns, knives, grenades - combat items
     Equipment,  // Lock-picks, scanners - interaction tools
     KeyItem,    // Quest items, keys - cannot be dropped
-    Ammo,        // Ammunition - stackable
-    Clothing   // Clothing items - can be worn
+    Ammo,       // Ammunition - stackable
+    Clothing    // Clothing items - can be worn
 }
 
 /// <summary>
@@ -71,6 +72,9 @@ public class ItemData : ScriptableObject
     [Header("Ammo Settings")]
     [SerializeField] private AmmoData ammoData;
 
+    [Header("Clothing Settings")]
+    [SerializeField] private ClothingData clothingData;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = false;
 
@@ -79,6 +83,7 @@ public class ItemData : ScriptableObject
     public WeaponData WeaponData => weaponData;
     public EquipmentData EquipmentData => equipmentData;
     public AmmoData AmmoData => ammoData;
+    public ClothingData ClothingData => clothingData;
 
     // Get the color for this item (custom color instead of shape-based)
     public Color CellColor => cellColor;
@@ -91,6 +96,9 @@ public class ItemData : ScriptableObject
 
     // Check if item degrades
     public bool CanDegrade => degradationType != DegradationType.None && maxDurability > 0;
+
+    // NEW: Check if item is clothing
+    public bool IsClothing => itemType == ItemType.Clothing;
 
     // Get bounding size for this item's shape
     public Vector2Int GetBoundingSize()
@@ -141,9 +149,22 @@ public class ItemData : ScriptableObject
                 degradationRate = 1f;
         }
 
+        if (itemType == ItemType.Clothing)
+        {
+            if (clothingData == null)
+            {
+                Debug.LogWarning($"Clothing item {itemName} has no ClothingData assigned!");
+            }
+            else if (clothingData.validLayers == null || clothingData.validLayers.Length == 0)
+            {
+                Debug.LogWarning($"Clothing item {itemName} has no valid layers assigned!");
+            }
+        }
         if (showDebugInfo && Application.isPlaying)
         {
             Debug.Log($"Item: {itemName}, Type: {itemType}, Shape: {shapeType}, Stackable: {IsStackable}, Can Drop: {CanDrop}");
         }
     }
+
+
 }
