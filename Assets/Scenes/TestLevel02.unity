@@ -1114,6 +1114,7 @@ GameObject:
   m_Component:
   - component: {fileID: 703671617}
   - component: {fileID: 703671616}
+  - component: {fileID: 703671618}
   m_Layer: 0
   m_Name: DayNightCycleManager
   m_TagString: Untagged
@@ -1180,6 +1181,23 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &703671618
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 703671615}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f334baa76f8fb374fa5a0fa000f8430d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  saveID: Day_Night_Cycle_Main
+  autoGenerateID: 0
+  enableDebugLogs: 0
+  dayNightManager: {fileID: 703671616}
+  autoFindManager: 1
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -2785,7 +2803,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f04ffbbda60b09c4c9d08cd806f177de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!4 &1887775402
 Transform:
   m_ObjectHideFlags: 0
@@ -3147,6 +3165,8 @@ MonoBehaviour:
   fallbackUpdateInterval: 0.5
   useSmoothInterpolation: 1
   interpolationSpeed: 2
+  maxConnectionAttempts: 10
+  connectionRetryInterval: 0.5
 --- !u!4 &1984336455
 Transform:
   m_ObjectHideFlags: 0

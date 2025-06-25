@@ -3,22 +3,22 @@ using System;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// Manages the day/night cycle and game time progression. Persists across scenes and integrates
-/// with the save system. Handles time-based temperature modulation and provides manual override
-/// capabilities for setting specific times/dates.
+/// Manages the day/night cycle and game time progression. Persists across scenes.
+/// Save/load functionality is handled by DayNightCycleSaveComponent.
+/// Handles time-based temperature modulation and provides manual override capabilities.
 /// </summary>
-public class DayNightCycleManager : MonoBehaviour, IManager, IPlayerDependentSaveable
+public class DayNightCycleManager : MonoBehaviour, IManager
 {
     public static DayNightCycleManager Instance { get; private set; }
 
     [Header("Time Configuration")]
-    [SerializeField] private float dayDurationMinutes = 20f; // Real-time minutes per game day
-    [SerializeField] private float startTimeOfDay = 6f; // Starting hour (0-24)
+    [SerializeField] public float dayDurationMinutes = 20f; // Real-time minutes per game day
+    [SerializeField] public float startTimeOfDay = 6f; // Starting hour (0-24)
 
     [Header("Season & Date Configuration")]
-    [SerializeField] private int daysPerSeason = 30;
-    [SerializeField] private SeasonType startingSeason = SeasonType.Spring;
-    [SerializeField] private int startingDayOfSeason = 1;
+    [SerializeField] public int daysPerSeason = 30;
+    [SerializeField] public SeasonType startingSeason = SeasonType.Spring;
+    [SerializeField] public int startingDayOfSeason = 1;
 
     [Header("Temperature Modulation")]
     [SerializeField] private float dayNightTemperatureVariance = 10f; // °C difference between day/night
@@ -43,10 +43,6 @@ public class DayNightCycleManager : MonoBehaviour, IManager, IPlayerDependentSav
     public static event Action<int> OnDayChanged; // Day of season
     public static event Action<SeasonType> OnSeasonChanged; // New season
     public static event Action<float> OnTemperatureModifierChanged; // Temperature modifier from time
-
-    // Save system integration
-    public string SaveID => "DayNightCycle";
-    public SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
     private void Awake()
     {
@@ -269,6 +265,15 @@ public class DayNightCycleManager : MonoBehaviour, IManager, IPlayerDependentSav
     }
 
     /// <summary>
+    /// Sets the total days elapsed. Used by save system.
+    /// </summary>
+    public void SetTotalDaysElapsed(int days)
+    {
+        totalDaysElapsed = Mathf.Max(0, days);
+        DebugLog($"Total days elapsed set to: {totalDaysElapsed}");
+    }
+
+    /// <summary>
     /// Advances time by the specified number of hours.
     /// </summary>
     public void AdvanceTime(float hours)
@@ -421,105 +426,6 @@ public class DayNightCycleManager : MonoBehaviour, IManager, IPlayerDependentSav
 
     #endregion
 
-    #region Save System Implementation
-
-    public object GetDataToSave()
-    {
-        var saveData = new EnvironmentSaveData
-        {
-            currentTimeOfDay = currentTimeOfDay,
-            currentSeason = currentSeason,
-            currentDayOfSeason = currentDayOfSeason,
-            totalDaysElapsed = totalDaysElapsed,
-            dayDurationMinutes = dayDurationMinutes,
-            currentTemperatureModifier = currentTemperatureModifier
-        };
-
-        DebugLog($"Saving environment data: {GetFormattedDateTime()}");
-        return saveData;
-    }
-
-    public object ExtractRelevantData(object saveContainer)
-    {
-        if (saveContainer is EnvironmentSaveData envData)
-        {
-            return envData;
-        }
-        else if (saveContainer is PlayerPersistentData persistentData)
-        {
-            return persistentData.GetComponentData<EnvironmentSaveData>(SaveID);
-        }
-
-        return null;
-    }
-
-    public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
-    {
-        return unifiedData.GetComponentData<EnvironmentSaveData>(SaveID);
-    }
-
-    public object CreateDefaultData()
-    {
-        return new EnvironmentSaveData
-        {
-            currentTimeOfDay = startTimeOfDay,
-            currentSeason = startingSeason,
-            currentDayOfSeason = startingDayOfSeason,
-            totalDaysElapsed = 0,
-            dayDurationMinutes = dayDurationMinutes,
-            currentTemperatureModifier = 0f
-        };
-    }
-
-    public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
-    {
-        if (componentData is EnvironmentSaveData envData)
-        {
-            unifiedData.SetComponentData(SaveID, envData);
-        }
-    }
-
-    public void LoadSaveDataWithContext(object data, RestoreContext context)
-    {
-        if (!(data is EnvironmentSaveData envData))
-        {
-            DebugLog($"Invalid save data type for day/night cycle");
-            return;
-        }
-
-        DebugLog($"Loading environment data for context: {context}");
-
-        currentTimeOfDay = envData.currentTimeOfDay;
-        currentSeason = envData.currentSeason;
-        currentDayOfSeason = envData.currentDayOfSeason;
-        totalDaysElapsed = envData.totalDaysElapsed;
-        dayDurationMinutes = envData.dayDurationMinutes;
-        currentTemperatureModifier = envData.currentTemperatureModifier;
-
-        CalculateTimeProgressionRate();
-        UpdateTemperatureModifier();
-
-        // Fire events to update connected systems
-        OnTimeChanged?.Invoke(currentTimeOfDay);
-        OnDayChanged?.Invoke(currentDayOfSeason);
-        OnSeasonChanged?.Invoke(currentSeason);
-        OnTemperatureModifierChanged?.Invoke(currentTemperatureModifier);
-
-        DebugLog($"Environment data loaded: {GetFormattedDateTime()}");
-    }
-
-    public void OnBeforeSave()
-    {
-        DebugLog("Preparing day/night cycle data for save");
-    }
-
-    public void OnAfterLoad()
-    {
-        DebugLog("Day/night cycle data loaded successfully");
-    }
-
-    #endregion
-
     private void DebugLog(string message)
     {
         if (showDebugLogs)
@@ -531,7 +437,7 @@ public class DayNightCycleManager : MonoBehaviour, IManager, IPlayerDependentSav
     /// <summary>
     /// Gets the number of subscribers to the OnTimeChanged event for debugging.
     /// </summary>
-    private int GetEventSubscriberCount()
+    public int GetEventSubscriberCount()
     {
         return OnTimeChanged?.GetInvocationList()?.Length ?? 0;
     }
