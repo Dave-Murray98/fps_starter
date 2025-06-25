@@ -44,6 +44,8 @@ public class GameManager : MonoBehaviour
     public UIManager uiManager;
     public AudioManager audioManager;
 
+    public DayNightCycleManager dayNightManager;
+
     [Header("Game State")]
     public bool isPaused = false;
 
@@ -112,12 +114,14 @@ public class GameManager : MonoBehaviour
         inputManager = FindFirstObjectByType<InputManager>();
         uiManager = FindFirstObjectByType<UIManager>();
         audioManager = FindFirstObjectByType<AudioManager>();
+        dayNightManager = FindFirstObjectByType<DayNightCycleManager>();
 
         // Register managers that implement IManager
         if (playerManager != null) allManagers.Add(playerManager);
         if (inputManager != null) allManagers.Add(inputManager);
         if (uiManager != null) allManagers.Add(uiManager);
         if (audioManager != null) allManagers.Add(audioManager);
+        if (dayNightManager != null) allManagers.Add(dayNightManager);
     }
 
     /// <summary>

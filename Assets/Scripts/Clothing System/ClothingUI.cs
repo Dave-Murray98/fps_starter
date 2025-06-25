@@ -127,7 +127,7 @@ public class ClothingUI : MonoBehaviour
         if (existingSlotUIs.Length > 0)
         {
             slotUIs = existingSlotUIs;
-            Debug.Log($"Found {slotUIs.Length} existing clothing slot UIs");
+            //            Debug.Log($"Found {slotUIs.Length} existing clothing slot UIs");
 
             foreach (var slotUI in slotUIs)
             {

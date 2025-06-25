@@ -118,7 +118,7 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
         UpdateSlotLabel();
         RefreshDisplay();
 
-        Debug.Log($"ClothingSlotUI initialized for layer: {layer}");
+        //        Debug.Log($"ClothingSlotUI initialized for layer: {layer}");
     }
 
     /// <summary>
