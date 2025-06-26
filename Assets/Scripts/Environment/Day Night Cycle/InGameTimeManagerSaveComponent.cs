@@ -6,17 +6,17 @@ using Sirenix.OdinInspector;
 /// save/load operations, and data restoration for the DayNightCycleManager.
 /// This separation ensures the save system can properly discover and manage day/night data.
 /// </summary>
-public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSaveable
+public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
     [Header("Component References")]
-    [SerializeField] private DayNightCycleManager dayNightManager;
+    [SerializeField] private InGameTimeManager inGameTimeManager;
     [SerializeField] private bool autoFindManager = true;
 
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
     protected override void Awake()
     {
-        saveID = "DayNightCycle";
+        saveID = "GameTime_Main";
         autoGenerateID = false;
         enableDebugLogs = true; // Enable for debugging
         base.Awake();
@@ -48,17 +48,17 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
     /// </summary>
     private void FindDayNightManager()
     {
-        if (dayNightManager == null)
+        if (inGameTimeManager == null)
         {
-            dayNightManager = DayNightCycleManager.Instance;
+            inGameTimeManager = InGameTimeManager.Instance;
 
-            if (dayNightManager == null)
+            if (inGameTimeManager == null)
             {
-                dayNightManager = FindFirstObjectByType<DayNightCycleManager>();
+                inGameTimeManager = FindFirstObjectByType<InGameTimeManager>();
             }
         }
 
-        DebugLog($"Auto-found DayNightCycleManager: {dayNightManager != null}");
+        DebugLog($"Auto-found DayNightCycleManager: {inGameTimeManager != null}");
     }
 
     /// <summary>
@@ -66,7 +66,7 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
     /// </summary>
     private void ValidateReferences()
     {
-        if (dayNightManager == null)
+        if (inGameTimeManager == null)
         {
             Debug.LogError($"[{name}] DayNightCycleManager reference missing! Time data won't be saved.");
         }
@@ -81,7 +81,7 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
     /// </summary>
     public override object GetDataToSave()
     {
-        if (dayNightManager == null)
+        if (inGameTimeManager == null)
         {
             DebugLog("Cannot save - DayNightCycleManager reference is null");
             return null;
@@ -89,12 +89,12 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
 
         var saveData = new EnvironmentSaveData
         {
-            currentTimeOfDay = dayNightManager.GetCurrentTimeOfDay(),
-            currentSeason = dayNightManager.GetCurrentSeason(),
-            currentDayOfSeason = dayNightManager.GetCurrentDayOfSeason(),
-            totalDaysElapsed = dayNightManager.GetTotalDaysElapsed(),
-            dayDurationMinutes = dayNightManager.dayDurationMinutes,
-            currentTemperatureModifier = dayNightManager.GetTemperatureModifier()
+            currentTimeOfDay = inGameTimeManager.GetCurrentTimeOfDay(),
+            currentSeason = inGameTimeManager.GetCurrentSeason(),
+            currentDayOfSeason = inGameTimeManager.GetCurrentDayOfSeason(),
+            totalDaysElapsed = inGameTimeManager.GetTotalDaysElapsed(),
+            dayDurationMinutes = inGameTimeManager.dayDurationMinutes,
+            currentTemperatureModifier = inGameTimeManager.GetTemperatureModifier()
         };
 
         DebugLog($"Saving day/night data: {saveData.GetFormattedDateTime()}, Health check: {saveData.IsValid()}");
@@ -180,15 +180,15 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
         DebugLog("Creating default day/night data for new game");
 
         // Use manager's configured defaults if available
-        if (dayNightManager != null)
+        if (inGameTimeManager != null)
         {
             return new EnvironmentSaveData
             {
-                currentTimeOfDay = dayNightManager.startTimeOfDay,
-                currentSeason = dayNightManager.startingSeason,
-                currentDayOfSeason = dayNightManager.startingDayOfSeason,
+                currentTimeOfDay = inGameTimeManager.startTimeOfDay,
+                currentSeason = inGameTimeManager.startingSeason,
+                currentDayOfSeason = inGameTimeManager.startingDayOfSeason,
                 totalDaysElapsed = 0,
-                dayDurationMinutes = dayNightManager.dayDurationMinutes,
+                dayDurationMinutes = inGameTimeManager.dayDurationMinutes,
                 currentTemperatureModifier = 0f
             };
         }
@@ -244,12 +244,12 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
         DebugLog($"Received valid data - Time: {envData.GetFormattedDateTime()}");
 
         // Refresh manager reference in case it changed after scene load
-        if (autoFindManager && dayNightManager == null)
+        if (autoFindManager && inGameTimeManager == null)
         {
             FindDayNightManager();
         }
 
-        if (dayNightManager == null)
+        if (inGameTimeManager == null)
         {
             Debug.LogError("Cannot restore day/night data - DayNightCycleManager not found!");
             return;
@@ -273,18 +273,18 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
     private void RestoreTimeData(EnvironmentSaveData envData, RestoreContext context)
     {
         DebugLog($"Restoring time data to manager:");
-        DebugLog($"  Current manager time: {dayNightManager.GetCurrentTimeOfDay():F2}");
+        DebugLog($"  Current manager time: {inGameTimeManager.GetCurrentTimeOfDay():F2}");
         DebugLog($"  Restoring to time: {envData.currentTimeOfDay:F2}");
         DebugLog($"  Season: {envData.currentSeason}, Day: {envData.currentDayOfSeason}");
 
         // Apply all the data through the manager's methods
-        dayNightManager.SetGameDate(envData.currentSeason, envData.currentDayOfSeason, envData.currentTimeOfDay);
-        dayNightManager.SetDayDuration(envData.dayDurationMinutes);
+        inGameTimeManager.SetGameDate(envData.currentSeason, envData.currentDayOfSeason, envData.currentTimeOfDay);
+        inGameTimeManager.SetDayDuration(envData.dayDurationMinutes);
 
         // Set total days elapsed (access private field via reflection if needed, or add public method)
         SetTotalDaysElapsed(envData.totalDaysElapsed);
 
-        DebugLog($"Time data applied - Manager now shows: {dayNightManager.GetFormattedDateTime()}");
+        DebugLog($"Time data applied - Manager now shows: {inGameTimeManager.GetFormattedDateTime()}");
 
         // Force an immediate event to update connected systems
         TestManagerEvents();
@@ -297,12 +297,12 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
     {
         // Since totalDaysElapsed is private, we need to use reflection or add a public method
         // For now, we'll use reflection as a temporary solution
-        var field = typeof(DayNightCycleManager).GetField("totalDaysElapsed",
+        var field = typeof(InGameTimeManager).GetField("totalDaysElapsed",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
         if (field != null)
         {
-            field.SetValue(dayNightManager, totalDays);
+            field.SetValue(inGameTimeManager, totalDays);
             DebugLog($"Set total days elapsed to: {totalDays}");
         }
         else
@@ -317,7 +317,7 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
     private void TestManagerEvents()
     {
         DebugLog("Testing manager events after restoration...");
-        dayNightManager.TestEvents();
+        inGameTimeManager.TestEvents();
     }
 
     /// <summary>
@@ -342,10 +342,10 @@ public class DayNightCycleSaveComponent : SaveComponentBase, IPlayerDependentSav
     {
         DebugLog("Day/night data load completed - refreshing connected systems");
 
-        if (dayNightManager != null)
+        if (inGameTimeManager != null)
         {
             // Test events to ensure lighting controllers get updated
-            dayNightManager.TestEvents();
+            inGameTimeManager.TestEvents();
         }
     }
 

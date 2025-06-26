@@ -87,7 +87,7 @@ public class DayNightDebugUI : MonoBehaviour
     /// </summary>
     private void ConnectToDayNightCycle()
     {
-        if (DayNightCycleManager.Instance != null)
+        if (InGameTimeManager.Instance != null)
         {
             isConnected = true;
             Debug.Log("[DayNightDebugUI] Connected to DayNightCycleManager");
@@ -159,7 +159,7 @@ public class DayNightDebugUI : MonoBehaviour
     /// </summary>
     private void UpdateDisplays()
     {
-        if (!isConnected || DayNightCycleManager.Instance == null)
+        if (!isConnected || InGameTimeManager.Instance == null)
         {
             // Try to reconnect
             ConnectToDayNightCycle();
@@ -167,10 +167,10 @@ public class DayNightDebugUI : MonoBehaviour
         }
 
         // Get current values
-        float currentTime = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
-        int currentDay = DayNightCycleManager.Instance.GetCurrentDayOfSeason();
-        SeasonType currentSeason = DayNightCycleManager.Instance.GetCurrentSeason();
-        float tempModifier = DayNightCycleManager.Instance.GetTemperatureModifier();
+        float currentTime = InGameTimeManager.Instance.GetCurrentTimeOfDay();
+        int currentDay = InGameTimeManager.Instance.GetCurrentDayOfSeason();
+        SeasonType currentSeason = InGameTimeManager.Instance.GetCurrentSeason();
+        float tempModifier = InGameTimeManager.Instance.GetTemperatureModifier();
         float totalTemperature = baseTemperature + tempModifier;
 
         // Check if values have changed (avoid unnecessary string operations)
@@ -300,11 +300,11 @@ public class DayNightDebugUI : MonoBehaviour
             info.AppendLine($"Temperature: {GetTemperatureString(temperature, modifier)}");
 
         // Add day/night indicator
-        bool isDaytime = DayNightCycleManager.Instance.IsDaytime();
+        bool isDaytime = InGameTimeManager.Instance.IsDaytime();
         info.AppendLine($"Period: {(isDaytime ? "Day" : "Night")}");
 
         // Add total days elapsed
-        int totalDays = DayNightCycleManager.Instance.GetTotalDaysElapsed();
+        int totalDays = InGameTimeManager.Instance.GetTotalDaysElapsed();
         info.AppendLine($"Total Days: {totalDays}");
 
         return info.ToString().TrimEnd();
@@ -407,9 +407,9 @@ public class DayNightDebugUI : MonoBehaviour
     /// </summary>
     public string GetCurrentTimeString()
     {
-        if (DayNightCycleManager.Instance != null)
+        if (InGameTimeManager.Instance != null)
         {
-            return GetTimeString(DayNightCycleManager.Instance.GetCurrentTimeOfDay());
+            return GetTimeString(InGameTimeManager.Instance.GetCurrentTimeOfDay());
         }
         return "No Connection";
     }
@@ -419,9 +419,9 @@ public class DayNightDebugUI : MonoBehaviour
     /// </summary>
     public string GetCurrentDateString()
     {
-        if (DayNightCycleManager.Instance != null)
+        if (InGameTimeManager.Instance != null)
         {
-            return $"{GetDateString(DayNightCycleManager.Instance.GetCurrentDayOfSeason())} of {GetSeasonString(DayNightCycleManager.Instance.GetCurrentSeason())}";
+            return $"{GetDateString(InGameTimeManager.Instance.GetCurrentDayOfSeason())} of {GetSeasonString(InGameTimeManager.Instance.GetCurrentSeason())}";
         }
         return "No Connection";
     }
@@ -431,9 +431,9 @@ public class DayNightDebugUI : MonoBehaviour
     /// </summary>
     public string GetCurrentTemperatureString()
     {
-        if (DayNightCycleManager.Instance != null)
+        if (InGameTimeManager.Instance != null)
         {
-            float modifier = DayNightCycleManager.Instance.GetTemperatureModifier();
+            float modifier = InGameTimeManager.Instance.GetTemperatureModifier();
             float total = baseTemperature + modifier;
             return GetTemperatureString(total, modifier);
         }

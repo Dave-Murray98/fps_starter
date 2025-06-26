@@ -2,760 +2,218 @@ using UnityEngine;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// Controls scene-specific sun and moon lighting based on the day/night cycle.
-/// Automatically connects to the persistent DayNightCycleManager when the scene loads.
-/// Handles directional light rotation, intensity, color, and ambient lighting transitions.
-/// Simplified version that relies on consistent event firing from DayNightCycleManager.
+/// Simple sun and moon light controller that connects to DayNightCycleManager.
+/// Handles light rotation, intensity, and color based on time of day.
 /// </summary>
 public class SunMoonLightController : MonoBehaviour
 {
     [Header("Light References")]
     [SerializeField] private Light sunLight;
     [SerializeField] private Light moonLight;
-    [SerializeField] private bool autoFindLights = true;
 
-    [Header("Sun Configuration")]
-    [SerializeField] private AnimationCurve sunIntensityCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-    [SerializeField] private Gradient sunColorGradient = new Gradient();
+    [Header("Sun Settings")]
     [SerializeField] private float maxSunIntensity = 1.2f;
+    [SerializeField] private Color dayColor = Color.white;
+    [SerializeField] private Color sunriseColor = new Color(1f, 0.6f, 0.4f);
 
-    [Header("Moon Configuration")]
-    [SerializeField] private AnimationCurve moonIntensityCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
-    [SerializeField] private Gradient moonColorGradient = new Gradient();
+    [Header("Moon Settings")]
     [SerializeField] private float maxMoonIntensity = 0.3f;
+    [SerializeField] private Color moonColor = new Color(0.8f, 0.9f, 1f);
 
-    [Header("Ambient Lighting")]
-    [SerializeField] private bool controlAmbientLighting = true;
-    [SerializeField] private Gradient ambientColorGradient = new Gradient();
-    [SerializeField] private AnimationCurve ambientIntensityCurve = AnimationCurve.EaseInOut(0f, 0.2f, 1f, 1f);
-    [SerializeField] private float maxAmbientIntensity = 1f;
-
-    [Header("Sky and Fog")]
-    [SerializeField] private bool controlSkybox = true;
-    [SerializeField] private Material skyboxMaterial;
-    [SerializeField] private AnimationCurve skyboxExposureCurve = AnimationCurve.EaseInOut(0f, 0.8f, 1f, 1.3f);
-    [SerializeField] private bool controlFog = true;
-    [SerializeField] private Gradient fogColorGradient = new Gradient();
-
-    [Header("Light Rotation")]
+    [Header("Rotation")]
     [SerializeField] private bool rotateLights = true;
-    [SerializeField] private float sunRiseHour = 6f;
-    [SerializeField] private float sunSetHour = 18f;
+    [SerializeField] private float sunriseHour = 6f;
+    [SerializeField] private float sunsetHour = 18f;
 
-    [Header("Smooth Movement")]
-    [SerializeField] private bool useSmoothInterpolation = true;
-    [SerializeField] private float interpolationSpeed = 2f;
-    [SerializeField] private bool smoothRotation = true;
-    [SerializeField] private float rotationSpeed = 1f;
-
-    [Header("Debug Settings")]
+    [Header("Debug")]
     [SerializeField] private bool showDebugLogs = false;
-    [SerializeField] private bool enableLightingUpdates = true;
 
-    // Current state
-    [ShowInInspector, ReadOnly] private float currentTimeOfDay = 6f;
-    [ShowInInspector, ReadOnly] private float targetTimeOfDay = 6f;
-    [ShowInInspector, ReadOnly] private bool isConnectedToDayNightCycle = false;
-
-    // Smooth rotation state
-    private Quaternion currentSunRotation;
-    private Quaternion targetSunRotation;
-    private Quaternion currentMoonRotation;
-    private Quaternion targetMoonRotation;
-
-    // Cached components and values
-    private Material skyboxInstance;
-    private Color originalFogColor;
-    private float originalAmbientIntensity;
-
-    private void Awake()
-    {
-        if (autoFindLights)
-        {
-            FindLightReferences();
-        }
-
-        CacheOriginalValues();
-        InitializeGradients();
-    }
+    // Current values for smooth interpolation
+    private float currentSunAngle = 0f;
+    private float currentMoonAngle = 180f;
+    private float currentSunIntensity = 0f;
+    private float currentMoonIntensity = 0f;
+    private Color currentSunColor = Color.white;
+    private Color currentMoonColor = Color.white;
 
     private void Start()
     {
-        ConnectToDayNightCycle();
+        // Auto-find lights if not assigned
+        if (sunLight == null) sunLight = GameObject.Find("Sun")?.GetComponent<Light>();
+        if (moonLight == null) moonLight = GameObject.Find("Moon")?.GetComponent<Light>();
 
-        // Set initial lighting state
-        if (DayNightCycleManager.Instance != null)
-        {
-            currentTimeOfDay = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
-            targetTimeOfDay = currentTimeOfDay;
-            UpdateLighting(currentTimeOfDay);
-
-            // Initialize rotation state
-            InitializeRotationState();
-        }
+        ConnectToInGameTimeManager();
     }
 
     private void Update()
     {
-        // Smooth interpolation between event updates
-        if (useSmoothInterpolation && enableLightingUpdates)
+        // Update everything smoothly using unscaled time (works when paused)
+        float deltaTime = Time.unscaledDeltaTime;
+
+        if (rotateLights)
         {
-            if (Mathf.Abs(currentTimeOfDay - targetTimeOfDay) > 0.01f)
-            {
-                currentTimeOfDay = Mathf.MoveTowards(currentTimeOfDay, targetTimeOfDay,
-                    interpolationSpeed * Time.deltaTime);
-                UpdateLighting(currentTimeOfDay);
-            }
+            UpdateLightRotation();
         }
 
-        // Smooth rotation interpolation
-        if (smoothRotation && rotateLights && enableLightingUpdates)
-        {
-            UpdateSmoothRotation();
-        }
+        UpdateLightIntensities(deltaTime);
     }
 
     private void OnEnable()
     {
-        ConnectToDayNightCycle();
+        ConnectToInGameTimeManager();
     }
 
     private void OnDisable()
     {
-        DisconnectFromDayNightCycle();
+        if (InGameTimeManager.Instance != null)
+        {
+            InGameTimeManager.OnTimeChanged -= OnTimeChanged;
+        }
     }
 
-    #region Connection Management
-
-    /// <summary>
-    /// Connects to the persistent DayNightCycleManager and subscribes to time events.
-    /// </summary>
-    private void ConnectToDayNightCycle()
+    private void ConnectToInGameTimeManager()
     {
-        // First disconnect any existing connections
-        DisconnectFromDayNightCycle();
-
-        if (DayNightCycleManager.Instance != null)
+        if (InGameTimeManager.Instance != null)
         {
-            DayNightCycleManager.OnTimeChanged += OnTimeChanged;
-            isConnectedToDayNightCycle = true;
+            InGameTimeManager.OnTimeChanged -= OnTimeChanged; // Prevent duplicates
+            InGameTimeManager.OnTimeChanged += OnTimeChanged;
 
-            // Get current time immediately
-            currentTimeOfDay = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
-            targetTimeOfDay = currentTimeOfDay;
-            UpdateLighting(currentTimeOfDay);
-
-            DebugLog($"Connected to DayNightCycleManager - Current time: {currentTimeOfDay:F2}");
+            // Set initial lighting
+            OnTimeChanged(InGameTimeManager.Instance.GetCurrentTimeOfDay());
         }
         else
         {
-            isConnectedToDayNightCycle = false;
-            DebugLog("DayNightCycleManager not found - will retry in 0.5s");
-
-            // Retry connection after a short delay
-            if (gameObject.activeInHierarchy)
-            {
-                Invoke(nameof(ConnectToDayNightCycle), 0.5f);
-            }
+            // Retry connection
+            Invoke(nameof(ConnectToInGameTimeManager), 0.5f);
         }
     }
 
-    /// <summary>
-    /// Disconnects from the DayNightCycleManager events.
-    /// </summary>
-    private void DisconnectFromDayNightCycle()
-    {
-        if (DayNightCycleManager.Instance != null)
-        {
-            DayNightCycleManager.OnTimeChanged -= OnTimeChanged;
-        }
-        isConnectedToDayNightCycle = false;
-    }
-
-    /// <summary>
-    /// Initializes rotation state for smooth movement.
-    /// </summary>
-    private void InitializeRotationState()
-    {
-        if (sunLight != null)
-        {
-            currentSunRotation = sunLight.transform.rotation;
-            targetSunRotation = CalculateTargetSunRotation(currentTimeOfDay);
-        }
-
-        if (moonLight != null)
-        {
-            currentMoonRotation = moonLight.transform.rotation;
-            targetMoonRotation = CalculateTargetMoonRotation(currentTimeOfDay);
-        }
-    }
-
-    /// <summary>
-    /// Updates smooth rotation interpolation for sun and moon.
-    /// </summary>
-    private void UpdateSmoothRotation()
-    {
-        // Smooth sun rotation
-        if (sunLight != null)
-        {
-            if (Quaternion.Angle(currentSunRotation, targetSunRotation) > 0.1f)
-            {
-                currentSunRotation = Quaternion.Slerp(currentSunRotation, targetSunRotation,
-                    rotationSpeed * Time.deltaTime);
-                sunLight.transform.rotation = currentSunRotation;
-            }
-        }
-
-        // Smooth moon rotation
-        if (moonLight != null)
-        {
-            if (Quaternion.Angle(currentMoonRotation, targetMoonRotation) > 0.1f)
-            {
-                currentMoonRotation = Quaternion.Slerp(currentMoonRotation, targetMoonRotation,
-                    rotationSpeed * Time.deltaTime);
-                moonLight.transform.rotation = currentMoonRotation;
-            }
-        }
-    }
-
-    #region Initialization
-
-    /// <summary>
-    /// Automatically finds sun and moon lights in the scene.
-    /// </summary>
-    private void FindLightReferences()
-    {
-        if (sunLight == null)
-        {
-            // Look for a light named "Sun" or "Directional Light"
-            GameObject sunObj = GameObject.Find("Sun");
-            if (sunObj == null) sunObj = GameObject.Find("Directional Light");
-            if (sunObj == null)
-            {
-                // Find the brightest directional light
-                Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
-                foreach (Light light in lights)
-                {
-                    if (light.type == LightType.Directional && light.intensity > 0.5f)
-                    {
-                        sunLight = light;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                sunLight = sunObj.GetComponent<Light>();
-            }
-        }
-
-        if (moonLight == null)
-        {
-            // Look for a light named "Moon"
-            GameObject moonObj = GameObject.Find("Moon");
-            if (moonObj != null)
-            {
-                moonLight = moonObj.GetComponent<Light>();
-            }
-        }
-
-        DebugLog($"Light references found - Sun: {sunLight != null}, Moon: {moonLight != null}");
-    }
-
-    /// <summary>
-    /// Caches original lighting values for restoration if needed.
-    /// </summary>
-    private void CacheOriginalValues()
-    {
-        originalFogColor = RenderSettings.fogColor;
-        originalAmbientIntensity = RenderSettings.ambientIntensity;
-
-        if (controlSkybox && RenderSettings.skybox != null)
-        {
-            skyboxInstance = new Material(RenderSettings.skybox);
-            RenderSettings.skybox = skyboxInstance;
-        }
-    }
-
-    /// <summary>
-    /// Initializes gradients with default values if they're empty.
-    /// </summary>
-    private void InitializeGradients()
-    {
-        // Initialize sun color gradient if empty
-        if (sunColorGradient.colorKeys.Length == 0)
-        {
-            GradientColorKey[] sunColors = new GradientColorKey[]
-            {
-                new GradientColorKey(new Color(1f, 0.4f, 0.1f), 0f),  // Dawn/Dusk orange
-                new GradientColorKey(new Color(1f, 0.95f, 0.8f), 0.5f), // Midday warm white
-                new GradientColorKey(new Color(1f, 0.4f, 0.1f), 1f)   // Dawn/Dusk orange
-            };
-            GradientAlphaKey[] sunAlphas = new GradientAlphaKey[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) };
-            sunColorGradient.SetKeys(sunColors, sunAlphas);
-        }
-
-        // Initialize moon color gradient if empty
-        if (moonColorGradient.colorKeys.Length == 0)
-        {
-            GradientColorKey[] moonColors = new GradientColorKey[]
-            {
-                new GradientColorKey(new Color(0.7f, 0.8f, 1f), 0f),   // Cool blue
-                new GradientColorKey(new Color(0.9f, 0.9f, 1f), 0.5f), // Pale white
-                new GradientColorKey(new Color(0.7f, 0.8f, 1f), 1f)    // Cool blue
-            };
-            GradientAlphaKey[] moonAlphas = new GradientAlphaKey[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) };
-            moonColorGradient.SetKeys(moonColors, moonAlphas);
-        }
-
-        // Initialize ambient color gradient if empty
-        if (ambientColorGradient.colorKeys.Length == 0)
-        {
-            GradientColorKey[] ambientColors = new GradientColorKey[]
-            {
-                new GradientColorKey(new Color(0.2f, 0.3f, 0.5f), 0f),   // Night blue
-                new GradientColorKey(new Color(0.5f, 0.7f, 1f), 0.25f),  // Dawn blue
-                new GradientColorKey(new Color(1f, 0.95f, 0.8f), 0.5f),  // Day warm
-                new GradientColorKey(new Color(0.8f, 0.5f, 0.3f), 0.75f), // Dusk warm
-                new GradientColorKey(new Color(0.2f, 0.3f, 0.5f), 1f)    // Night blue
-            };
-            GradientAlphaKey[] ambientAlphas = new GradientAlphaKey[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) };
-            ambientColorGradient.SetKeys(ambientColors, ambientAlphas);
-        }
-
-        // Initialize fog color gradient if empty
-        if (fogColorGradient.colorKeys.Length == 0)
-        {
-            GradientColorKey[] fogColors = new GradientColorKey[]
-            {
-                new GradientColorKey(new Color(0.1f, 0.15f, 0.3f), 0f),  // Night dark blue
-                new GradientColorKey(new Color(0.8f, 0.8f, 0.9f), 0.5f), // Day light gray
-                new GradientColorKey(new Color(0.1f, 0.15f, 0.3f), 1f)   // Night dark blue
-            };
-            GradientAlphaKey[] fogAlphas = new GradientAlphaKey[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) };
-            fogColorGradient.SetKeys(fogColors, fogAlphas);
-        }
-    }
-
-    #endregion
-
-    #region Event Handlers
-
-    /// <summary>
-    /// Handles time changes from the DayNightCycleManager.
-    /// </summary>
     private void OnTimeChanged(float timeOfDay)
     {
-        if (useSmoothInterpolation)
+        // Just store the time - smooth updates happen in Update()
+        DebugLog($"Time changed to: {timeOfDay:F2}");
+    }
+
+    private void UpdateLightIntensities(float deltaTime)
+    {
+        if (InGameTimeManager.Instance == null) return;
+
+        float timeOfDay = InGameTimeManager.Instance.GetCurrentTimeOfDay();
+
+        // Calculate target values
+        float targetSunIntensity, targetMoonIntensity;
+        Color targetSunColor, targetMoonColor;
+
+        CalculateTargetLightValues(timeOfDay, out targetSunIntensity, out targetMoonIntensity,
+            out targetSunColor, out targetMoonColor);
+
+        // Smooth interpolation
+        float intensitySpeed = 2f; // How fast intensity changes
+        float colorSpeed = 3f; // How fast color changes
+
+        currentSunIntensity = Mathf.MoveTowards(currentSunIntensity, targetSunIntensity,
+            intensitySpeed * deltaTime);
+        currentMoonIntensity = Mathf.MoveTowards(currentMoonIntensity, targetMoonIntensity,
+            intensitySpeed * deltaTime);
+
+        currentSunColor = Color.Lerp(currentSunColor, targetSunColor, colorSpeed * deltaTime);
+        currentMoonColor = Color.Lerp(currentMoonColor, targetMoonColor, colorSpeed * deltaTime);
+
+        // Apply to lights
+        ApplyLightValues();
+    }
+
+    private void CalculateTargetLightValues(float timeOfDay, out float sunIntensity, out float moonIntensity,
+        out Color sunColor, out Color moonColor)
+    {
+        // Calculate if it's daytime
+        bool isDaytime = timeOfDay >= sunriseHour && timeOfDay <= sunsetHour;
+
+        // Sun calculations
+        if (isDaytime)
         {
-            // Set target for smooth interpolation
-            targetTimeOfDay = timeOfDay;
+            // Calculate sun intensity (peaks at noon)
+            float dayProgress = (timeOfDay - sunriseHour) / (sunsetHour - sunriseHour);
+            sunIntensity = Mathf.Sin(dayProgress * Mathf.PI) * maxSunIntensity;
+
+            // Color transition (sunrise/sunset = orange, midday = white)
+            float colorBlend = Mathf.Abs(dayProgress - 0.5f) * 2f; // 0 at noon, 1 at sunrise/sunset
+            sunColor = Color.Lerp(dayColor, sunriseColor, colorBlend);
         }
         else
         {
-            // Immediate update
-            currentTimeOfDay = timeOfDay;
-            if (enableLightingUpdates)
-            {
-                UpdateLighting(timeOfDay);
-            }
+            sunIntensity = 0f;
+            sunColor = dayColor;
         }
 
-        DebugLog($"Time update received: {timeOfDay:F2}");
-    }
-
-    #endregion
-
-    #region Lighting Updates
-
-    /// <summary>
-    /// Updates all lighting components based on the current time of day.
-    /// </summary>
-    private void UpdateLighting(float timeOfDay)
-    {
-        float normalizedTime = timeOfDay / 24f;
-
-        UpdateSunLight(normalizedTime);
-        UpdateMoonLight(normalizedTime);
-        UpdateAmbientLighting(normalizedTime);
-        UpdateSkybox(normalizedTime);
-        UpdateFog(normalizedTime);
-
-        // Always update rotation when rotateLights is enabled
-        if (rotateLights)
+        // Moon calculations
+        bool isNighttime = timeOfDay < sunriseHour || timeOfDay > sunsetHour;
+        if (isNighttime)
         {
-            UpdateLightRotation(timeOfDay);
-        }
-    }
-
-    /// <summary>
-    /// Updates the sun light intensity, color, and visibility.
-    /// </summary>
-    private void UpdateSunLight(float normalizedTime)
-    {
-        if (sunLight == null) return;
-
-        // Calculate sun visibility (day time)
-        float sunVisibility = CalculateSunVisibility(currentTimeOfDay);
-
-        // Update intensity
-        float curveValue = sunIntensityCurve.Evaluate(sunVisibility);
-        float intensity = (curveValue > 0.001f ? curveValue : sunVisibility * 0.5f) * maxSunIntensity;
-        sunLight.intensity = intensity;
-
-        // Update color
-        sunLight.color = sunColorGradient.Evaluate(normalizedTime);
-
-        // Enable/disable based on visibility
-        bool shouldBeEnabled = sunVisibility > 0.001f;
-        sunLight.enabled = shouldBeEnabled;
-
-        DebugLog($"Sun - Time: {currentTimeOfDay:F2}, Visibility: {sunVisibility:F2}, Intensity: {intensity:F2}, Enabled: {shouldBeEnabled}");
-    }
-
-    /// <summary>
-    /// Updates the moon light intensity, color, and visibility.
-    /// </summary>
-    private void UpdateMoonLight(float normalizedTime)
-    {
-        if (moonLight == null) return;
-
-        // Calculate moon visibility (night time)
-        float moonVisibility = CalculateMoonVisibility(currentTimeOfDay);
-
-        // Update intensity
-        float curveValue = moonVisibility > 0.001f ? moonIntensityCurve.Evaluate(moonVisibility) : 0f;
-        float intensity = curveValue * maxMoonIntensity;
-        moonLight.intensity = intensity;
-
-        // Update color
-        moonLight.color = moonColorGradient.Evaluate(normalizedTime);
-
-        // Enable/disable based on visibility
-        bool shouldBeEnabled = moonVisibility > 0.001f;
-        moonLight.enabled = shouldBeEnabled;
-
-        DebugLog($"Moon - Time: {currentTimeOfDay:F2}, Visibility: {moonVisibility:F2}, Intensity: {intensity:F2}, Enabled: {shouldBeEnabled}");
-    }
-
-    /// <summary>
-    /// Updates ambient lighting settings.
-    /// </summary>
-    private void UpdateAmbientLighting(float normalizedTime)
-    {
-        if (!controlAmbientLighting) return;
-
-        // Update ambient color
-        RenderSettings.ambientSkyColor = ambientColorGradient.Evaluate(normalizedTime);
-
-        // Update ambient intensity
-        float ambientIntensity = ambientIntensityCurve.Evaluate(normalizedTime) * maxAmbientIntensity;
-        RenderSettings.ambientIntensity = ambientIntensity;
-    }
-
-    /// <summary>
-    /// Updates skybox material properties.
-    /// </summary>
-    private void UpdateSkybox(float normalizedTime)
-    {
-        if (!controlSkybox || skyboxInstance == null) return;
-
-        // Update skybox exposure based on time
-        if (skyboxInstance.HasProperty("_Exposure"))
-        {
-            float exposure = skyboxExposureCurve.Evaluate(normalizedTime);
-            skyboxInstance.SetFloat("_Exposure", exposure);
-        }
-
-        // Update sun size or other skybox properties if available
-        if (skyboxInstance.HasProperty("_SunSize"))
-        {
-            float sunSize = Mathf.Lerp(0.04f, 0.08f, normalizedTime);
-            skyboxInstance.SetFloat("_SunSize", sunSize);
-        }
-    }
-
-    /// <summary>
-    /// Updates fog color and density.
-    /// </summary>
-    private void UpdateFog(float normalizedTime)
-    {
-        if (!controlFog) return;
-
-        // Update fog color
-        RenderSettings.fogColor = fogColorGradient.Evaluate(normalizedTime);
-    }
-
-    /// <summary>
-    /// Updates light rotation to simulate sun/moon movement across the sky.
-    /// Now calculates target rotations for smooth interpolation.
-    /// </summary>
-    private void UpdateLightRotation(float timeOfDay)
-    {
-        if (smoothRotation)
-        {
-            // Calculate target rotations for smooth interpolation
-            if (sunLight != null)
-            {
-                targetSunRotation = CalculateTargetSunRotation(timeOfDay);
-            }
-
-            if (moonLight != null)
-            {
-                targetMoonRotation = CalculateTargetMoonRotation(timeOfDay);
-            }
+            moonIntensity = maxMoonIntensity;
+            moonColor = this.moonColor;
         }
         else
         {
-            // Immediate rotation updates (legacy behavior)
-            if (sunLight != null)
-            {
-                float sunAngle = CalculateSunAngle(timeOfDay);
-                sunLight.transform.rotation = Quaternion.Euler(sunAngle, 30f, 0f);
-                DebugLog($"Sun Rotation - Time: {timeOfDay:F2}, Angle: {sunAngle:F1}°");
-            }
-
-            if (moonLight != null)
-            {
-                float moonAngle = CalculateMoonAngle(timeOfDay);
-                moonLight.transform.rotation = Quaternion.Euler(moonAngle, 30f, 0f);
-                DebugLog($"Moon Rotation - Time: {timeOfDay:F2}, Angle: {moonAngle:F1}°");
-            }
+            moonIntensity = 0f;
+            moonColor = this.moonColor;
         }
     }
 
-    /// <summary>
-    /// Calculates the target rotation for the sun based on time of day.
-    /// </summary>
-    private Quaternion CalculateTargetSunRotation(float timeOfDay)
+    private void ApplyLightValues()
     {
-        float sunAngle = CalculateSunAngle(timeOfDay);
-        return Quaternion.Euler(sunAngle, 30f, 0f);
-    }
-
-    /// <summary>
-    /// Calculates the target rotation for the moon based on time of day.
-    /// </summary>
-    private Quaternion CalculateTargetMoonRotation(float timeOfDay)
-    {
-        float moonAngle = CalculateMoonAngle(timeOfDay);
-        return Quaternion.Euler(moonAngle, 30f, 0f);
-    }
-
-    #endregion
-
-    #region Calculation Helpers
-
-    /// <summary>
-    /// Calculates sun visibility (0-1) based on time of day.
-    /// Provides smooth transitions at sunrise/sunset to prevent lighting gaps.
-    /// </summary>
-    private float CalculateSunVisibility(float timeOfDay)
-    {
-        if (timeOfDay >= sunRiseHour && timeOfDay <= sunSetHour)
-        {
-            // Daytime - calculate position in day using a curve that peaks at noon
-            float dayProgress = (timeOfDay - sunRiseHour) / (sunSetHour - sunRiseHour);
-            // Use sine curve to peak at noon and fade at sunrise/sunset
-            return Mathf.Sin(dayProgress * Mathf.PI);
-        }
-
-        return 0f; // Nighttime
-    }
-
-    /// <summary>
-    /// Calculates moon visibility (0-1) based on time of day.
-    /// Moon is visible throughout the entire night with consistent intensity.
-    /// </summary>
-    private float CalculateMoonVisibility(float timeOfDay)
-    {
-        // Moon is visible during nighttime hours
-        if (timeOfDay < sunRiseHour || timeOfDay > sunSetHour)
-        {
-            return 1f; // Full visibility throughout the night
-        }
-
-        return 0f; // Hidden during daytime
-    }
-
-    /// <summary>
-    /// Calculates the sun angle for light rotation (continuous 360° cycle).
-    /// Sun rises in the east, sets in the west, continues underground at night.
-    /// </summary>
-    private float CalculateSunAngle(float timeOfDay)
-    {
-        // Convert 24-hour time to 0-360° continuous rotation
-        // 6 AM (sunrise) = 0°, 12 PM (noon) = 90°, 6 PM (sunset) = 180°, 12 AM (midnight) = 270°
-        float angle = (timeOfDay / 24f) * 360f - 90f; // -90° offset so sunrise is at horizon (0°)
-
-        // Normalize to -180° to +180° range for proper light direction
-        while (angle > 180f) angle -= 360f;
-        while (angle < -180f) angle += 360f;
-
-        return angle;
-    }
-
-    /// <summary>
-    /// Calculates the moon angle for light rotation.
-    /// Moon follows the sun but offset by 180° (opposite side of sky).
-    /// </summary>
-    private float CalculateMoonAngle(float timeOfDay)
-    {
-        // Moon is always 180° opposite to the sun
-        float sunAngle = CalculateSunAngle(timeOfDay);
-        float moonAngle = sunAngle + 180f;
-
-        // Normalize to -180° to +180° range
-        while (moonAngle > 180f) moonAngle -= 360f;
-        while (moonAngle < -180f) moonAngle += 360f;
-
-        return moonAngle;
-    }
-
-    #endregion
-
-    #region Manual Control
-
-    /// <summary>
-    /// Manually sets the lighting for a specific time (for testing).
-    /// </summary>
-    [Button("Set Lighting Time")]
-    public void SetLightingTime(float timeOfDay)
-    {
-        timeOfDay = Mathf.Clamp(timeOfDay, 0f, 23.99f);
-        currentTimeOfDay = timeOfDay;
-        targetTimeOfDay = timeOfDay;
-        UpdateLighting(timeOfDay);
-
-        // Update rotation targets immediately for manual changes
-        if (smoothRotation)
-        {
-            if (sunLight != null)
-            {
-                targetSunRotation = CalculateTargetSunRotation(timeOfDay);
-                currentSunRotation = sunLight.transform.rotation; // Start from current position
-            }
-            if (moonLight != null)
-            {
-                targetMoonRotation = CalculateTargetMoonRotation(timeOfDay);
-                currentMoonRotation = moonLight.transform.rotation; // Start from current position
-            }
-        }
-
-        DebugLog($"Lighting manually set to time: {timeOfDay:F2}");
-    }
-
-    /// <summary>
-    /// Toggles lighting updates on/off.
-    /// </summary>
-    [Button("Toggle Lighting Updates")]
-    public void ToggleLightingUpdates()
-    {
-        enableLightingUpdates = !enableLightingUpdates;
-        DebugLog($"Lighting updates {(enableLightingUpdates ? "enabled" : "disabled")}");
-    }
-
-    /// <summary>
-    /// Toggles smooth rotation on/off.
-    /// </summary>
-    [Button("Toggle Smooth Rotation")]
-    public void ToggleSmoothRotation()
-    {
-        smoothRotation = !smoothRotation;
-
-        // If disabling smooth rotation, snap to correct positions
-        if (!smoothRotation && rotateLights)
-        {
-            UpdateLightRotation(currentTimeOfDay);
-        }
-
-        DebugLog($"Smooth rotation {(smoothRotation ? "enabled" : "disabled")}");
-    }
-
-    /// <summary>
-    /// Forces a reconnection to the day/night cycle manager.
-    /// </summary>
-    [Button("Force Reconnect")]
-    public void ForceReconnect()
-    {
-        ConnectToDayNightCycle();
-    }
-
-    /// <summary>
-    /// Manually syncs with the day/night cycle manager time.
-    /// </summary>
-    [Button("Sync Time Now")]
-    public void SyncTimeNow()
-    {
-        if (DayNightCycleManager.Instance != null)
-        {
-            float managerTime = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
-            currentTimeOfDay = managerTime;
-            targetTimeOfDay = managerTime;
-            UpdateLighting(currentTimeOfDay);
-
-            // Initialize rotation state for smooth movement
-            if (smoothRotation)
-            {
-                InitializeRotationState();
-            }
-
-            DebugLog($"Manual sync - Time: {currentTimeOfDay:F2}");
-        }
-        else
-        {
-            DebugLog("Cannot sync - DayNightCycleManager not found");
-        }
-    }
-
-    /// <summary>
-    /// Resets all lighting to original values.
-    /// </summary>
-    [Button("Reset to Original")]
-    public void ResetToOriginalLighting()
-    {
-        RenderSettings.fogColor = originalFogColor;
-        RenderSettings.ambientIntensity = originalAmbientIntensity;
-
         if (sunLight != null)
         {
-            sunLight.intensity = 1f;
-            sunLight.color = Color.white;
+            sunLight.intensity = currentSunIntensity;
+            sunLight.color = currentSunColor;
+            sunLight.enabled = currentSunIntensity > 0.01f;
         }
 
         if (moonLight != null)
         {
-            moonLight.intensity = 0f;
+            moonLight.intensity = currentMoonIntensity;
+            moonLight.color = currentMoonColor;
+            moonLight.enabled = currentMoonIntensity > 0.01f;
         }
-
-        DebugLog("Lighting reset to original values");
     }
 
-    #endregion
+    private void UpdateLightRotation()
+    {
+        if (InGameTimeManager.Instance == null) return;
 
-    #region Public Getters
+        float timeOfDay = InGameTimeManager.Instance.GetCurrentTimeOfDay();
 
-    /// <summary>
-    /// Gets the current time of day being used for lighting.
-    /// </summary>
-    public float GetCurrentTimeOfDay() => currentTimeOfDay;
+        // Calculate target angles
+        float targetSunAngle = (timeOfDay / 24f) * 360f - 90f; // -90 so sunrise is at 0°
+        float targetMoonAngle = targetSunAngle + 180f; // Moon opposite to sun
 
-    /// <summary>
-    /// Checks if this controller is connected to the day/night cycle manager.
-    /// </summary>
-    public bool IsConnected() => isConnectedToDayNightCycle;
+        // Normalize to 0-360
+        while (targetSunAngle < 0f) targetSunAngle += 360f;
+        while (targetSunAngle >= 360f) targetSunAngle -= 360f;
+        while (targetMoonAngle >= 360f) targetMoonAngle -= 360f;
 
-    /// <summary>
-    /// Gets the current sun light reference.
-    /// </summary>
-    public Light GetSunLight() => sunLight;
+        // Smooth rotation using unscaled time (works when paused)
+        float rotationSpeed = 60f; // degrees per second
+        currentSunAngle = Mathf.MoveTowardsAngle(currentSunAngle, targetSunAngle,
+            rotationSpeed * Time.unscaledDeltaTime);
+        currentMoonAngle = Mathf.MoveTowardsAngle(currentMoonAngle, targetMoonAngle,
+            rotationSpeed * Time.unscaledDeltaTime);
 
-    /// <summary>
-    /// Gets the current moon light reference.
-    /// </summary>
-    public Light GetMoonLight() => moonLight;
+        // Apply rotations
+        if (sunLight != null)
+            sunLight.transform.rotation = Quaternion.Euler(currentSunAngle, 30f, 0f);
+        if (moonLight != null)
+            moonLight.transform.rotation = Quaternion.Euler(currentMoonAngle, 30f, 0f);
+    }
 
-    #endregion
+    [Button("Sync with InGame Time Manager")]
+    public void SyncNow()
+    {
+        if (InGameTimeManager.Instance != null)
+        {
+            OnTimeChanged(InGameTimeManager.Instance.GetCurrentTimeOfDay());
+        }
+    }
 
     private void DebugLog(string message)
     {
@@ -764,15 +222,4 @@ public class SunMoonLightController : MonoBehaviour
             Debug.Log($"[SunMoonLight] {message}");
         }
     }
-
-    private void OnValidate()
-    {
-        if (Application.isPlaying && enableLightingUpdates)
-        {
-            UpdateLighting(currentTimeOfDay);
-        }
-    }
-
-    #endregion
-
 }

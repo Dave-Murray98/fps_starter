@@ -8,9 +8,9 @@ using Sirenix.OdinInspector;
 /// Handles time-based temperature modulation and provides manual override capabilities.
 /// Updated with pause-aware event firing system for consistent lighting updates.
 /// </summary>
-public class DayNightCycleManager : MonoBehaviour, IManager
+public class InGameTimeManager : MonoBehaviour, IManager
 {
-    public static DayNightCycleManager Instance { get; private set; }
+    public static InGameTimeManager Instance { get; private set; }
 
     [Header("Time Configuration")]
     [SerializeField] public float dayDurationMinutes = 20f; // Real-time minutes per game day
