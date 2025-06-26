@@ -42,7 +42,6 @@ public class SunMoonLightController : MonoBehaviour
         if (sunLight == null) sunLight = GameObject.Find("Sun")?.GetComponent<Light>();
         if (moonLight == null) moonLight = GameObject.Find("Moon")?.GetComponent<Light>();
 
-        ConnectToInGameTimeManager();
     }
 
     private void Update()
@@ -56,42 +55,6 @@ public class SunMoonLightController : MonoBehaviour
         }
 
         UpdateLightIntensities(deltaTime);
-    }
-
-    private void OnEnable()
-    {
-        ConnectToInGameTimeManager();
-    }
-
-    private void OnDisable()
-    {
-        if (InGameTimeManager.Instance != null)
-        {
-            InGameTimeManager.OnTimeChanged -= OnTimeChanged;
-        }
-    }
-
-    private void ConnectToInGameTimeManager()
-    {
-        if (InGameTimeManager.Instance != null)
-        {
-            InGameTimeManager.OnTimeChanged -= OnTimeChanged; // Prevent duplicates
-            InGameTimeManager.OnTimeChanged += OnTimeChanged;
-
-            // Set initial lighting
-            OnTimeChanged(InGameTimeManager.Instance.GetCurrentTimeOfDay());
-        }
-        else
-        {
-            // Retry connection
-            Invoke(nameof(ConnectToInGameTimeManager), 0.5f);
-        }
-    }
-
-    private void OnTimeChanged(float timeOfDay)
-    {
-        // Just store the time - smooth updates happen in Update()
-        DebugLog($"Time changed to: {timeOfDay:F2}");
     }
 
     private void UpdateLightIntensities(float deltaTime)
@@ -204,15 +167,6 @@ public class SunMoonLightController : MonoBehaviour
             sunLight.transform.rotation = Quaternion.Euler(currentSunAngle, 30f, 0f);
         if (moonLight != null)
             moonLight.transform.rotation = Quaternion.Euler(currentMoonAngle, 30f, 0f);
-    }
-
-    [Button("Sync with InGame Time Manager")]
-    public void SyncNow()
-    {
-        if (InGameTimeManager.Instance != null)
-        {
-            OnTimeChanged(InGameTimeManager.Instance.GetCurrentTimeOfDay());
-        }
     }
 
     private void DebugLog(string message)

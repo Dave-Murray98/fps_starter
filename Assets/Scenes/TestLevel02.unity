@@ -2933,7 +2933,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sunLight: {fileID: 416906304}
-  moonLight: {fileID: 416906304}
+  moonLight: {fileID: 1180009997}
   maxSunIntensity: 3
   dayColor: {r: 1, g: 1, b: 1, a: 1}
   sunriseColor: {r: 1, g: 0.6, b: 0.4, a: 1}
@@ -2942,6 +2942,9 @@ MonoBehaviour:
   rotateLights: 1
   sunriseHour: 6
   sunsetHour: 18
+  connectionRetryDelay: 0.2
+  maxConnectionAttempts: 10
+  forceImmediateSync: 1
   showDebugLogs: 1
 --- !u!4 &1984336455
 Transform:
