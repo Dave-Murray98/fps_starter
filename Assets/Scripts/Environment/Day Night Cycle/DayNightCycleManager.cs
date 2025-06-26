@@ -6,6 +6,7 @@ using Sirenix.OdinInspector;
 /// Manages the day/night cycle and game time progression. Persists across scenes.
 /// Save/load functionality is handled by DayNightCycleSaveComponent.
 /// Handles time-based temperature modulation and provides manual override capabilities.
+/// Updated with pause-aware event firing system for consistent lighting updates.
 /// </summary>
 public class DayNightCycleManager : MonoBehaviour, IManager
 {
@@ -24,6 +25,10 @@ public class DayNightCycleManager : MonoBehaviour, IManager
     [SerializeField] private float dayNightTemperatureVariance = 10f; // °C difference between day/night
     [SerializeField] private AnimationCurve temperatureCurve = AnimationCurve.EaseInOut(0f, -1f, 1f, 1f);
 
+    [Header("Event Timing")]
+    [SerializeField] private float eventFireIntervalSeconds = 0.5f; // Real-world seconds between events (for calculation)
+    [SerializeField] private bool forceEventOnSignificantChange = true; // Fire event if time jumps significantly
+
     [Header("Debug Settings")]
     [SerializeField] private bool showDebugLogs = true;
     [SerializeField] private bool enableTimeProgression = true;
@@ -37,6 +42,11 @@ public class DayNightCycleManager : MonoBehaviour, IManager
     // Calculated values
     [ShowInInspector, ReadOnly] private float timeProgressionRate; // Time units per real second
     [ShowInInspector, ReadOnly] private float currentTemperatureModifier = 0f;
+
+    // Event timing tracking
+    [ShowInInspector, ReadOnly] private float minEventGameTimeInterval = 0.0167f; // Calculated minimum game time between events
+    [ShowInInspector, ReadOnly] private float timeSinceLastEvent = 0f; // Accumulated game time since last event
+    private float lastFiredTimeOfDay = -1f;
 
     // Events for external systems
     public static event Action<float> OnTimeChanged; // Current time (0-24)
@@ -98,15 +108,17 @@ public class DayNightCycleManager : MonoBehaviour, IManager
 
     /// <summary>
     /// Updates the current time based on real-time progression and triggers events.
+    /// Uses accumulated time tracking to fire events at consistent intervals while respecting pause state.
     /// </summary>
     private void ProgressTime()
     {
-        float previousTime = currentTimeOfDay;
         int previousDay = currentDayOfSeason;
         SeasonType previousSeason = currentSeason;
 
         // Progress time
-        currentTimeOfDay += timeProgressionRate * Time.deltaTime;
+        float timeAdvancement = timeProgressionRate * Time.deltaTime;
+        currentTimeOfDay += timeAdvancement;
+        timeSinceLastEvent += timeAdvancement;
 
         // Handle day rollover
         if (currentTimeOfDay >= 24f)
@@ -115,27 +127,50 @@ public class DayNightCycleManager : MonoBehaviour, IManager
             AdvanceDay();
         }
 
-
         // Update temperature modifier based on time of day
         UpdateTemperatureModifier();
 
-        Debug.Log($"currentTimeOfDay: {currentTimeOfDay}, previousTime: {previousTime}, interval: {currentTimeOfDay - previousTime}");
-        // Fire time events at reasonable intervals (every ~6 seconds of game time or 0.1 hours)
-        if (Mathf.Abs(currentTimeOfDay - previousTime) >= 0.1f)
+        // Fire time events when we've accumulated enough game time
+        if (timeSinceLastEvent >= minEventGameTimeInterval)
         {
             OnTimeChanged?.Invoke(currentTimeOfDay);
-            DebugLog($"Time advanced to: {GetFormattedDateTime()} - Event fired to {GetEventSubscriberCount()} listeners");
+            timeSinceLastEvent = 0f;
+            lastFiredTimeOfDay = currentTimeOfDay;
+            DebugLog($"Time event fired: {GetFormattedDateTime()} - Sent to {GetEventSubscriberCount()} listeners");
+        }
+
+        // Check for significant time jumps (manual setting, loading, etc.)
+        if (forceEventOnSignificantChange && lastFiredTimeOfDay >= 0f)
+        {
+            float timeDifference = Mathf.Abs(currentTimeOfDay - lastFiredTimeOfDay);
+
+            // Handle day boundary crossing
+            if (timeDifference > 12f)
+            {
+                timeDifference = 24f - timeDifference;
+            }
+
+            // If time changed significantly beyond normal progression
+            if (timeDifference > minEventGameTimeInterval * 2f)
+            {
+                OnTimeChanged?.Invoke(currentTimeOfDay);
+                timeSinceLastEvent = 0f;
+                lastFiredTimeOfDay = currentTimeOfDay;
+                DebugLog($"Time event fired (significant change): {GetFormattedDateTime()}");
+            }
         }
 
         // Fire day/season events when they actually change
         if (currentDayOfSeason != previousDay)
         {
             OnDayChanged?.Invoke(currentDayOfSeason);
+            DebugLog($"Day changed event fired: {GetFormattedDate()}");
         }
 
         if (currentSeason != previousSeason)
         {
             OnSeasonChanged?.Invoke(currentSeason);
+            DebugLog($"Season changed event fired: {currentSeason}");
         }
     }
 
@@ -177,12 +212,18 @@ public class DayNightCycleManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Calculates the time progression rate based on configured day duration.
+    /// Calculates the time progression rate and event intervals based on configured day duration.
     /// </summary>
     private void CalculateTimeProgressionRate()
     {
         timeProgressionRate = 24f / (dayDurationMinutes * 60f); // 24 hours per configured minutes
-        DebugLog($"Time progression rate calculated: {timeProgressionRate:F4} game hours per real second");
+
+        // Calculate how much game time should pass between events to achieve desired real-time interval
+        // Formula: (desired_real_seconds * time_progression_rate) = game_hours_between_events
+        minEventGameTimeInterval = eventFireIntervalSeconds * timeProgressionRate;
+
+        DebugLog($"Time progression rate: {timeProgressionRate:F4} game hours per real second");
+        DebugLog($"Event fire interval: every {minEventGameTimeInterval:F4} game hours (≈{eventFireIntervalSeconds}s real time)");
     }
 
     #endregion
@@ -221,7 +262,7 @@ public class DayNightCycleManager : MonoBehaviour, IManager
     #region Manual Control Methods
 
     /// <summary>
-    /// Manually sets the time of day (0-24 hours).
+    /// Manually sets the time of day and immediately fires events.
     /// </summary>
     [Button("Set Time of Day")]
     public void SetTimeOfDay(float hours)
@@ -230,8 +271,10 @@ public class DayNightCycleManager : MonoBehaviour, IManager
         currentTimeOfDay = hours;
         UpdateTemperatureModifier();
 
-        // Fire event and log it
+        // Force immediate event fire and reset accumulators
         OnTimeChanged?.Invoke(currentTimeOfDay);
+        timeSinceLastEvent = 0f;
+        lastFiredTimeOfDay = currentTimeOfDay;
         DebugLog($"Time manually set to: {GetFormattedTime()} - Event fired to {GetEventSubscriberCount()} listeners");
     }
 
@@ -263,7 +306,7 @@ public class DayNightCycleManager : MonoBehaviour, IManager
     public void SetGameDate(SeasonType season, int dayOfSeason, float timeOfDay)
     {
         SetSeason(season, dayOfSeason);
-        SetTimeOfDay(timeOfDay);
+        SetTimeOfDay(timeOfDay); // This will fire the event
         DebugLog($"Game date manually set to: {GetFormattedDateTime()}");
     }
 
@@ -277,7 +320,7 @@ public class DayNightCycleManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Advances time by the specified number of hours.
+    /// Advances time by the specified number of hours and fires events if needed.
     /// </summary>
     public void AdvanceTime(float hours)
     {
@@ -292,8 +335,17 @@ public class DayNightCycleManager : MonoBehaviour, IManager
 
         currentTimeOfDay = newTime;
         UpdateTemperatureModifier();
-        OnTimeChanged?.Invoke(currentTimeOfDay);
-        DebugLog($"Time advanced by {hours:F1} hours to: {GetFormattedDateTime()}");
+
+        // Add to accumulator and check if we should fire event
+        timeSinceLastEvent += hours;
+
+        if (timeSinceLastEvent >= minEventGameTimeInterval)
+        {
+            OnTimeChanged?.Invoke(currentTimeOfDay);
+            timeSinceLastEvent = 0f;
+            lastFiredTimeOfDay = currentTimeOfDay;
+            DebugLog($"Time advanced by {hours:F1} hours to: {GetFormattedDateTime()} - Event fired");
+        }
     }
 
     /// <summary>
@@ -318,12 +370,34 @@ public class DayNightCycleManager : MonoBehaviour, IManager
         if (subscriberCount > 0)
         {
             OnTimeChanged?.Invoke(currentTimeOfDay);
+            timeSinceLastEvent = 0f;
+            lastFiredTimeOfDay = currentTimeOfDay;
             DebugLog($"Test event fired with time: {currentTimeOfDay:F2}");
         }
         else
         {
             DebugLog("No subscribers found - SunMoonLightController may not be connected");
         }
+    }
+
+    /// <summary>
+    /// Sets the event fire interval and recalculates timing.
+    /// </summary>
+    public void SetEventFireInterval(float seconds)
+    {
+        eventFireIntervalSeconds = Mathf.Max(0.1f, seconds);
+        CalculateTimeProgressionRate();
+        DebugLog($"Event fire interval set to {eventFireIntervalSeconds:F1} seconds");
+    }
+
+    /// <summary>
+    /// Resets event timing accumulators. Useful when loading saves or changing scenes.
+    /// </summary>
+    public void ResetEventTiming()
+    {
+        timeSinceLastEvent = 0f;
+        lastFiredTimeOfDay = currentTimeOfDay;
+        DebugLog("Event timing reset");
     }
 
     #endregion

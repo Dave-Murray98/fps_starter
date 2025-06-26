@@ -194,7 +194,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 1
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.33692718, g: 0.33692718, b: 0.33692718, a: 1}
   m_Intensity: 0
   m_Range: 10
   m_SpotAngle: 30
@@ -238,7 +238,7 @@ Light:
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
-  m_ColorTemperature: 5000
+  m_ColorTemperature: 11981
   m_UseColorTemperature: 1
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
@@ -1085,7 +1085,9 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  showDebugLogs: 1
+  eventFireIntervalSeconds: 0.5
+  forceEventOnSignificantChange: 1
+  showDebugLogs: 0
   enableTimeProgression: 1
 --- !u!4 &782600925
 Transform:
@@ -1116,7 +1118,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveID: Day_Night_Cycle_Main
   autoGenerateID: 0
-  enableDebugLogs: 1
+  enableDebugLogs: 0
   dayNightManager: {fileID: 782600924}
   autoFindManager: 1
 --- !u!1 &826401193
@@ -1828,14 +1830,12 @@ MonoBehaviour:
   rotateLights: 1
   sunRiseHour: 6
   sunSetHour: 18
-  showDebugLogs: 0
-  enableLightingUpdates: 1
-  useFallbackUpdates: 1
-  fallbackUpdateInterval: 0.5
   useSmoothInterpolation: 1
   interpolationSpeed: 2
-  maxConnectionAttempts: 100
-  connectionRetryInterval: 0.5
+  smoothRotation: 1
+  rotationSpeed: 1
+  showDebugLogs: 0
+  enableLightingUpdates: 1
 --- !u!4 &1453776181
 Transform:
   m_ObjectHideFlags: 0

@@ -5,6 +5,7 @@ using Sirenix.OdinInspector;
 /// Controls scene-specific sun and moon lighting based on the day/night cycle.
 /// Automatically connects to the persistent DayNightCycleManager when the scene loads.
 /// Handles directional light rotation, intensity, color, and ambient lighting transitions.
+/// Simplified version that relies on consistent event firing from DayNightCycleManager.
 /// </summary>
 public class SunMoonLightController : MonoBehaviour
 {
@@ -41,20 +42,26 @@ public class SunMoonLightController : MonoBehaviour
     [SerializeField] private float sunRiseHour = 6f;
     [SerializeField] private float sunSetHour = 18f;
 
+    [Header("Smooth Movement")]
+    [SerializeField] private bool useSmoothInterpolation = true;
+    [SerializeField] private float interpolationSpeed = 2f;
+    [SerializeField] private bool smoothRotation = true;
+    [SerializeField] private float rotationSpeed = 1f;
+
     [Header("Debug Settings")]
     [SerializeField] private bool showDebugLogs = false;
     [SerializeField] private bool enableLightingUpdates = true;
-    [SerializeField] private bool useFallbackUpdates = true;
-    [SerializeField] private float fallbackUpdateInterval = 0.5f;
-    [SerializeField] private bool useSmoothInterpolation = true;
-    [SerializeField] private float interpolationSpeed = 2f;
 
     // Current state
     [ShowInInspector, ReadOnly] private float currentTimeOfDay = 6f;
     [ShowInInspector, ReadOnly] private float targetTimeOfDay = 6f;
     [ShowInInspector, ReadOnly] private bool isConnectedToDayNightCycle = false;
-    [ShowInInspector, ReadOnly] private float lastEventTime = -1f;
-    [ShowInInspector, ReadOnly] private float lastFallbackUpdate = 0f;
+
+    // Smooth rotation state
+    private Quaternion currentSunRotation;
+    private Quaternion targetSunRotation;
+    private Quaternion currentMoonRotation;
+    private Quaternion targetMoonRotation;
 
     // Cached components and values
     private Material skyboxInstance;
@@ -80,7 +87,11 @@ public class SunMoonLightController : MonoBehaviour
         if (DayNightCycleManager.Instance != null)
         {
             currentTimeOfDay = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
+            targetTimeOfDay = currentTimeOfDay;
             UpdateLighting(currentTimeOfDay);
+
+            // Initialize rotation state
+            InitializeRotationState();
         }
     }
 
@@ -97,12 +108,10 @@ public class SunMoonLightController : MonoBehaviour
             }
         }
 
-        // Fallback update system in case events aren't working
-        if (useFallbackUpdates && enableLightingUpdates &&
-            Time.time - lastFallbackUpdate > fallbackUpdateInterval)
+        // Smooth rotation interpolation
+        if (smoothRotation && rotateLights && enableLightingUpdates)
         {
-            CheckForTimeUpdates();
-            lastFallbackUpdate = Time.time;
+            UpdateSmoothRotation();
         }
     }
 
@@ -133,6 +142,7 @@ public class SunMoonLightController : MonoBehaviour
 
             // Get current time immediately
             currentTimeOfDay = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
+            targetTimeOfDay = currentTimeOfDay;
             UpdateLighting(currentTimeOfDay);
 
             DebugLog($"Connected to DayNightCycleManager - Current time: {currentTimeOfDay:F2}");
@@ -162,7 +172,51 @@ public class SunMoonLightController : MonoBehaviour
         isConnectedToDayNightCycle = false;
     }
 
-    #endregion
+    /// <summary>
+    /// Initializes rotation state for smooth movement.
+    /// </summary>
+    private void InitializeRotationState()
+    {
+        if (sunLight != null)
+        {
+            currentSunRotation = sunLight.transform.rotation;
+            targetSunRotation = CalculateTargetSunRotation(currentTimeOfDay);
+        }
+
+        if (moonLight != null)
+        {
+            currentMoonRotation = moonLight.transform.rotation;
+            targetMoonRotation = CalculateTargetMoonRotation(currentTimeOfDay);
+        }
+    }
+
+    /// <summary>
+    /// Updates smooth rotation interpolation for sun and moon.
+    /// </summary>
+    private void UpdateSmoothRotation()
+    {
+        // Smooth sun rotation
+        if (sunLight != null)
+        {
+            if (Quaternion.Angle(currentSunRotation, targetSunRotation) > 0.1f)
+            {
+                currentSunRotation = Quaternion.Slerp(currentSunRotation, targetSunRotation,
+                    rotationSpeed * Time.deltaTime);
+                sunLight.transform.rotation = currentSunRotation;
+            }
+        }
+
+        // Smooth moon rotation
+        if (moonLight != null)
+        {
+            if (Quaternion.Angle(currentMoonRotation, targetMoonRotation) > 0.1f)
+            {
+                currentMoonRotation = Quaternion.Slerp(currentMoonRotation, targetMoonRotation,
+                    rotationSpeed * Time.deltaTime);
+                moonLight.transform.rotation = currentMoonRotation;
+            }
+        }
+    }
 
     #region Initialization
 
@@ -292,8 +346,6 @@ public class SunMoonLightController : MonoBehaviour
     /// </summary>
     private void OnTimeChanged(float timeOfDay)
     {
-        lastEventTime = Time.time;
-
         if (useSmoothInterpolation)
         {
             // Set target for smooth interpolation
@@ -309,40 +361,7 @@ public class SunMoonLightController : MonoBehaviour
             }
         }
 
-        DebugLog($"Event Update - Target Time: {timeOfDay:F2}");
-    }
-
-    /// <summary>
-    /// Fallback method to check for time updates if events aren't working.
-    /// </summary>
-    private void CheckForTimeUpdates()
-    {
-        if (DayNightCycleManager.Instance == null)
-        {
-            // Try to reconnect
-            ConnectToDayNightCycle();
-            return;
-        }
-
-        float managerTime = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
-
-        // Check if time has changed significantly
-        if (Mathf.Abs(managerTime - targetTimeOfDay) > 0.05f)
-        {
-            if (useSmoothInterpolation)
-            {
-                targetTimeOfDay = managerTime;
-            }
-            else
-            {
-                currentTimeOfDay = managerTime;
-                if (enableLightingUpdates)
-                {
-                    UpdateLighting(currentTimeOfDay);
-                }
-            }
-            DebugLog($"Fallback Update - Target Time: {managerTime:F2} (Events may not be working)");
-        }
+        DebugLog($"Time update received: {timeOfDay:F2}");
     }
 
     #endregion
@@ -379,7 +398,7 @@ public class SunMoonLightController : MonoBehaviour
         // Calculate sun visibility (day time)
         float sunVisibility = CalculateSunVisibility(currentTimeOfDay);
 
-        // Update intensity - use direct visibility if curve is problematic
+        // Update intensity
         float curveValue = sunIntensityCurve.Evaluate(sunVisibility);
         float intensity = (curveValue > 0.001f ? curveValue : sunVisibility * 0.5f) * maxSunIntensity;
         sunLight.intensity = intensity;
@@ -387,11 +406,11 @@ public class SunMoonLightController : MonoBehaviour
         // Update color
         sunLight.color = sunColorGradient.Evaluate(normalizedTime);
 
-        // Enable/disable based on visibility (not just intensity)
+        // Enable/disable based on visibility
         bool shouldBeEnabled = sunVisibility > 0.001f;
         sunLight.enabled = shouldBeEnabled;
 
-        DebugLog($"Sun - Time: {currentTimeOfDay:F2}, Visibility: {sunVisibility:F2}, CurveValue: {curveValue:F3}, Intensity: {intensity:F2}, Enabled: {shouldBeEnabled}, Range: {sunRiseHour}-{sunSetHour}");
+        DebugLog($"Sun - Time: {currentTimeOfDay:F2}, Visibility: {sunVisibility:F2}, Intensity: {intensity:F2}, Enabled: {shouldBeEnabled}");
     }
 
     /// <summary>
@@ -404,7 +423,7 @@ public class SunMoonLightController : MonoBehaviour
         // Calculate moon visibility (night time)
         float moonVisibility = CalculateMoonVisibility(currentTimeOfDay);
 
-        // Update intensity - ensure 0 visibility = 0 intensity
+        // Update intensity
         float curveValue = moonVisibility > 0.001f ? moonIntensityCurve.Evaluate(moonVisibility) : 0f;
         float intensity = curveValue * maxMoonIntensity;
         moonLight.intensity = intensity;
@@ -416,7 +435,7 @@ public class SunMoonLightController : MonoBehaviour
         bool shouldBeEnabled = moonVisibility > 0.001f;
         moonLight.enabled = shouldBeEnabled;
 
-        DebugLog($"Moon - Time: {currentTimeOfDay:F2}, Visibility: {moonVisibility:F2}, CurveValue: {curveValue:F3}, Intensity: {intensity:F2}, Enabled: {shouldBeEnabled}");
+        DebugLog($"Moon - Time: {currentTimeOfDay:F2}, Visibility: {moonVisibility:F2}, Intensity: {intensity:F2}, Enabled: {shouldBeEnabled}");
     }
 
     /// <summary>
@@ -469,30 +488,58 @@ public class SunMoonLightController : MonoBehaviour
 
     /// <summary>
     /// Updates light rotation to simulate sun/moon movement across the sky.
+    /// Now calculates target rotations for smooth interpolation.
     /// </summary>
     private void UpdateLightRotation(float timeOfDay)
     {
-        // Calculate sun rotation (continuous 24-hour cycle)
-        if (sunLight != null)
+        if (smoothRotation)
         {
-            float sunAngle = CalculateSunAngle(timeOfDay);
-            sunLight.transform.rotation = Quaternion.Euler(sunAngle, 30f, 0f);
-            DebugLog($"Sun Rotation - Time: {timeOfDay:F2}, Angle: {sunAngle:F1}°");
-        }
+            // Calculate target rotations for smooth interpolation
+            if (sunLight != null)
+            {
+                targetSunRotation = CalculateTargetSunRotation(timeOfDay);
+            }
 
-        // Moon is simply 180° opposite to sun
-        if (moonLight != null)
+            if (moonLight != null)
+            {
+                targetMoonRotation = CalculateTargetMoonRotation(timeOfDay);
+            }
+        }
+        else
         {
-            float sunAngle = CalculateSunAngle(timeOfDay);
-            float moonAngle = sunAngle + 180f;
+            // Immediate rotation updates (legacy behavior)
+            if (sunLight != null)
+            {
+                float sunAngle = CalculateSunAngle(timeOfDay);
+                sunLight.transform.rotation = Quaternion.Euler(sunAngle, 30f, 0f);
+                DebugLog($"Sun Rotation - Time: {timeOfDay:F2}, Angle: {sunAngle:F1}°");
+            }
 
-            // Normalize moon angle
-            while (moonAngle > 180f) moonAngle -= 360f;
-            while (moonAngle < -180f) moonAngle += 360f;
-
-            moonLight.transform.rotation = Quaternion.Euler(moonAngle, 30f, 0f);
-            DebugLog($"Moon Rotation - Time: {timeOfDay:F2}, Angle: {moonAngle:F1}°");
+            if (moonLight != null)
+            {
+                float moonAngle = CalculateMoonAngle(timeOfDay);
+                moonLight.transform.rotation = Quaternion.Euler(moonAngle, 30f, 0f);
+                DebugLog($"Moon Rotation - Time: {timeOfDay:F2}, Angle: {moonAngle:F1}°");
+            }
         }
+    }
+
+    /// <summary>
+    /// Calculates the target rotation for the sun based on time of day.
+    /// </summary>
+    private Quaternion CalculateTargetSunRotation(float timeOfDay)
+    {
+        float sunAngle = CalculateSunAngle(timeOfDay);
+        return Quaternion.Euler(sunAngle, 30f, 0f);
+    }
+
+    /// <summary>
+    /// Calculates the target rotation for the moon based on time of day.
+    /// </summary>
+    private Quaternion CalculateTargetMoonRotation(float timeOfDay)
+    {
+        float moonAngle = CalculateMoonAngle(timeOfDay);
+        return Quaternion.Euler(moonAngle, 30f, 0f);
     }
 
     #endregion
@@ -501,6 +548,7 @@ public class SunMoonLightController : MonoBehaviour
 
     /// <summary>
     /// Calculates sun visibility (0-1) based on time of day.
+    /// Provides smooth transitions at sunrise/sunset to prevent lighting gaps.
     /// </summary>
     private float CalculateSunVisibility(float timeOfDay)
     {
@@ -517,55 +565,51 @@ public class SunMoonLightController : MonoBehaviour
 
     /// <summary>
     /// Calculates moon visibility (0-1) based on time of day.
+    /// Moon is visible throughout the entire night with consistent intensity.
     /// </summary>
     private float CalculateMoonVisibility(float timeOfDay)
     {
+        // Moon is visible during nighttime hours
         if (timeOfDay < sunRiseHour || timeOfDay > sunSetHour)
         {
-            // Nighttime - calculate position in night
-            float nightTime;
-            if (timeOfDay > sunSetHour)
-            {
-                // Evening to midnight
-                nightTime = timeOfDay - sunSetHour;
-            }
-            else
-            {
-                // Midnight to morning
-                nightTime = timeOfDay + (24f - sunSetHour);
-            }
-
-            float totalNightDuration = 24f - (sunSetHour - sunRiseHour);
-            float nightProgress = nightTime / totalNightDuration;
-
-            // Use sine curve to peak at midnight
-            return Mathf.Sin(nightProgress * Mathf.PI);
+            return 1f; // Full visibility throughout the night
         }
 
-        return 0f; // Daytime
+        return 0f; // Hidden during daytime
     }
 
     /// <summary>
-    /// Calculates the sun angle for light rotation (full 24-hour cycle).
-    /// Sunrise (6 AM) = -10°, rotates 15° per hour.
+    /// Calculates the sun angle for light rotation (continuous 360° cycle).
+    /// Sun rises in the east, sets in the west, continues underground at night.
     /// </summary>
     private float CalculateSunAngle(float timeOfDay)
     {
-        // Calculate hours since sunrise (6 AM)
-        float hoursSinceSunrise = timeOfDay - 6f;
+        // Convert 24-hour time to 0-360° continuous rotation
+        // 6 AM (sunrise) = 0°, 12 PM (noon) = 90°, 6 PM (sunset) = 180°, 12 AM (midnight) = 270°
+        float angle = (timeOfDay / 24f) * 360f - 90f; // -90° offset so sunrise is at horizon (0°)
 
-        // Handle negative hours (before 6 AM - previous day cycle)
-        if (hoursSinceSunrise < 0f)
-            hoursSinceSunrise += 24f;
-
-        // Sun angle: starts at -10° at sunrise, rotates 15° per hour
-        float angle = -10f + (hoursSinceSunrise * 15f);
-
-        // Normalize angle to -180° to +180° range
+        // Normalize to -180° to +180° range for proper light direction
         while (angle > 180f) angle -= 360f;
         while (angle < -180f) angle += 360f;
 
         return angle;
+    }
+
+    /// <summary>
+    /// Calculates the moon angle for light rotation.
+    /// Moon follows the sun but offset by 180° (opposite side of sky).
+    /// </summary>
+    private float CalculateMoonAngle(float timeOfDay)
+    {
+        // Moon is always 180° opposite to the sun
+        float sunAngle = CalculateSunAngle(timeOfDay);
+        float moonAngle = sunAngle + 180f;
+
+        // Normalize to -180° to +180° range
+        while (moonAngle > 180f) moonAngle -= 360f;
+        while (moonAngle < -180f) moonAngle += 360f;
+
+        return moonAngle;
     }
 
     #endregion
@@ -580,7 +624,24 @@ public class SunMoonLightController : MonoBehaviour
     {
         timeOfDay = Mathf.Clamp(timeOfDay, 0f, 23.99f);
         currentTimeOfDay = timeOfDay;
+        targetTimeOfDay = timeOfDay;
         UpdateLighting(timeOfDay);
+
+        // Update rotation targets immediately for manual changes
+        if (smoothRotation)
+        {
+            if (sunLight != null)
+            {
+                targetSunRotation = CalculateTargetSunRotation(timeOfDay);
+                currentSunRotation = sunLight.transform.rotation; // Start from current position
+            }
+            if (moonLight != null)
+            {
+                targetMoonRotation = CalculateTargetMoonRotation(timeOfDay);
+                currentMoonRotation = moonLight.transform.rotation; // Start from current position
+            }
+        }
+
         DebugLog($"Lighting manually set to time: {timeOfDay:F2}");
     }
 
@@ -592,6 +653,23 @@ public class SunMoonLightController : MonoBehaviour
     {
         enableLightingUpdates = !enableLightingUpdates;
         DebugLog($"Lighting updates {(enableLightingUpdates ? "enabled" : "disabled")}");
+    }
+
+    /// <summary>
+    /// Toggles smooth rotation on/off.
+    /// </summary>
+    [Button("Toggle Smooth Rotation")]
+    public void ToggleSmoothRotation()
+    {
+        smoothRotation = !smoothRotation;
+
+        // If disabling smooth rotation, snap to correct positions
+        if (!smoothRotation && rotateLights)
+        {
+            UpdateLightRotation(currentTimeOfDay);
+        }
+
+        DebugLog($"Smooth rotation {(smoothRotation ? "enabled" : "disabled")}");
     }
 
     /// <summary>
@@ -613,26 +691,21 @@ public class SunMoonLightController : MonoBehaviour
         {
             float managerTime = DayNightCycleManager.Instance.GetCurrentTimeOfDay();
             currentTimeOfDay = managerTime;
+            targetTimeOfDay = managerTime;
             UpdateLighting(currentTimeOfDay);
+
+            // Initialize rotation state for smooth movement
+            if (smoothRotation)
+            {
+                InitializeRotationState();
+            }
+
             DebugLog($"Manual sync - Time: {currentTimeOfDay:F2}");
         }
         else
         {
             DebugLog("Cannot sync - DayNightCycleManager not found");
         }
-    }
-
-    /// <summary>
-    /// Tests the event system by checking when the last event was received.
-    /// </summary>
-    [Button("Test Event System")]
-    public void TestEventSystem()
-    {
-        DebugLog($"Connection Status: {isConnectedToDayNightCycle}");
-        DebugLog($"Manager Time: {(DayNightCycleManager.Instance?.GetCurrentTimeOfDay() ?? -1):F2}");
-        DebugLog($"Local Time: {currentTimeOfDay:F2}");
-        DebugLog($"Last Event: {(lastEventTime > 0 ? $"{Time.time - lastEventTime:F1}s ago" : "Never")}");
-        DebugLog($"Fallback Updates: {useFallbackUpdates}");
     }
 
     /// <summary>
@@ -699,4 +772,7 @@ public class SunMoonLightController : MonoBehaviour
             UpdateLighting(currentTimeOfDay);
         }
     }
+
+    #endregion
+
 }
