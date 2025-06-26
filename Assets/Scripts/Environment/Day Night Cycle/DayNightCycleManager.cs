@@ -115,13 +115,16 @@ public class DayNightCycleManager : MonoBehaviour, IManager
             AdvanceDay();
         }
 
+
         // Update temperature modifier based on time of day
         UpdateTemperatureModifier();
 
+        Debug.Log($"currentTimeOfDay: {currentTimeOfDay}, previousTime: {previousTime}, interval: {currentTimeOfDay - previousTime}");
         // Fire time events at reasonable intervals (every ~6 seconds of game time or 0.1 hours)
         if (Mathf.Abs(currentTimeOfDay - previousTime) >= 0.1f)
         {
             OnTimeChanged?.Invoke(currentTimeOfDay);
+            DebugLog($"Time advanced to: {GetFormattedDateTime()} - Event fired to {GetEventSubscriberCount()} listeners");
         }
 
         // Fire day/season events when they actually change
