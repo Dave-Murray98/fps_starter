@@ -2,9 +2,10 @@ using UnityEngine;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// Dedicated save component for the Day/Night Cycle system. Handles all persistence,
-/// save/load operations, and data restoration for the DayNightCycleManager.
-/// This separation ensures the save system can properly discover and manage day/night data.
+/// Dedicated save component for the In-Game Time System. Handles all persistence,
+/// save/load operations, and data restoration for the InGameTimeManager.
+/// Now uses InGameTimeSystemSaveData specifically for time-related data only.
+/// Weather data is handled separately by weather systems.
 /// </summary>
 public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -16,14 +17,14 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
 
     protected override void Awake()
     {
-        saveID = "GameTime_Main";
+        saveID = "InGameTimeSystem_Main";
         autoGenerateID = false;
         enableDebugLogs = true; // Enable for debugging
         base.Awake();
 
         if (autoFindManager)
         {
-            FindDayNightManager();
+            FindTimeManager();
         }
     }
 
@@ -35,18 +36,18 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         if (PlayerPersistenceManager.Instance != null)
         {
             PlayerPersistenceManager.Instance.RegisterComponent(this);
-            DebugLog("Registered with PlayerPersistenceManager");
+            //    DebugLog("Registered with PlayerPersistenceManager");
         }
         else
         {
-            DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
+            // DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
         }
     }
 
     /// <summary>
-    /// Automatically locates the DayNightCycleManager in the scene.
+    /// Automatically locates the InGameTimeManager in the scene.
     /// </summary>
-    private void FindDayNightManager()
+    private void FindTimeManager()
     {
         if (inGameTimeManager == null)
         {
@@ -58,7 +59,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             }
         }
 
-        DebugLog($"Auto-found DayNightCycleManager: {inGameTimeManager != null}");
+        //        DebugLog($"Auto-found InGameTimeManager: {inGameTimeManager != null}");
     }
 
     /// <summary>
@@ -68,74 +69,74 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     {
         if (inGameTimeManager == null)
         {
-            Debug.LogError($"[{name}] DayNightCycleManager reference missing! Time data won't be saved.");
+            Debug.LogError($"[{name}] InGameTimeManager reference missing! Time data won't be saved.");
         }
         else
         {
-            DebugLog("DayNightCycleManager reference validated successfully");
+            //            DebugLog("InGameTimeManager reference validated successfully");
         }
     }
 
     /// <summary>
-    /// Extracts current day/night cycle state from the manager.
+    /// Extracts current time system state from the manager.
+    /// Returns only time-related data - no weather information.
     /// </summary>
     public override object GetDataToSave()
     {
         if (inGameTimeManager == null)
         {
-            DebugLog("Cannot save - DayNightCycleManager reference is null");
+            DebugLog("Cannot save - InGameTimeManager reference is null");
             return null;
         }
 
-        var saveData = new EnvironmentSaveData
+        var saveData = new InGameTimeSystemSaveData
         {
             currentTimeOfDay = inGameTimeManager.GetCurrentTimeOfDay(),
             currentSeason = inGameTimeManager.GetCurrentSeason(),
             currentDayOfSeason = inGameTimeManager.GetCurrentDayOfSeason(),
             totalDaysElapsed = inGameTimeManager.GetTotalDaysElapsed(),
-            dayDurationMinutes = inGameTimeManager.dayDurationMinutes,
-            currentTemperatureModifier = inGameTimeManager.GetTemperatureModifier()
+            dayDurationMinutes = inGameTimeManager.dayDurationMinutes
         };
 
-        DebugLog($"Saving day/night data: {saveData.GetFormattedDateTime()}, Health check: {saveData.IsValid()}");
+        DebugLog($"Saving time system data: {saveData.GetFormattedDateTime()}, Health check: {saveData.IsValid()}");
         return saveData;
     }
 
     /// <summary>
-    /// Extracts day/night data from various save container formats.
+    /// Extracts time system data from various save container formats.
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
-        DebugLog($"Extracting day/night data from container type: {saveContainer?.GetType().Name ?? "null"}");
+        DebugLog($"Extracting time system data from container type: {saveContainer?.GetType().Name ?? "null"}");
 
-        if (saveContainer is EnvironmentSaveData envData)
+        if (saveContainer is InGameTimeSystemSaveData timeData)
         {
-            DebugLog($"Direct extraction - Time: {envData.GetFormattedDateTime()}");
-            return envData;
+            DebugLog($"Direct extraction - Time: {timeData.GetFormattedDateTime()}");
+            return timeData;
         }
         else if (saveContainer is PlayerPersistentData persistentData)
         {
-            var extractedData = persistentData.GetComponentData<EnvironmentSaveData>(SaveID);
+            var extractedData = persistentData.GetComponentData<InGameTimeSystemSaveData>(SaveID);
             if (extractedData != null)
             {
                 DebugLog($"Extracted from persistent data - Time: {extractedData.GetFormattedDateTime()}");
             }
             else
             {
-                DebugLog("No day/night data found in persistent data");
+                DebugLog("No time system data found in persistent data");
             }
             return extractedData;
         }
         else if (saveContainer is PlayerSaveData playerSaveData)
         {
-            var extractedData = playerSaveData.GetCustomData<EnvironmentSaveData>(SaveID);
+            var extractedData = playerSaveData.GetCustomData<InGameTimeSystemSaveData>(SaveID);
             if (extractedData != null)
             {
                 DebugLog($"Extracted from player save data - Time: {extractedData.GetFormattedDateTime()}");
             }
             else
             {
-                DebugLog("No day/night data found in player save data");
+                DebugLog("No time system data found in player save data");
             }
             return extractedData;
         }
@@ -147,7 +148,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     #region IPlayerDependentSaveable Implementation
 
     /// <summary>
-    /// Extracts day/night data from the unified save structure.
+    /// Extracts time system data from the unified save structure.
     /// </summary>
     public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
     {
@@ -158,7 +159,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         }
 
         DebugLog("Using modular extraction from unified save data");
-        var extractedData = unifiedData.GetComponentData<EnvironmentSaveData>(SaveID);
+        var extractedData = unifiedData.GetComponentData<InGameTimeSystemSaveData>(SaveID);
 
         if (extractedData != null)
         {
@@ -166,43 +167,41 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         }
         else
         {
-            DebugLog("No day/night data found in unified save structure");
+            DebugLog("No time system data found in unified save structure");
         }
 
         return extractedData;
     }
 
     /// <summary>
-    /// Creates default day/night data for new games.
+    /// Creates default time system data for new games.
     /// </summary>
     public object CreateDefaultData()
     {
-        DebugLog("Creating default day/night data for new game");
+        DebugLog("Creating default time system data for new game");
 
         // Use manager's configured defaults if available
         if (inGameTimeManager != null)
         {
-            return new EnvironmentSaveData
+            return new InGameTimeSystemSaveData
             {
                 currentTimeOfDay = inGameTimeManager.startTimeOfDay,
                 currentSeason = inGameTimeManager.startingSeason,
                 currentDayOfSeason = inGameTimeManager.startingDayOfSeason,
                 totalDaysElapsed = 0,
-                dayDurationMinutes = inGameTimeManager.dayDurationMinutes,
-                currentTemperatureModifier = 0f
+                dayDurationMinutes = inGameTimeManager.dayDurationMinutes
             };
         }
         else
         {
             // Fallback defaults
-            var defaultData = new EnvironmentSaveData
+            var defaultData = new InGameTimeSystemSaveData
             {
                 currentTimeOfDay = 6f,
                 currentSeason = SeasonType.Spring,
                 currentDayOfSeason = 1,
                 totalDaysElapsed = 0,
-                dayDurationMinutes = 20f,
-                currentTemperatureModifier = 0f
+                dayDurationMinutes = 20f
             };
 
             DebugLog($"Created fallback default data: {defaultData.GetFormattedDateTime()}");
@@ -211,78 +210,78 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     }
 
     /// <summary>
-    /// Stores day/night data into the unified save structure.
+    /// Stores time system data into the unified save structure.
     /// </summary>
     public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
     {
-        if (componentData is EnvironmentSaveData envData && unifiedData != null)
+        if (componentData is InGameTimeSystemSaveData timeData && unifiedData != null)
         {
-            DebugLog($"Contributing day/night data to unified save: {envData.GetFormattedDateTime()}");
-            unifiedData.SetComponentData(SaveID, envData);
+            DebugLog($"Contributing time system data to unified save: {timeData.GetFormattedDateTime()}");
+            unifiedData.SetComponentData(SaveID, timeData);
         }
         else
         {
-            DebugLog($"Invalid data for contribution - expected EnvironmentSaveData, got {componentData?.GetType().Name ?? "null"}");
+            DebugLog($"Invalid data for contribution - expected InGameTimeSystemSaveData, got {componentData?.GetType().Name ?? "null"}");
         }
     }
 
     #endregion
 
     /// <summary>
-    /// Context-aware data restoration to the DayNightCycleManager.
+    /// Context-aware data restoration to the InGameTimeManager.
     /// </summary>
     public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
-        DebugLog($"=== LOADING DAY/NIGHT DATA (Context: {context}) ===");
+        DebugLog($"=== LOADING TIME SYSTEM DATA (Context: {context}) ===");
 
-        if (!(data is EnvironmentSaveData envData))
+        if (!(data is InGameTimeSystemSaveData timeData))
         {
-            DebugLog($"Invalid save data type - expected EnvironmentSaveData, got {data?.GetType().Name ?? "null"}");
+            DebugLog($"Invalid save data type - expected InGameTimeSystemSaveData, got {data?.GetType().Name ?? "null"}");
             return;
         }
 
-        DebugLog($"Received valid data - Time: {envData.GetFormattedDateTime()}");
+        DebugLog($"Received valid data - Time: {timeData.GetFormattedDateTime()}");
 
         // Refresh manager reference in case it changed after scene load
         if (autoFindManager && inGameTimeManager == null)
         {
-            FindDayNightManager();
+            FindTimeManager();
         }
 
         if (inGameTimeManager == null)
         {
-            Debug.LogError("Cannot restore day/night data - DayNightCycleManager not found!");
+            Debug.LogError("Cannot restore time system data - InGameTimeManager not found!");
             return;
         }
 
         // Validate data before applying
-        if (!envData.IsValid())
+        if (!timeData.IsValid())
         {
-            Debug.LogWarning("Day/night save data failed validation - applying anyway with corrections");
+            Debug.LogWarning("Time system save data failed validation - applying anyway with corrections");
         }
 
         // Apply the data to the manager
-        RestoreTimeData(envData, context);
+        RestoreTimeData(timeData, context);
 
-        DebugLog($"Day/night data restoration complete for context: {context}");
+        DebugLog($"Time system data restoration complete for context: {context}");
     }
 
     /// <summary>
-    /// Applies environment data to the DayNightCycleManager.
+    /// Applies time system data to the InGameTimeManager.
     /// </summary>
-    private void RestoreTimeData(EnvironmentSaveData envData, RestoreContext context)
+    private void RestoreTimeData(InGameTimeSystemSaveData timeData, RestoreContext context)
     {
         DebugLog($"Restoring time data to manager:");
         DebugLog($"  Current manager time: {inGameTimeManager.GetCurrentTimeOfDay():F2}");
-        DebugLog($"  Restoring to time: {envData.currentTimeOfDay:F2}");
-        DebugLog($"  Season: {envData.currentSeason}, Day: {envData.currentDayOfSeason}");
+        DebugLog($"  Restoring to time: {timeData.currentTimeOfDay:F2}");
+        DebugLog($"  Season: {timeData.currentSeason}, Day: {timeData.currentDayOfSeason}");
 
         // Apply all the data through the manager's methods
-        inGameTimeManager.SetGameDate(envData.currentSeason, envData.currentDayOfSeason, envData.currentTimeOfDay);
-        inGameTimeManager.SetDayDuration(envData.dayDurationMinutes);
+        inGameTimeManager.SetGameDate(timeData.currentSeason, timeData.currentDayOfSeason, timeData.currentTimeOfDay);
+        inGameTimeManager.SetDayDuration(timeData.dayDurationMinutes);
 
-        // Set total days elapsed (access private field via reflection if needed, or add public method)
-        SetTotalDaysElapsed(envData.totalDaysElapsed);
+        // Set total days elapsed - use reflection since the method might be private
+        SetTotalDaysElapsed(timeData.totalDaysElapsed);
 
         DebugLog($"Time data applied - Manager now shows: {inGameTimeManager.GetFormattedDateTime()}");
 
@@ -291,23 +290,35 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     }
 
     /// <summary>
-    /// Sets the total days elapsed on the manager.
+    /// Sets the total days elapsed on the manager using the public method if available,
+    /// or reflection if needed for backwards compatibility.
     /// </summary>
     private void SetTotalDaysElapsed(int totalDays)
     {
-        // Since totalDaysElapsed is private, we need to use reflection or add a public method
-        // For now, we'll use reflection as a temporary solution
-        var field = typeof(InGameTimeManager).GetField("totalDaysElapsed",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        // Try to call the public method first
+        var method = typeof(InGameTimeManager).GetMethod("SetTotalDaysElapsed",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
 
-        if (field != null)
+        if (method != null)
         {
-            field.SetValue(inGameTimeManager, totalDays);
-            DebugLog($"Set total days elapsed to: {totalDays}");
+            method.Invoke(inGameTimeManager, new object[] { totalDays });
+            DebugLog($"Set total days elapsed to: {totalDays} using public method");
         }
         else
         {
-            DebugLog("Could not set totalDaysElapsed - field not found");
+            // Fall back to reflection on private field
+            var field = typeof(InGameTimeManager).GetField("totalDaysElapsed",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (field != null)
+            {
+                field.SetValue(inGameTimeManager, totalDays);
+                DebugLog($"Set total days elapsed to: {totalDays} using reflection");
+            }
+            else
+            {
+                DebugLog("Could not set totalDaysElapsed - neither method nor field found");
+            }
         }
     }
 
@@ -325,11 +336,11 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     /// </summary>
     public override void OnBeforeSave()
     {
-        DebugLog("Preparing day/night data for save operation");
+        DebugLog("Preparing time system data for save operation");
 
         if (autoFindManager)
         {
-            FindDayNightManager();
+            FindTimeManager();
         }
 
         ValidateReferences();
@@ -340,7 +351,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     /// </summary>
     public override void OnAfterLoad()
     {
-        DebugLog("Day/night data load completed - refreshing connected systems");
+        DebugLog("Time system data load completed - refreshing connected systems");
 
         if (inGameTimeManager != null)
         {
@@ -356,9 +367,9 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     public void TestSaveData()
     {
         var data = GetDataToSave();
-        if (data is EnvironmentSaveData envData)
+        if (data is InGameTimeSystemSaveData timeData)
         {
-            DebugLog($"Test save data: {envData.GetDebugInfo()}");
+            DebugLog($"Test save data: {timeData.GetDebugInfo()}");
         }
         else
         {

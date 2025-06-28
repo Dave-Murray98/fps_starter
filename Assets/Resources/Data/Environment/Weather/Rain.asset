@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccd1bc5fcaab6ad409982492a3ee98ee, type: 3}
+  m_Name: Rain
+  m_EditorClassIdentifier: 
+  eventType: 1
+  displayName: Rain
+  description: Wet
+  allowedSeasons: 
+  canOccurInAllSeasons: 1
+  minDuration: 1
+  maxDuration: 4
+  buildUpTime: 3
+  waningTime: 3
+  temperatureModifier: 0
+  hasTemperatureEffect: 1
+  baseIntensity: 1
+  rarityWeight: 1
+  hasTimePreferences: 0
+  preferredStartHour: 0
+  preferredEndHour: 24
+  incompatibleWeatherTypes: 00000000090000000a00000002000000040000000600000007000000
+  compatibleWeatherTypes: 080000000500000003000000
+  canStackWithOtherWeather: 1
+  maxSimultaneousEvents: 1
+  transitionSmoothness: 0.5

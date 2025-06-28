@@ -429,7 +429,8 @@ MonoBehaviour:
   inputManager: {fileID: 1066306440}
   uiManager: {fileID: 15981061}
   audioManager: {fileID: 2071220440}
-  dayNightManager: {fileID: 0}
+  timeManager: {fileID: 0}
+  weatherManager: {fileID: 0}
   isPaused: 0
 --- !u!4 &317039848
 Transform:
@@ -1139,31 +1140,6 @@ MonoBehaviour:
   daysPerSeason: 3
   startingSeason: 0
   startingDayOfSeason: 1
-  dayNightTemperatureVariance: 10
-  temperatureCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: -1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
   eventFireIntervalSeconds: 0.5
   forceEventOnSignificantChange: 1
   showDebugLogs: 1
@@ -1195,7 +1171,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f334baa76f8fb374fa5a0fa000f8430d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  saveID: Day_Night_Cycle_Main
+  saveID: GameTime_Main
   autoGenerateID: 0
   enableDebugLogs: 0
   inGameTimeManager: {fileID: 0}
@@ -1370,6 +1346,132 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -74.638016, y: -3.4927492, z: 57.532238}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1128894059
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1128894062}
+  - component: {fileID: 1128894061}
+  - component: {fileID: 1128894060}
+  m_Layer: 0
+  m_Name: WeatherManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1128894060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1128894059}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68cce962b47267042805844e0d717ce9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  saveID: Weather_Main
+  autoGenerateID: 0
+  enableDebugLogs: 1
+  weatherManager: {fileID: 1128894061}
+  autoFindManager: 1
+  defaultBaseTemperature: 20
+--- !u!114 &1128894061
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1128894059}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66702e5bf0ab7314390fda7ce7661324, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  availableWeatherEvents:
+  - {fileID: 11400000, guid: b59f91493468f8149bff175f76aa5e6c, type: 2}
+  - {fileID: 11400000, guid: 60280dffe897f7a4bb772a3acc9ba0a7, type: 2}
+  - {fileID: 11400000, guid: 4027e4251a5cacc4e97274078ce599cb, type: 2}
+  - {fileID: 11400000, guid: f33b81d9004187748a7643e3e3ae0128, type: 2}
+  - {fileID: 11400000, guid: 67b2c83084f3980419c11c553145f023, type: 2}
+  - {fileID: 11400000, guid: 8bac06afc11e6f04a947cf9d49fdd850, type: 2}
+  enableWeatherEvents: 1
+  baseTemperature: 20
+  seasonalTemperatureVariance: 15
+  seasonalTemperatureCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: -1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  dayNightTemperatureVariance: 8
+  dayNightTemperatureCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: -1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  weatherCheckInterval: 1
+  weatherEventChance: 0.15
+  showDebugLogs: 1
+  enableManualWeatherControl: 0
+--- !u!4 &1128894062
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1128894059}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2232,50 +2334,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a250da43fbd7db3468b3c906eec51457, type: 3}
---- !u!1 &1692537144
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1692537146}
-  - component: {fileID: 1692537145}
-  m_Layer: 0
-  m_Name: InteractionDebugHelper
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1692537145
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1692537144}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e45555bd2c1fcd499824536006beb5d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!4 &1692537146
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1692537144}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 8.802074, y: 6.3773355, z: 44.33234}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1695434197
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2929,12 +2987,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 1984336453}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 65bb6d745ee493347a0ae335bfcef53c, type: 3}
+  m_Script: {fileID: 11500000, guid: bd00bd03173386148accce66d68997c5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   sunLight: {fileID: 416906304}
   moonLight: {fileID: 1180009997}
-  maxSunIntensity: 3
+  maxSunIntensity: 1.2
   dayColor: {r: 1, g: 1, b: 1, a: 1}
   sunriseColor: {r: 1, g: 0.6, b: 0.4, a: 1}
   maxMoonIntensity: 0.3
@@ -2942,10 +3000,7 @@ MonoBehaviour:
   rotateLights: 1
   sunriseHour: 6
   sunsetHour: 18
-  connectionRetryDelay: 0.2
-  maxConnectionAttempts: 10
-  forceImmediateSync: 1
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!4 &1984336455
 Transform:
   m_ObjectHideFlags: 0
@@ -3232,8 +3287,8 @@ SceneRoots:
   - {fileID: 304590118}
   - {fileID: 1984336455}
   - {fileID: 703671617}
+  - {fileID: 1128894062}
   - {fileID: 886756089}
   - {fileID: 1836448758}
   - {fileID: 1632860331}
   - {fileID: 1913381024}
-  - {fileID: 1692537146}

@@ -4,9 +4,9 @@ using Sirenix.OdinInspector;
 
 /// <summary>
 /// Manages the day/night cycle and game time progression. Persists across scenes.
-/// Save/load functionality is handled by DayNightCycleSaveComponent.
-/// Handles time-based temperature modulation and provides manual override capabilities.
-/// Updated with pause-aware event firing system for consistent lighting updates.
+/// Save/load functionality is handled by InGameTimeManagerSaveComponent.
+/// Updated with pause-aware event firing system for consistent updates.
+/// TEMPERATURE LOGIC REMOVED - Now handled by WeatherManager.
 /// </summary>
 public class InGameTimeManager : MonoBehaviour, IManager
 {
@@ -20,10 +20,6 @@ public class InGameTimeManager : MonoBehaviour, IManager
     [SerializeField] public int daysPerSeason = 30;
     [SerializeField] public SeasonType startingSeason = SeasonType.Spring;
     [SerializeField] public int startingDayOfSeason = 1;
-
-    [Header("Temperature Modulation")]
-    [SerializeField] private float dayNightTemperatureVariance = 10f; // °C difference between day/night
-    [SerializeField] private AnimationCurve temperatureCurve = AnimationCurve.EaseInOut(0f, -1f, 1f, 1f);
 
     [Header("Event Timing")]
     [SerializeField] private float eventFireIntervalSeconds = 0.5f; // Real-world seconds between events (for calculation)
@@ -41,7 +37,6 @@ public class InGameTimeManager : MonoBehaviour, IManager
 
     // Calculated values
     [ShowInInspector, ReadOnly] private float timeProgressionRate; // Time units per real second
-    [ShowInInspector, ReadOnly] private float currentTemperatureModifier = 0f;
 
     // Event timing tracking
     [ShowInInspector, ReadOnly] private float minEventGameTimeInterval = 0.0167f; // Calculated minimum game time between events
@@ -52,7 +47,6 @@ public class InGameTimeManager : MonoBehaviour, IManager
     public static event Action<float> OnTimeChanged; // Current time (0-24)
     public static event Action<int> OnDayChanged; // Day of season
     public static event Action<SeasonType> OnSeasonChanged; // New season
-    public static event Action<float> OnTemperatureModifierChanged; // Temperature modifier from time
 
     private void Awake()
     {
@@ -61,7 +55,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
             Instance = this;
             DontDestroyOnLoad(gameObject);
             CalculateTimeProgressionRate();
-            DebugLog("DayNightCycleManager initialized");
+            DebugLog("InGameTimeManager initialized");
         }
         else
         {
@@ -127,13 +121,11 @@ public class InGameTimeManager : MonoBehaviour, IManager
             AdvanceDay();
         }
 
-        // Update temperature modifier based on time of day
-        UpdateTemperatureModifier();
-
         // Fire time events when we've accumulated enough game time
         if (timeSinceLastEvent >= minEventGameTimeInterval)
         {
             OnTimeChanged?.Invoke(currentTimeOfDay);
+            DebugLog("OnTimeChanged event fired");
             timeSinceLastEvent = 0f;
             lastFiredTimeOfDay = currentTimeOfDay;
             DebugLog($"Time event fired: {GetFormattedDateTime()} - Sent to {GetEventSubscriberCount()} listeners");
@@ -228,37 +220,6 @@ public class InGameTimeManager : MonoBehaviour, IManager
 
     #endregion
 
-    #region Temperature Modulation
-
-    /// <summary>
-    /// Updates the temperature modifier based on current time of day using the configured curve.
-    /// </summary>
-    private void UpdateTemperatureModifier()
-    {
-        // Convert time to 0-1 range (noon = 1, midnight = 0)
-        float normalizedTime = Mathf.Sin((currentTimeOfDay - 6f) / 24f * 2f * Mathf.PI) * 0.5f + 0.5f;
-
-        // Apply temperature curve
-        float curveValue = temperatureCurve.Evaluate(normalizedTime);
-        float newModifier = curveValue * dayNightTemperatureVariance;
-
-        if (Mathf.Abs(newModifier - currentTemperatureModifier) > 0.1f)
-        {
-            currentTemperatureModifier = newModifier;
-            OnTemperatureModifierChanged?.Invoke(currentTemperatureModifier);
-        }
-    }
-
-    /// <summary>
-    /// Gets the current temperature modifier from time of day in Celsius.
-    /// </summary>
-    public float GetTemperatureModifier()
-    {
-        return currentTemperatureModifier;
-    }
-
-    #endregion
-
     #region Manual Control Methods
 
     /// <summary>
@@ -269,7 +230,6 @@ public class InGameTimeManager : MonoBehaviour, IManager
     {
         hours = Mathf.Clamp(hours, 0f, 23.99f);
         currentTimeOfDay = hours;
-        UpdateTemperatureModifier();
 
         // Force immediate event fire and reset accumulators
         OnTimeChanged?.Invoke(currentTimeOfDay);
@@ -334,7 +294,6 @@ public class InGameTimeManager : MonoBehaviour, IManager
         }
 
         currentTimeOfDay = newTime;
-        UpdateTemperatureModifier();
 
         // Add to accumulator and check if we should fire event
         timeSinceLastEvent += hours;
@@ -376,7 +335,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
         }
         else
         {
-            DebugLog("No subscribers found - SunMoonLightController may not be connected");
+            DebugLog("No subscribers found - Systems may not be connected");
         }
     }
 
@@ -460,6 +419,12 @@ public class InGameTimeManager : MonoBehaviour, IManager
         return $"{GetFormattedDate()} at {GetFormattedTime()}";
     }
 
+    /// <summary>
+    /// Gets the time progression rate (game hours per real second).
+    /// Used by other systems like WeatherManager for time calculations.
+    /// </summary>
+    public float GetTimeProgressionRate() => timeProgressionRate;
+
     #endregion
 
     #region Configuration
@@ -491,23 +456,13 @@ public class InGameTimeManager : MonoBehaviour, IManager
         DebugLog($"Days per season set to {daysPerSeason}");
     }
 
-    /// <summary>
-    /// Updates the day/night temperature variance.
-    /// </summary>
-    public void SetTemperatureVariance(float variance)
-    {
-        dayNightTemperatureVariance = Mathf.Max(0f, variance);
-        UpdateTemperatureModifier();
-        DebugLog($"Temperature variance set to {dayNightTemperatureVariance:F1}°C");
-    }
-
     #endregion
 
     private void DebugLog(string message)
     {
         if (showDebugLogs)
         {
-            Debug.Log($"[DayNightCycle] {message}");
+            Debug.Log($"[InGameTimeManager] {message}");
         }
     }
 
@@ -531,7 +486,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
 /// <summary>
 /// Enum representing the four seasons.
 /// </summary>
-[System.Serializable]
+[Serializable]
 public enum SeasonType
 {
     Spring,

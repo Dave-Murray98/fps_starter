@@ -64,7 +64,7 @@ public class ClothingUI : MonoBehaviour
         SubscribeToClothingEvents();
         RefreshAllSlotUIs();
 
-        Debug.Log("ClothingUI initialized successfully");
+        //        Debug.Log("ClothingUI initialized successfully");
     }
 
     /// <summary>

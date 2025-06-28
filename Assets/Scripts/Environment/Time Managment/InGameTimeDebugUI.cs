@@ -4,16 +4,15 @@ using Sirenix.OdinInspector;
 
 /// <summary>
 /// Debug UI component for displaying Day/Night Cycle information in the scene.
-/// Automatically connects to DayNightCycleManager and updates Text Mesh Pro components
+/// Automatically connects to InGameTimeManager and updates Text Mesh Pro components
 /// with current time, date, season, and temperature information.
 /// </summary>
-public class DayNightDebugUI : MonoBehaviour
+public class InGameTimeDebugUI : MonoBehaviour
 {
     [Header("Text Components")]
     [SerializeField] private TextMeshProUGUI timeText;
     [SerializeField] private TextMeshProUGUI dateText;
     [SerializeField] private TextMeshProUGUI seasonText;
-    [SerializeField] private TextMeshProUGUI temperatureText;
     //[SerializeField] private TextMeshProUGUI combinedText; // For single display
 
     [Header("Auto-Find Settings")]
@@ -21,7 +20,6 @@ public class DayNightDebugUI : MonoBehaviour
     [SerializeField] private string timeTextName = "TimeText";
     [SerializeField] private string dateTextName = "DateText";
     [SerializeField] private string seasonTextName = "SeasonText";
-    [SerializeField] private string temperatureTextName = "TemperatureText";
     //[SerializeField] private string combinedTextName = "DebugText";
 
     [Header("Display Settings")]
@@ -32,9 +30,6 @@ public class DayNightDebugUI : MonoBehaviour
     [SerializeField] private bool use24HourFormat = true;
     [SerializeField] private bool showSeconds = false;
 
-    [Header("Temperature Settings")]
-    [SerializeField] private float baseTemperature = 20f; // Base temperature in Celsius
-    [SerializeField] private bool showTemperatureModifier = true;
 
     [Header("Update Settings")]
     [SerializeField] private float updateInterval = 0.1f; // How often to update (seconds)
@@ -83,19 +78,19 @@ public class DayNightDebugUI : MonoBehaviour
     #region Connection Management
 
     /// <summary>
-    /// Connects to the DayNightCycleManager and subscribes to events.
+    /// Connects to the InGameTimeManager and subscribes to events.
     /// </summary>
     private void ConnectToDayNightCycle()
     {
         if (InGameTimeManager.Instance != null)
         {
             isConnected = true;
-            Debug.Log("[DayNightDebugUI] Connected to DayNightCycleManager");
+            //    Debug.Log("[InGameTimeManagerUI] Connected to InGameTimeManager");
         }
         else
         {
             isConnected = false;
-            Debug.Log("[DayNightDebugUI] DayNightCycleManager not found - will retry");
+            //     Debug.Log("[InGameTimeManagerUI] InGameTimeManager not found - will retry");
 
             // Retry connection after a short delay
             Invoke(nameof(ConnectToDayNightCycle), 0.5f);
@@ -121,15 +116,14 @@ public class DayNightDebugUI : MonoBehaviour
         if (seasonText == null)
             seasonText = FindTextComponentByName(seasonTextName);
 
-        if (temperatureText == null)
-            temperatureText = FindTextComponentByName(temperatureTextName);
+
 
         // if (combinedText == null)
         //     combinedText = FindTextComponentByName(combinedTextName);
 
-        Debug.Log($"[DayNightDebugUI] Auto-found text components - " +
+        Debug.Log($"[InGameTimeManagerUI] Auto-found text components - " +
                  $"Time: {timeText != null}, Date: {dateText != null}, " +
-                 $"Season: {seasonText != null}, Temperature: {temperatureText != null}");
+                 $"Season: {seasonText != null}");
     }
 
     /// <summary>
@@ -143,7 +137,7 @@ public class DayNightDebugUI : MonoBehaviour
             TextMeshProUGUI textComponent = found.GetComponent<TextMeshProUGUI>();
             if (textComponent == null)
             {
-                Debug.LogWarning($"[DayNightDebugUI] GameObject '{objectName}' found but has no TextMeshProUGUI component");
+                Debug.LogWarning($"[InGameTimeManagerUI] GameObject '{objectName}' found but has no TextMeshProUGUI component");
             }
             return textComponent;
         }
@@ -170,16 +164,13 @@ public class DayNightDebugUI : MonoBehaviour
         float currentTime = InGameTimeManager.Instance.GetCurrentTimeOfDay();
         int currentDay = InGameTimeManager.Instance.GetCurrentDayOfSeason();
         SeasonType currentSeason = InGameTimeManager.Instance.GetCurrentSeason();
-        float tempModifier = InGameTimeManager.Instance.GetTemperatureModifier();
-        float totalTemperature = baseTemperature + tempModifier;
 
         // Check if values have changed (avoid unnecessary string operations)
         bool timeChanged = Mathf.Abs(currentTime - lastTimeOfDay) > 0.01f;
         bool dayChanged = currentDay != lastDayOfSeason;
         bool seasonChanged = currentSeason != lastSeason;
-        bool temperatureChanged = Mathf.Abs(totalTemperature - lastTemperature) > 0.1f;
 
-        bool anyChanged = timeChanged || dayChanged || seasonChanged || temperatureChanged;
+        bool anyChanged = timeChanged || dayChanged || seasonChanged;
 
         if (!anyChanged) return; // No updates needed
 
@@ -199,11 +190,6 @@ public class DayNightDebugUI : MonoBehaviour
             seasonText.text = GetSeasonString(currentSeason);
         }
 
-        if (showTemperature && temperatureText != null && temperatureChanged)
-        {
-            temperatureText.text = GetTemperatureString(totalTemperature, tempModifier);
-        }
-
         // // Update combined text if available
         // if (combinedText != null)
         // {
@@ -214,7 +200,6 @@ public class DayNightDebugUI : MonoBehaviour
         lastTimeOfDay = currentTime;
         lastDayOfSeason = currentDay;
         lastSeason = currentSeason;
-        lastTemperature = totalTemperature;
     }
 
     #endregion
@@ -266,49 +251,33 @@ public class DayNightDebugUI : MonoBehaviour
         return season.ToString();
     }
 
-    /// <summary>
-    /// Formats the temperature string.
-    /// </summary>
-    private string GetTemperatureString(float totalTemperature, float modifier)
-    {
-        if (showTemperatureModifier)
-        {
-            return $"{totalTemperature:F1}°C (Modifier: {modifier:+0.0;-0.0}°C)";
-        }
-        else
-        {
-            return $"{totalTemperature:F1}°C";
-        }
-    }
+    // /// <summary>
+    // /// Formats the combined information string.
+    // /// </summary>
+    // private string GetCombinedString(float timeOfDay, int dayOfSeason, SeasonType season, float modifier)
+    // {
+    //     var info = new System.Text.StringBuilder();
 
-    /// <summary>
-    /// Formats the combined information string.
-    /// </summary>
-    private string GetCombinedString(float timeOfDay, int dayOfSeason, SeasonType season, float temperature, float modifier)
-    {
-        var info = new System.Text.StringBuilder();
+    //     if (showTime)
+    //         info.AppendLine($"Time: {GetTimeString(timeOfDay)}");
 
-        if (showTime)
-            info.AppendLine($"Time: {GetTimeString(timeOfDay)}");
+    //     if (showDate)
+    //         info.AppendLine($"Date: {GetDateString(dayOfSeason)} of {GetSeasonString(season)}");
+    //     else if (showSeason)
+    //         info.AppendLine($"Season: {GetSeasonString(season)}");
 
-        if (showDate)
-            info.AppendLine($"Date: {GetDateString(dayOfSeason)} of {GetSeasonString(season)}");
-        else if (showSeason)
-            info.AppendLine($"Season: {GetSeasonString(season)}");
 
-        if (showTemperature)
-            info.AppendLine($"Temperature: {GetTemperatureString(temperature, modifier)}");
 
-        // Add day/night indicator
-        bool isDaytime = InGameTimeManager.Instance.IsDaytime();
-        info.AppendLine($"Period: {(isDaytime ? "Day" : "Night")}");
+    //     // Add day/night indicator
+    //     bool isDaytime = InGameTimeManager.Instance.IsDaytime();
+    //     info.AppendLine($"Period: {(isDaytime ? "Day" : "Night")}");
 
-        // Add total days elapsed
-        int totalDays = InGameTimeManager.Instance.GetTotalDaysElapsed();
-        info.AppendLine($"Total Days: {totalDays}");
+    //     // Add total days elapsed
+    //     int totalDays = InGameTimeManager.Instance.GetTotalDaysElapsed();
+    //     info.AppendLine($"Total Days: {totalDays}");
 
-        return info.ToString().TrimEnd();
-    }
+    //     return info.ToString().TrimEnd();
+    // }
 
     #endregion
 
@@ -359,7 +328,6 @@ public class DayNightDebugUI : MonoBehaviour
         if (timeText != null) timeText.text = "";
         if (dateText != null) dateText.text = "";
         if (seasonText != null) seasonText.text = "";
-        if (temperatureText != null) temperatureText.text = "";
         //if (combinedText != null) combinedText.text = "";
 
         Debug.Log("[DayNightDebugUI] All displays cleared");
@@ -368,15 +336,6 @@ public class DayNightDebugUI : MonoBehaviour
     #endregion
 
     #region Configuration
-
-    /// <summary>
-    /// Sets the base temperature for calculations.
-    /// </summary>
-    public void SetBaseTemperature(float temperature)
-    {
-        baseTemperature = temperature;
-        ForceUpdate();
-    }
 
     /// <summary>
     /// Sets the update interval for display refreshes.
@@ -426,19 +385,6 @@ public class DayNightDebugUI : MonoBehaviour
         return "No Connection";
     }
 
-    /// <summary>
-    /// Gets the current formatted temperature string.
-    /// </summary>
-    public string GetCurrentTemperatureString()
-    {
-        if (InGameTimeManager.Instance != null)
-        {
-            float modifier = InGameTimeManager.Instance.GetTemperatureModifier();
-            float total = baseTemperature + modifier;
-            return GetTemperatureString(total, modifier);
-        }
-        return "No Connection";
-    }
 
     /// <summary>
     /// Checks if the debug UI is connected to the day/night cycle manager.
