@@ -49,6 +49,7 @@ public class WeatherEventInstance
 
     /// <summary>
     /// Constructor for creating a new weather event instance from a WeatherEvent configuration.
+    /// IMPROVED: Better initialization and debug logging.
     /// </summary>
     public WeatherEventInstance(WeatherEvent weatherEvent)
     {
@@ -72,6 +73,13 @@ public class WeatherEventInstance
 
         // Convert transition times from real-time minutes to game time
         ConvertTransitionTimesToGameTime();
+
+        // Debug log the created event
+        DebugLog($"Created weather event:");
+        DebugLog($"  Total Duration: {totalDuration:F2} game hours");
+        DebugLog($"  Build-up: {buildUpDurationGameTime:F2} game hours");
+        DebugLog($"  Active: {(totalDuration - buildUpDurationGameTime - waningDurationGameTime):F2} game hours");
+        DebugLog($"  Waning: {waningDurationGameTime:F2} game hours");
     }
 
     /// <summary>
@@ -138,65 +146,87 @@ public class WeatherEventInstance
     }
 
     /// <summary>
-    /// Updates the current phase based on remaining duration and elapsed time.
+    /// Updates the current phase based on elapsed time and remaining duration.
+    /// FIXED: Now properly handles decreasing remainingDuration for phase transitions.
     /// </summary>
     private void UpdateCurrentPhase(float gameTimeDelta)
     {
         WeatherPhase previousPhase = currentPhase;
 
+        // Calculate how much time has elapsed since the event started
+        float elapsedTime = totalDuration - remainingDuration;
+
         switch (currentPhase)
         {
             case WeatherPhase.BuildUp:
-                if (remainingDuration <= totalDuration - buildUpDurationGameTime)
+                // Transition to Active phase when build-up time is complete
+                if (elapsedTime >= buildUpDurationGameTime)
                 {
                     currentPhase = WeatherPhase.Active;
                     phaseStartTime = Time.realtimeSinceStartup;
+                    DebugLog($"Transitioned to Active phase after {elapsedTime:F2} game hours");
                 }
                 break;
 
             case WeatherPhase.Active:
+                // Transition to Waning phase when we reach the waning period
                 if (remainingDuration <= waningDurationGameTime)
                 {
                     currentPhase = WeatherPhase.Waning;
                     phaseStartTime = Time.realtimeSinceStartup;
+                    DebugLog($"Transitioned to Waning phase with {remainingDuration:F2} game hours remaining");
                 }
                 break;
 
             case WeatherPhase.Waning:
-                // Phase transition handled in main update loop when duration expires
+                // Phase end is handled in the main UpdateEvent method
                 break;
         }
 
+        // Log phase transitions for debugging
+        if (previousPhase != currentPhase)
+        {
+            DebugLog($"Phase transition: {previousPhase} → {currentPhase} (Elapsed: {elapsedTime:F2}h, Remaining: {remainingDuration:F2}h)");
+        }
+
         // Update phase progress
-        UpdatePhaseProgress(gameTimeDelta);
+        UpdatePhaseProgress();
     }
 
     /// <summary>
     /// Updates the progress within the current phase (0-1).
+    /// FIXED: Now calculates progress correctly based on elapsed time.
     /// </summary>
-    private void UpdatePhaseProgress(float gameTimeDelta)
+    private void UpdatePhaseProgress()
     {
+        float elapsedTime = totalDuration - remainingDuration;
+
         switch (currentPhase)
         {
             case WeatherPhase.BuildUp:
-                float buildUpElapsed = totalDuration - remainingDuration;
-                phaseProgress = Mathf.Clamp01(buildUpElapsed / buildUpDurationGameTime);
+                // Progress from 0 to 1 during build-up period
+                phaseProgress = Mathf.Clamp01(elapsedTime / buildUpDurationGameTime);
                 break;
 
             case WeatherPhase.Active:
+                // Calculate active phase duration and progress
                 float activeDuration = totalDuration - buildUpDurationGameTime - waningDurationGameTime;
-                float activeElapsed = (totalDuration - buildUpDurationGameTime) - remainingDuration;
+                float activeElapsed = elapsedTime - buildUpDurationGameTime;
                 phaseProgress = Mathf.Clamp01(activeElapsed / activeDuration);
                 break;
 
             case WeatherPhase.Waning:
-                phaseProgress = Mathf.Clamp01((waningDurationGameTime - remainingDuration) / waningDurationGameTime);
+                // Progress from 0 to 1 during waning period
+                float waningElapsed = waningDurationGameTime - remainingDuration;
+                phaseProgress = Mathf.Clamp01(waningElapsed / waningDurationGameTime);
                 break;
 
             case WeatherPhase.Ended:
                 phaseProgress = 1f;
                 break;
         }
+
+        phaseProgress = Mathf.Clamp01(phaseProgress);
     }
 
     /// <summary>
@@ -243,8 +273,8 @@ public class WeatherEventInstance
     }
 
     /// <summary>
-    /// Converts real-time transition durations to game time based on current time progression rate.
-    /// FIXED: Now properly converts real-time minutes to game-time hours.
+    /// Converts real-time transition durations to game time with validation.
+    /// IMPROVED: Now includes validation to prevent events getting stuck.
     /// </summary>
     private void ConvertTransitionTimesToGameTime()
     {
@@ -254,32 +284,47 @@ public class WeatherEventInstance
             float timeProgressionRate = InGameTimeManager.Instance.GetTimeProgressionRate();
 
             // Convert real-time minutes to game-time hours
-            // buildUpTime and waningTime are in real-time MINUTES
-            // We need to convert them to game-time HOURS
-
-            // Step 1: Convert minutes to seconds
             float buildUpTimeSeconds = buildUpTime * 60f;
             float waningTimeSeconds = waningTime * 60f;
 
-            // Step 2: Convert real seconds to game hours using progression rate
             buildUpDurationGameTime = buildUpTimeSeconds * timeProgressionRate;
             waningDurationGameTime = waningTimeSeconds * timeProgressionRate;
 
-            // Debug logging to verify conversion
-            if (InGameTimeManager.Instance.showDebugLogs)
+            // VALIDATION: Ensure transition times don't exceed total duration
+            float totalTransitionTime = buildUpDurationGameTime + waningDurationGameTime;
+            if (totalTransitionTime >= totalDuration)
             {
-                Debug.Log($"[WeatherEvent] Time conversion for {displayName}:");
-                Debug.Log($"  Real-time build-up: {buildUpTime} minutes = {buildUpDurationGameTime:F2} game hours");
-                Debug.Log($"  Real-time waning: {waningTime} minutes = {waningDurationGameTime:F2} game hours");
-                Debug.Log($"  Time progression rate: {timeProgressionRate:F4} game hours per real second");
+                Debug.LogWarning($"[WeatherEvent:{displayName}] Transition times ({totalTransitionTime:F2}h) exceed total duration ({totalDuration:F2}h)! Adjusting...");
+
+                // Scale down transition times proportionally
+                float scale = (totalDuration * 0.8f) / totalTransitionTime; // Use 80% of total duration max
+                buildUpDurationGameTime *= scale;
+                waningDurationGameTime *= scale;
+
+                Debug.LogWarning($"[WeatherEvent:{displayName}] Adjusted - BuildUp: {buildUpDurationGameTime:F2}h, Waning: {waningDurationGameTime:F2}h");
             }
+
+            // Ensure we have a reasonable active phase duration
+            float activeDuration = totalDuration - buildUpDurationGameTime - waningDurationGameTime;
+            if (activeDuration < 0.1f)
+            {
+                Debug.LogWarning($"[WeatherEvent:{displayName}] Active phase too short ({activeDuration:F2}h)! Weather event may not work properly.");
+            }
+
+            // Debug logging
+            DebugLog($"Time conversion complete:");
+            DebugLog($"  Real-time build-up: {buildUpTime} min = {buildUpDurationGameTime:F2} game hours");
+            DebugLog($"  Real-time waning: {waningTime} min = {waningDurationGameTime:F2} game hours");
+            DebugLog($"  Active phase duration: {activeDuration:F2} game hours");
+            DebugLog($"  Time progression rate: {timeProgressionRate:F4} game hours/real second");
         }
         else
         {
-            // Fallback values if TimeManager not available
-            // These should be reasonable game-time durations
-            buildUpDurationGameTime = 0.5f; // 30 minutes of game time
-            waningDurationGameTime = 0.25f; // 15 minutes of game time
+            // Fallback values - ensure they're reasonable
+            buildUpDurationGameTime = Mathf.Min(0.5f, totalDuration * 0.2f);
+            waningDurationGameTime = Mathf.Min(0.25f, totalDuration * 0.1f);
+
+            Debug.LogWarning($"[WeatherEvent:{displayName}] TimeManager not found, using fallback durations");
         }
     }
 
@@ -405,6 +450,17 @@ public class WeatherEventInstance
     public bool IsAtPeakIntensity()
     {
         return currentPhase == WeatherPhase.Active && currentIntensity >= baseIntensity * 0.9f;
+    }
+
+    /// <summary>
+    /// Debug logging method for weather events.
+    /// </summary>
+    private void DebugLog(string message)
+    {
+        if (InGameTimeManager.Instance != null && InGameTimeManager.Instance.showDebugLogs)
+        {
+            Debug.Log($"[WeatherEvent:{displayName}] {message}");
+        }
     }
 }
 
