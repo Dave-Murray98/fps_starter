@@ -29,7 +29,6 @@ public class WeatherManager : MonoBehaviour, IManager
 
     [Header("Debug Settings")]
     [SerializeField] private bool showDebugLogs = true;
-    [SerializeField] private bool enableManualWeatherControl = false;
 
     // Current weather state
     [ShowInInspector, ReadOnly] private List<WeatherEventInstance> activeWeatherEvents = new List<WeatherEventInstance>();

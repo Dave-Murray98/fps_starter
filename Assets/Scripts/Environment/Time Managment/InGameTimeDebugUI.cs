@@ -36,7 +36,6 @@ public class InGameTimeDebugUI : MonoBehaviour
     private float lastTimeOfDay = -1f;
     private int lastDayOfSeason = -1;
     private SeasonType lastSeason = (SeasonType)(-1);
-    private float lastTemperature = float.MinValue;
 
     private void Start()
     {
@@ -231,7 +230,6 @@ public class InGameTimeDebugUI : MonoBehaviour
         lastTimeOfDay = -1f;
         lastDayOfSeason = -1;
         lastSeason = (SeasonType)(-1);
-        lastTemperature = float.MinValue;
 
         UpdateDisplays();
         Debug.Log("[DayNightDebugUI] Forced display update");

@@ -19,7 +19,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     {
         saveID = "InGameTimeSystem_Main";
         autoGenerateID = false;
-        enableDebugLogs = true; // Enable for debugging
+        //enableDebugLogs = true; // Enable for debugging
         base.Awake();
 
         if (autoFindManager)
@@ -32,16 +32,6 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     {
         ValidateReferences();
 
-        // // Register with PlayerPersistenceManager if available
-        // if (PlayerPersistenceManager.Instance != null)
-        // {
-        //     PlayerPersistenceManager.Instance.RegisterComponent(this);
-        //     //    DebugLog("Registered with PlayerPersistenceManager");
-        // }
-        // else
-        // {
-        //     // DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
-        // }
     }
 
     /// <summary>
@@ -59,7 +49,6 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             }
         }
 
-        //        DebugLog($"Auto-found InGameTimeManager: {inGameTimeManager != null}");
     }
 
     /// <summary>
@@ -359,40 +348,6 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             inGameTimeManager.TestEvents();
         }
     }
-
-    /// <summary>
-    /// Manual button to test save/load functionality in the editor.
-    /// </summary>
-    [Button("Test Save Data")]
-    public void TestSaveData()
-    {
-        var data = GetDataToSave();
-        if (data is InGameTimeSystemSaveData timeData)
-        {
-            DebugLog($"Test save data: {timeData.GetDebugInfo()}");
-        }
-        else
-        {
-            DebugLog("Test save failed - no data returned");
-        }
-    }
-
-    // /// <summary>
-    // /// Manual button to test the save component registration.
-    // /// </summary>
-    // [Button("Test Registration")]
-    // public void TestRegistration()
-    // {
-    //     // if (PlayerPersistenceManager.Instance != null)
-    //     // {
-    //     //     PlayerPersistenceManager.Instance.RegisterComponent(this);
-    //     //     DebugLog("Manually registered with PlayerPersistenceManager");
-    //     // }
-    //     // else
-    //     // {
-    //     //     DebugLog("PlayerPersistenceManager not found");
-    //     // }
-    // }
 
     private void OnDestroy()
     {

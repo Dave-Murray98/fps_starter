@@ -23,7 +23,7 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     {
         saveID = "Weather_Main";
         autoGenerateID = false;
-        enableDebugLogs = true;
+        //enableDebugLogs = true;
         base.Awake();
 
         if (autoFindManager)
@@ -361,73 +361,4 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
         }
     }
 
-    /// <summary>
-    /// Manual button to test save/load functionality in the editor.
-    /// </summary>
-    [Button("Test Save Data")]
-    public void TestSaveData()
-    {
-        var data = GetDataToSave();
-        if (data is WeatherSaveData weatherData)
-        {
-            DebugLog($"Test save data: {weatherData.GetDebugInfo()}");
-        }
-        else
-        {
-            DebugLog("Test save failed - no data returned");
-        }
-    }
-
-    /// <summary>
-    /// Manual button to test weather event creation and saving.
-    /// </summary>
-    [Button("Test Weather Events for Save")]
-    public void TestWeatherEventsForSave()
-    {
-        if (weatherManager != null)
-        {
-            var events = weatherManager.GetActiveWeatherEvents();
-            DebugLog($"Current active weather events: {events.Count}");
-
-            foreach (var evt in events)
-            {
-                DebugLog($"  {evt.DisplayName}: {evt.CurrentPhase}, {evt.RemainingDuration:F1}h, Intensity: {evt.CurrentIntensity:F2}");
-            }
-
-            if (events.Count == 0)
-            {
-                DebugLog("No active weather events - try manually starting one first");
-            }
-        }
-        else
-        {
-            DebugLog("WeatherManager not found");
-        }
-    }
-
-    // /// <summary>
-    // /// Manual button to test the save component registration.
-    // /// </summary>
-    // [Button("Test Registration")]
-    // public void TestRegistration()
-    // {
-    //     if (PlayerPersistenceManager.Instance != null)
-    //     {
-    //         PlayerPersistenceManager.Instance.RegisterComponent(this);
-    //         DebugLog("Manually registered with PlayerPersistenceManager");
-    //     }
-    //     else
-    //     {
-    //         DebugLog("PlayerPersistenceManager not found");
-    //     }
-    // }
-
-    private void OnDestroy()
-    {
-        // Unregister from persistence manager
-        if (PlayerPersistenceManager.Instance != null)
-        {
-            PlayerPersistenceManager.Instance.UnregisterComponent(this);
-        }
-    }
 }

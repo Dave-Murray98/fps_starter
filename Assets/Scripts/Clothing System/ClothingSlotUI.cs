@@ -50,9 +50,6 @@ public class ClothingSlotUI : MonoBehaviour, IDropHandler, IPointerClickHandler,
     // Animation
     private Tween currentAnimation;
 
-    // FIXED: Track the current drag item for validation
-    private InventoryItemData currentDragItem = null;
-
     public ClothingLayer TargetLayer => targetLayer;
 
     private void Awake()
