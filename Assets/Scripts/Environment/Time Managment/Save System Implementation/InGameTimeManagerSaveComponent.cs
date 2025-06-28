@@ -2,10 +2,9 @@ using UnityEngine;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// Dedicated save component for the In-Game Time System. Handles all persistence,
-/// save/load operations, and data restoration for the InGameTimeManager.
-/// Now uses InGameTimeSystemSaveData specifically for time-related data only.
-/// Weather data is handled separately by weather systems.
+/// Dedicated save component for the In-Game Time System with Cozy Weather 3 integration.
+/// Handles all persistence, save/load operations, and data restoration for the InGameTimeManager.
+/// Now properly handles both Cozy-driven and manual time progression modes.
 /// </summary>
 public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -13,13 +12,16 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     [SerializeField] private InGameTimeManager inGameTimeManager;
     [SerializeField] private bool autoFindManager = true;
 
+    [Header("Cozy Integration")]
+    [SerializeField] private bool restoreCozySettings = true;
+    [SerializeField] private bool forceCozySync = true;
+
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
     protected override void Awake()
     {
         saveID = "InGameTimeSystem_Main";
         autoGenerateID = false;
-        //enableDebugLogs = true; // Enable for debugging
         base.Awake();
 
         if (autoFindManager)
@@ -31,7 +33,6 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     private void Start()
     {
         ValidateReferences();
-
     }
 
     /// <summary>
@@ -48,7 +49,6 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
                 inGameTimeManager = FindFirstObjectByType<InGameTimeManager>();
             }
         }
-
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         }
         else
         {
-            //            DebugLog("InGameTimeManager reference validated successfully");
+            DebugLog("InGameTimeManager reference validated successfully");
         }
     }
 
@@ -84,7 +84,9 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             currentSeason = inGameTimeManager.GetCurrentSeason(),
             currentDayOfSeason = inGameTimeManager.GetCurrentDayOfSeason(),
             totalDaysElapsed = inGameTimeManager.GetTotalDaysElapsed(),
-            dayDurationMinutes = inGameTimeManager.dayDurationMinutes
+            dayDurationMinutes = inGameTimeManager.dayDurationMinutes,
+            daysPerSeason = inGameTimeManager.daysPerSeason,
+            daysPerYear = inGameTimeManager.GetDaysPerYear()
         };
 
         DebugLog($"Saving time system data: {saveData.GetFormattedDateTime()}, Health check: {saveData.IsValid()}");
@@ -178,7 +180,9 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
                 currentSeason = inGameTimeManager.startingSeason,
                 currentDayOfSeason = inGameTimeManager.startingDayOfSeason,
                 totalDaysElapsed = 0,
-                dayDurationMinutes = inGameTimeManager.dayDurationMinutes
+                dayDurationMinutes = inGameTimeManager.dayDurationMinutes,
+                daysPerSeason = inGameTimeManager.daysPerSeason,
+                daysPerYear = inGameTimeManager.GetDaysPerYear()
             };
         }
         else
@@ -190,7 +194,9 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
                 currentSeason = SeasonType.Spring,
                 currentDayOfSeason = 1,
                 totalDaysElapsed = 0,
-                dayDurationMinutes = 20f
+                dayDurationMinutes = 20f,
+                daysPerSeason = 30,
+                daysPerYear = 120
             };
 
             DebugLog($"Created fallback default data: {defaultData.GetFormattedDateTime()}");
@@ -217,7 +223,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     #endregion
 
     /// <summary>
-    /// Context-aware data restoration to the InGameTimeManager.
+    /// Context-aware data restoration to the InGameTimeManager with Cozy integration support.
     /// </summary>
     public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
@@ -256,7 +262,8 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     }
 
     /// <summary>
-    /// Applies time system data to the InGameTimeManager.
+    /// Applies time system data to the InGameTimeManager with Cozy integration.
+    /// Updated to handle the new Cozy-driven approach properly.
     /// </summary>
     private void RestoreTimeData(InGameTimeSystemSaveData timeData, RestoreContext context)
     {
@@ -265,50 +272,67 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         DebugLog($"  Restoring to time: {timeData.currentTimeOfDay:F2}");
         DebugLog($"  Season: {timeData.currentSeason}, Day: {timeData.currentDayOfSeason}");
 
-        // Apply all the data through the manager's methods
-        inGameTimeManager.SetGameDate(timeData.currentSeason, timeData.currentDayOfSeason, timeData.currentTimeOfDay);
-        inGameTimeManager.SetDayDuration(timeData.dayDurationMinutes);
+        // Step 1: Update configuration settings
+        UpdateTimeConfiguration(timeData);
 
-        // Set total days elapsed - use reflection since the method might be private
-        SetTotalDaysElapsed(timeData.totalDaysElapsed);
-
-        DebugLog($"Time data applied - Manager now shows: {inGameTimeManager.GetFormattedDateTime()}");
-
-        // Force an immediate event to update connected systems
-        TestManagerEvents();
+        // Step 2: Wait a frame for Cozy to potentially update, then set the actual time/date
+        StartCoroutine(RestoreTimeDataDelayed(timeData, context));
     }
 
     /// <summary>
-    /// Sets the total days elapsed on the manager using the public method if available,
-    /// or reflection if needed for backwards compatibility.
+    /// Updates the time manager's configuration settings (day duration, days per season, etc.)
     /// </summary>
-    private void SetTotalDaysElapsed(int totalDays)
+    private void UpdateTimeConfiguration(InGameTimeSystemSaveData timeData)
     {
-        // Try to call the public method first
-        var method = typeof(InGameTimeManager).GetMethod("SetTotalDaysElapsed",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        // Update day duration in the manager's public field
+        inGameTimeManager.dayDurationMinutes = timeData.dayDurationMinutes;
 
-        if (method != null)
-        {
-            method.Invoke(inGameTimeManager, new object[] { totalDays });
-            DebugLog($"Set total days elapsed to: {totalDays} using public method");
-        }
-        else
-        {
-            // Fall back to reflection on private field
-            var field = typeof(InGameTimeManager).GetField("totalDaysElapsed",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        // Update days per season in the manager's public field
+        inGameTimeManager.daysPerSeason = timeData.daysPerSeason;
 
-            if (field != null)
+        DebugLog($"Updated configuration - Day duration: {timeData.dayDurationMinutes}min, Days per season: {timeData.daysPerSeason}");
+
+        // If the manager has methods to update these settings and sync with Cozy, call them
+        // Note: SetDayDuration method doesn't exist in the new Cozy-driven approach
+        // The configuration is read directly from the public fields
+    }
+
+    /// <summary>
+    /// Delayed restoration to allow Cozy to update after configuration changes
+    /// </summary>
+    private System.Collections.IEnumerator RestoreTimeDataDelayed(InGameTimeSystemSaveData timeData, RestoreContext context)
+    {
+        // Wait a frame to allow any Cozy updates to process
+        yield return null;
+
+        DebugLog("Applying saved time and date values");
+
+        // Apply the saved time and date
+        inGameTimeManager.SetGameDate(timeData.currentSeason, timeData.currentDayOfSeason, timeData.currentTimeOfDay);
+
+        // Set total days elapsed
+        inGameTimeManager.SetTotalDaysElapsed(timeData.totalDaysElapsed);
+
+        DebugLog($"Time data applied - Manager now shows: {inGameTimeManager.GetFormattedDateTime()}");
+
+        // Force Cozy reconnection and sync if needed
+        if (restoreCozySettings && inGameTimeManager.IsCozyConnected())
+        {
+            DebugLog("Forcing Cozy sync after data restoration");
+            inGameTimeManager.ReconnectToCozy();
+
+            if (forceCozySync)
             {
-                field.SetValue(inGameTimeManager, totalDays);
-                DebugLog($"Set total days elapsed to: {totalDays} using reflection");
-            }
-            else
-            {
-                DebugLog("Could not set totalDaysElapsed - neither method nor field found");
+                // Wait another frame and force sync
+                yield return null;
+                inGameTimeManager.ReconnectToCozy();
             }
         }
+
+        // Test manager events to ensure systems are working
+        TestManagerEvents();
+
+        DebugLog("Delayed time data restoration completed");
     }
 
     /// <summary>
@@ -344,9 +368,60 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
 
         if (inGameTimeManager != null)
         {
-            // Test events to ensure lighting controllers get updated
+            // Test events to ensure lighting controllers and UI get updated
             inGameTimeManager.TestEvents();
+
+            // Force Cozy reconnection if enabled
+            if (restoreCozySettings && inGameTimeManager.IsCozyConnected())
+            {
+                StartCoroutine(DelayedCozyRefresh());
+            }
         }
+    }
+
+    /// <summary>
+    /// Delayed Cozy refresh to ensure everything is properly initialized
+    /// </summary>
+    private System.Collections.IEnumerator DelayedCozyRefresh()
+    {
+        yield return new WaitForSecondsRealtime(0.1f);
+
+        if (inGameTimeManager != null)
+        {
+            DebugLog("Performing delayed Cozy refresh");
+            inGameTimeManager.ReconnectToCozy();
+        }
+    }
+
+    /// <summary>
+    /// Manual method to force complete restoration from saved data (for debugging)
+    /// </summary>
+    [Button("Force Restore Test")]
+    public void ForceRestoreTest()
+    {
+        if (inGameTimeManager == null)
+        {
+            DebugLog("Cannot test - InGameTimeManager reference missing");
+            return;
+        }
+
+        // Get current data
+        var currentData = GetDataToSave() as InGameTimeSystemSaveData;
+        if (currentData != null)
+        {
+            DebugLog("Testing restoration with current data");
+            LoadSaveDataWithContext(currentData, RestoreContext.SaveFileLoad);
+        }
+    }
+
+    /// <summary>
+    /// Toggles Cozy restoration settings
+    /// </summary>
+    [Button("Toggle Cozy Restore")]
+    public void ToggleCozyRestore()
+    {
+        restoreCozySettings = !restoreCozySettings;
+        DebugLog($"Cozy restoration {(restoreCozySettings ? "enabled" : "disabled")}");
     }
 
     private void OnDestroy()
