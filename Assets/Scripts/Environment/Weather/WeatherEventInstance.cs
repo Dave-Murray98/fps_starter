@@ -103,13 +103,21 @@ public class WeatherEventInstance
         ConvertTransitionTimesToGameTime();
     }
 
+    // Also update the UpdateEvent method to better handle game time deltas:
     /// <summary>
     /// Updates the weather event instance, handling phase transitions and intensity calculations.
+    /// IMPROVED: Better handling of game time progression and phase transitions.
     /// </summary>
     /// <param name="gameTimeDelta">Time progression in game hours since last update</param>
     public void UpdateEvent(float gameTimeDelta)
     {
         if (currentPhase == WeatherPhase.Ended) return;
+
+        // Ensure we're working with the correct time conversion
+        if (buildUpDurationGameTime == 0f || waningDurationGameTime == 0f)
+        {
+            ConvertTransitionTimesToGameTime();
+        }
 
         // Update remaining duration
         remainingDuration -= gameTimeDelta;
@@ -119,10 +127,13 @@ public class WeatherEventInstance
         UpdateIntensity();
 
         // Check if event should end
-        if (remainingDuration <= 0f && currentPhase == WeatherPhase.Waning)
+        if (remainingDuration <= 0f)
         {
-            currentPhase = WeatherPhase.Ended;
-            currentIntensity = 0f;
+            if (currentPhase == WeatherPhase.Waning || currentPhase == WeatherPhase.Active)
+            {
+                currentPhase = WeatherPhase.Ended;
+                currentIntensity = 0f;
+            }
         }
     }
 
@@ -233,20 +244,40 @@ public class WeatherEventInstance
 
     /// <summary>
     /// Converts real-time transition durations to game time based on current time progression rate.
+    /// FIXED: Now properly converts real-time minutes to game-time hours.
     /// </summary>
     private void ConvertTransitionTimesToGameTime()
     {
         if (InGameTimeManager.Instance != null)
         {
             // Get the time progression rate (game hours per real second)
-            float timeRate = 24f / (InGameTimeManager.Instance.dayDurationMinutes * 60f);
+            float timeProgressionRate = InGameTimeManager.Instance.GetTimeProgressionRate();
 
-            buildUpDurationGameTime = (buildUpTime * 60f) * timeRate; // Convert minutes to seconds, then to game hours
-            waningDurationGameTime = (waningTime * 60f) * timeRate;
+            // Convert real-time minutes to game-time hours
+            // buildUpTime and waningTime are in real-time MINUTES
+            // We need to convert them to game-time HOURS
+
+            // Step 1: Convert minutes to seconds
+            float buildUpTimeSeconds = buildUpTime * 60f;
+            float waningTimeSeconds = waningTime * 60f;
+
+            // Step 2: Convert real seconds to game hours using progression rate
+            buildUpDurationGameTime = buildUpTimeSeconds * timeProgressionRate;
+            waningDurationGameTime = waningTimeSeconds * timeProgressionRate;
+
+            // Debug logging to verify conversion
+            if (InGameTimeManager.Instance.showDebugLogs)
+            {
+                Debug.Log($"[WeatherEvent] Time conversion for {displayName}:");
+                Debug.Log($"  Real-time build-up: {buildUpTime} minutes = {buildUpDurationGameTime:F2} game hours");
+                Debug.Log($"  Real-time waning: {waningTime} minutes = {waningDurationGameTime:F2} game hours");
+                Debug.Log($"  Time progression rate: {timeProgressionRate:F4} game hours per real second");
+            }
         }
         else
         {
             // Fallback values if TimeManager not available
+            // These should be reasonable game-time durations
             buildUpDurationGameTime = 0.5f; // 30 minutes of game time
             waningDurationGameTime = 0.25f; // 15 minutes of game time
         }

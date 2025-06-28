@@ -26,7 +26,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
     [SerializeField] private bool forceEventOnSignificantChange = true; // Fire event if time jumps significantly
 
     [Header("Debug Settings")]
-    [SerializeField] private bool showDebugLogs = true;
+    public bool showDebugLogs = true;
     [SerializeField] private bool enableTimeProgression = true;
 
     // Current time state

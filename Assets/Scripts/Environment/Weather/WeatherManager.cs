@@ -243,12 +243,15 @@ public class WeatherManager : MonoBehaviour, IManager
 
     /// <summary>
     /// Updates all active weather events and checks for new weather events.
-    /// Called by the time system when time progresses.
+    /// IMPROVED: Better game time delta calculation and debugging.
     /// </summary>
     private void UpdateWeatherSystem(float currentTimeOfDay)
     {
+        // Calculate actual game time delta since last update
+        float gameTimeDelta = CalculateGameTimeDelta();
+
         // Update existing weather events
-        UpdateActiveWeatherEvents(currentTimeOfDay);
+        UpdateActiveWeatherEvents(gameTimeDelta);
 
         // Check for new weather events
         if (enableWeatherEvents && ShouldCheckForNewWeather())
@@ -262,10 +265,42 @@ public class WeatherManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Updates all currently active weather events, handling phase transitions and cleanup.
+    /// Calculates the actual game time that has passed since the last weather update.
+    /// </summary>
+    private float CalculateGameTimeDelta()
+    {
+        if (timeManager == null) return 0f;
+
+        // Get current time
+        float currentTime = timeManager.GetCurrentTimeOfDay();
+        float lastUpdateTime = -1f;
+
+        if (lastUpdateTime < 0f)
+        {
+            lastUpdateTime = currentTime;
+            return 0f;
+        }
+
+        // Calculate delta, handling day rollover
+        float delta = currentTime - lastUpdateTime;
+        if (delta < 0f) delta += 24f; // Handle day boundary crossing
+
+        lastUpdateTime = currentTime;
+
+        // Limit delta to prevent huge jumps (e.g., when loading saves)
+        delta = Mathf.Min(delta, 2f); // Max 2 game hours per update
+
+        return delta;
+    }
+
+    /// <summary>
+    /// Updates all currently active weather events with proper game time progression.
+    /// IMPROVED: Better handling of time deltas and event cleanup.
     /// </summary>
     private void UpdateActiveWeatherEvents(float gameTimeDelta)
     {
+        if (gameTimeDelta <= 0f) return;
+
         for (int i = activeWeatherEvents.Count - 1; i >= 0; i--)
         {
             var weatherEvent = activeWeatherEvents[i];
@@ -274,11 +309,12 @@ public class WeatherManager : MonoBehaviour, IManager
             // Remove completed weather events
             if (weatherEvent.HasEnded)
             {
+                DebugLog($"Weather event ended: {weatherEvent.DisplayName} (ran for {weatherEvent.GetElapsedDuration():F1} game hours)");
                 EndWeatherEvent(weatherEvent);
             }
         }
 
-        // Notify about active weather changes
+        // Notify about active weather changes if there were any changes
         OnActiveWeatherChanged?.Invoke(activeWeatherEvents);
     }
 
@@ -561,6 +597,39 @@ public class WeatherManager : MonoBehaviour, IManager
     {
         CalculateCurrentTemperature();
         DebugLog("Temperature recalculation forced");
+    }
+
+    /// <summary>
+    /// Manual method to test weather event durations (for debugging).
+    /// </summary>
+    [Button("Test Weather Duration")]
+    public void TestWeatherDuration()
+    {
+        if (availableWeatherEvents.Count == 0)
+        {
+            DebugLog("No weather events available to test");
+            return;
+        }
+
+        var testEvent = availableWeatherEvents[0];
+        var instance = new WeatherEventInstance(testEvent);
+
+        DebugLog($"=== TESTING WEATHER DURATION ===");
+        DebugLog($"Event: {testEvent.DisplayName}");
+        DebugLog($"Total Duration: {instance.TotalDuration:F1} game hours");
+        DebugLog($"Build-up Duration: {testEvent.BuildUpTime} real minutes");
+        DebugLog($"Waning Duration: {testEvent.WaningTime} real minutes");
+
+        if (timeManager != null)
+        {
+            float timeRate = timeManager.GetTimeProgressionRate();
+            float realMinutesForTotal = instance.TotalDuration / timeRate / 60f;
+            DebugLog($"Total event will take ~{realMinutesForTotal:F1} real minutes to complete");
+            DebugLog($"Time progression rate: {timeRate:F4} game hours per real second");
+        }
+
+        // Start the test event
+        StartWeatherEvent(testEvent);
     }
 
     #endregion

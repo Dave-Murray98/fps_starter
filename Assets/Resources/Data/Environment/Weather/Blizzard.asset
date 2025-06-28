@@ -19,8 +19,8 @@ MonoBehaviour:
   canOccurInAllSeasons: 0
   minDuration: 1
   maxDuration: 4
-  buildUpTime: 3
-  waningTime: 3
+  buildUpTime: 0.1
+  waningTime: 0.1
   temperatureModifier: -5
   hasTemperatureEffect: 1
   baseIntensity: 1
