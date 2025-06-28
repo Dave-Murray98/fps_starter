@@ -36,7 +36,6 @@ public class WeatherManager : MonoBehaviour, IManager
     [ShowInInspector, ReadOnly] private float lastWeatherCheckTime = 0f;
 
     // Temperature breakdown for debugging
-    [ShowInInspector, ReadOnly] private float calculatedBaseTemp = 20f;
     [ShowInInspector, ReadOnly] private float seasonalModifier = 0f;
     [ShowInInspector, ReadOnly] private float dayNightModifier = 0f;
     [ShowInInspector, ReadOnly] private float weatherModifier = 0f;
@@ -114,7 +113,6 @@ public class WeatherManager : MonoBehaviour, IManager
         if (timeManager == null) return;
 
         float temperature = baseTemperature;
-        calculatedBaseTemp = baseTemperature;
 
         // Add seasonal temperature variation
         SeasonType currentSeason = timeManager.GetCurrentSeason();
@@ -527,7 +525,7 @@ public class WeatherManager : MonoBehaviour, IManager
     /// <summary>
     /// Manually starts a weather event (for testing or scripted events).
     /// </summary>
-    [Button("Start Weather Event"), ShowIf("enableManualWeatherControl")]
+    [Button("Start Weather Event")]
     public void ManuallyStartWeatherEvent(WeatherEvent weatherEvent)
     {
         if (weatherEvent != null)

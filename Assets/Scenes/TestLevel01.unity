@@ -2302,7 +2302,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveID: Weather_Main
   autoGenerateID: 0
-  enableDebugLogs: 1
+  enableDebugLogs: 0
   weatherManager: {fileID: 1905237719}
   autoFindManager: 1
   defaultBaseTemperature: 20
@@ -2320,7 +2320,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   availableWeatherEvents:
   - {fileID: 11400000, guid: b59f91493468f8149bff175f76aa5e6c, type: 2}
-  - {fileID: 11400000, guid: 60280dffe897f7a4bb772a3acc9ba0a7, type: 2}
   - {fileID: 11400000, guid: 4027e4251a5cacc4e97274078ce599cb, type: 2}
   - {fileID: 11400000, guid: f33b81d9004187748a7643e3e3ae0128, type: 2}
   - {fileID: 11400000, guid: 67b2c83084f3980419c11c553145f023, type: 2}
@@ -2380,7 +2379,6 @@ MonoBehaviour:
   weatherCheckInterval: 1
   weatherEventChance: 1
   showDebugLogs: 1
-  enableManualWeatherControl: 0
 --- !u!4 &1905237720
 Transform:
   m_ObjectHideFlags: 0
@@ -3030,6 +3028,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4439280981121055014, guid: a250da43fbd7db3468b3c906eec51457, type: 3}
       propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4656797889673887799, guid: a250da43fbd7db3468b3c906eec51457, type: 3}
+      propertyPath: enableFallbackUpdates
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4696374694387531189, guid: a250da43fbd7db3468b3c906eec51457, type: 3}
