@@ -39,8 +39,10 @@ MonoBehaviour:
     - Assembly-CSharp
     - Assembly-CSharp-firstpass
     - AstarPathfindingProject
+    - DistantLands.Cozy.Runtime
     - Drawing
     - PackageTools
+    - sc.stylizedwater3.runtime
     showAdvancedSettings: 0
   addMgrToSceneAutomatically: 0
   autoUpdateReferences: 1
