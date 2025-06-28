@@ -42,7 +42,7 @@ public class EquipmentSaveData
 
         // Debug log to verify copy worked
         var assignedCount = hotkeyBindings.FindAll(h => h.isAssigned).Count;
-        Debug.Log($"[EquipmentSaveData] Copy constructor: Copied {hotkeyBindings.Count} hotkey slots, {assignedCount} assigned");
+        //        Debug.Log($"[EquipmentSaveData] Copy constructor: Copied {hotkeyBindings.Count} hotkey slots, {assignedCount} assigned");
 
         // Debug first hotkey specifically
         if (hotkeyBindings.Count > 0 && hotkeyBindings[0].isAssigned)

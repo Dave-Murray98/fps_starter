@@ -15,13 +15,6 @@ public class InGameTimeDebugUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI seasonText;
     //[SerializeField] private TextMeshProUGUI combinedText; // For single display
 
-    [Header("Auto-Find Settings")]
-    [SerializeField] private bool autoFindTextComponents = true;
-    [SerializeField] private string timeTextName = "TimeText";
-    [SerializeField] private string dateTextName = "DateText";
-    [SerializeField] private string seasonTextName = "SeasonText";
-    //[SerializeField] private string combinedTextName = "DebugText";
-
     [Header("Display Settings")]
     [SerializeField] private bool showTime = true;
     [SerializeField] private bool showDate = true;
@@ -44,14 +37,6 @@ public class InGameTimeDebugUI : MonoBehaviour
     private int lastDayOfSeason = -1;
     private SeasonType lastSeason = (SeasonType)(-1);
     private float lastTemperature = float.MinValue;
-
-    private void Awake()
-    {
-        if (autoFindTextComponents)
-        {
-            FindTextComponents();
-        }
-    }
 
     private void Start()
     {
@@ -95,53 +80,6 @@ public class InGameTimeDebugUI : MonoBehaviour
             // Retry connection after a short delay
             Invoke(nameof(ConnectToDayNightCycle), 0.5f);
         }
-    }
-
-    #endregion
-
-    #region Component Discovery
-
-    /// <summary>
-    /// Automatically finds Text Mesh Pro components in the scene by name.
-    /// </summary>
-    private void FindTextComponents()
-    {
-        // Find individual text components
-        if (timeText == null)
-            timeText = FindTextComponentByName(timeTextName);
-
-        if (dateText == null)
-            dateText = FindTextComponentByName(dateTextName);
-
-        if (seasonText == null)
-            seasonText = FindTextComponentByName(seasonTextName);
-
-
-
-        // if (combinedText == null)
-        //     combinedText = FindTextComponentByName(combinedTextName);
-
-        Debug.Log($"[InGameTimeManagerUI] Auto-found text components - " +
-                 $"Time: {timeText != null}, Date: {dateText != null}, " +
-                 $"Season: {seasonText != null}");
-    }
-
-    /// <summary>
-    /// Finds a TextMeshProUGUI component by GameObject name.
-    /// </summary>
-    private TextMeshProUGUI FindTextComponentByName(string objectName)
-    {
-        GameObject found = GameObject.Find(objectName);
-        if (found != null)
-        {
-            TextMeshProUGUI textComponent = found.GetComponent<TextMeshProUGUI>();
-            if (textComponent == null)
-            {
-                Debug.LogWarning($"[InGameTimeManagerUI] GameObject '{objectName}' found but has no TextMeshProUGUI component");
-            }
-            return textComponent;
-        }
-        return null;
     }
 
     #endregion
@@ -315,7 +253,6 @@ public class InGameTimeDebugUI : MonoBehaviour
     [Button("Refresh Text References")]
     public void RefreshTextReferences()
     {
-        FindTextComponents();
         ForceUpdate();
     }
 

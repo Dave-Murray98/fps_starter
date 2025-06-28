@@ -290,6 +290,7 @@ public class PlayerPersistenceManager : MonoBehaviour
         // Let each component contribute to the unified save structure
         foreach (var saveable in playerDependentSaveables)
         {
+            DebugLog($"Getting save data for {saveable.SaveID}");
             try
             {
                 var data = saveable.GetDataToSave();

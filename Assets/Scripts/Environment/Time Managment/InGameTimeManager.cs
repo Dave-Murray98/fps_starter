@@ -55,7 +55,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
             Instance = this;
             DontDestroyOnLoad(gameObject);
             CalculateTimeProgressionRate();
-            DebugLog("InGameTimeManager initialized");
+            //      DebugLog("InGameTimeManager initialized");
         }
         else
         {
@@ -82,18 +82,18 @@ public class InGameTimeManager : MonoBehaviour, IManager
     {
         SetTimeOfDay(startTimeOfDay);
         SetGameDate(startingSeason, startingDayOfSeason, currentTimeOfDay);
-        DebugLog($"Initialized - {GetFormattedDate()} at {GetFormattedTime()}");
+        //   DebugLog($"Initialized - {GetFormattedDate()} at {GetFormattedTime()}");
     }
 
     public void RefreshReferences()
     {
         // No scene-dependent references to refresh
-        DebugLog("References refreshed");
+        // DebugLog("References refreshed");
     }
 
     public void Cleanup()
     {
-        DebugLog("Cleanup completed");
+        // DebugLog("Cleanup completed");
     }
 
     #endregion
@@ -125,10 +125,10 @@ public class InGameTimeManager : MonoBehaviour, IManager
         if (timeSinceLastEvent >= minEventGameTimeInterval)
         {
             OnTimeChanged?.Invoke(currentTimeOfDay);
-            DebugLog("OnTimeChanged event fired");
+            //            DebugLog("OnTimeChanged event fired");
             timeSinceLastEvent = 0f;
             lastFiredTimeOfDay = currentTimeOfDay;
-            DebugLog($"Time event fired: {GetFormattedDateTime()} - Sent to {GetEventSubscriberCount()} listeners");
+            //  DebugLog($"Time event fired: {GetFormattedDateTime()} - Sent to {GetEventSubscriberCount()} listeners");
         }
 
         // Check for significant time jumps (manual setting, loading, etc.)
@@ -148,7 +148,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
                 OnTimeChanged?.Invoke(currentTimeOfDay);
                 timeSinceLastEvent = 0f;
                 lastFiredTimeOfDay = currentTimeOfDay;
-                DebugLog($"Time event fired (significant change): {GetFormattedDateTime()}");
+                //    DebugLog($"Time event fired (significant change): {GetFormattedDateTime()}");
             }
         }
 
@@ -156,13 +156,13 @@ public class InGameTimeManager : MonoBehaviour, IManager
         if (currentDayOfSeason != previousDay)
         {
             OnDayChanged?.Invoke(currentDayOfSeason);
-            DebugLog($"Day changed event fired: {GetFormattedDate()}");
+            //     DebugLog($"Day changed event fired: {GetFormattedDate()}");
         }
 
         if (currentSeason != previousSeason)
         {
             OnSeasonChanged?.Invoke(currentSeason);
-            DebugLog($"Season changed event fired: {currentSeason}");
+            //      DebugLog($"Season changed event fired: {currentSeason}");
         }
     }
 
@@ -200,7 +200,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
             _ => SeasonType.Spring
         };
 
-        DebugLog($"Season changed from {previousSeason} to {currentSeason}");
+        //        DebugLog($"Season changed from {previousSeason} to {currentSeason}");
     }
 
     /// <summary>
@@ -214,8 +214,8 @@ public class InGameTimeManager : MonoBehaviour, IManager
         // Formula: (desired_real_seconds * time_progression_rate) = game_hours_between_events
         minEventGameTimeInterval = eventFireIntervalSeconds * timeProgressionRate;
 
-        DebugLog($"Time progression rate: {timeProgressionRate:F4} game hours per real second");
-        DebugLog($"Event fire interval: every {minEventGameTimeInterval:F4} game hours (≈{eventFireIntervalSeconds}s real time)");
+        //   DebugLog($"Time progression rate: {timeProgressionRate:F4} game hours per real second");
+        //        DebugLog($"Event fire interval: every {minEventGameTimeInterval:F4} game hours (≈{eventFireIntervalSeconds}s real time)");
     }
 
     #endregion
@@ -235,7 +235,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
         OnTimeChanged?.Invoke(currentTimeOfDay);
         timeSinceLastEvent = 0f;
         lastFiredTimeOfDay = currentTimeOfDay;
-        DebugLog($"Time manually set to: {GetFormattedTime()} - Event fired to {GetEventSubscriberCount()} listeners");
+        //        DebugLog($"Time manually set to: {GetFormattedTime()} - Event fired to {GetEventSubscriberCount()} listeners");
     }
 
     /// <summary>
@@ -256,7 +256,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
         }
 
         OnDayChanged?.Invoke(currentDayOfSeason);
-        DebugLog($"Season manually set to: {GetFormattedDate()}");
+        //        DebugLog($"Season manually set to: {GetFormattedDate()}");
     }
 
     /// <summary>
@@ -267,7 +267,7 @@ public class InGameTimeManager : MonoBehaviour, IManager
     {
         SetSeason(season, dayOfSeason);
         SetTimeOfDay(timeOfDay); // This will fire the event
-        DebugLog($"Game date manually set to: {GetFormattedDateTime()}");
+                                 //        DebugLog($"Game date manually set to: {GetFormattedDateTime()}");
     }
 
     /// <summary>

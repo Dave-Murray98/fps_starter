@@ -43,7 +43,7 @@ public class InventorySaveComponent : SaveComponentBase, IPlayerDependentSaveabl
                                InventoryManager.Instance ??
                                FindFirstObjectByType<InventoryManager>();
 
-        DebugLog($"Auto-found inventory reference: {inventoryManager != null}");
+        //        DebugLog($"Auto-found inventory reference: {inventoryManager != null}");
     }
 
     /// <summary>

@@ -1,16 +1,17 @@
 using UnityEngine;
 using Sirenix.OdinInspector;
+using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
-/// Dedicated save component for weather systems. Handles all persistence,
+/// FIXED: Dedicated save component for weather systems. Now properly handles all persistence,
 /// save/load operations, and data restoration for weather-related managers.
 /// Uses WeatherSaveData specifically for weather-related data only.
-/// Time and season data is handled separately by time systems.
 /// </summary>
 public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
     [Header("Component References")]
-    [SerializeField] private MonoBehaviour weatherManager; // Replace with your actual weather manager type
+    [SerializeField] private WeatherManager weatherManager;
     [SerializeField] private bool autoFindManager = true;
 
     [Header("Weather Settings")]
@@ -20,7 +21,7 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
 
     protected override void Awake()
     {
-        saveID = "WeatherSystem_Main";
+        saveID = "Weather_Main";
         autoGenerateID = false;
         enableDebugLogs = true;
         base.Awake();
@@ -35,28 +36,32 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     {
         ValidateReferences();
 
-        // Register with PlayerPersistenceManager if available
-        if (PlayerPersistenceManager.Instance != null)
-        {
-            PlayerPersistenceManager.Instance.RegisterComponent(this);
-            //       DebugLog("Registered with PlayerPersistenceManager");
-        }
-        else
-        {
-            // DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
-        }
+        // // Register with PlayerPersistenceManager if available
+        // if (PlayerPersistenceManager.Instance != null)
+        // {
+        //     PlayerPersistenceManager.Instance.RegisterComponent(this);
+        //     // DebugLog("Registered with PlayerPersistenceManager");
+        // }
+        // else
+        // {
+        //     DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
+        // }
     }
 
     /// <summary>
     /// Automatically locates the weather manager in the scene.
-    /// Replace this with your actual weather manager finding logic.
     /// </summary>
     private void FindWeatherManager()
     {
-        weatherManager = WeatherManager.Instance;
+        if (weatherManager == null)
+        {
+            weatherManager = WeatherManager.Instance;
+        }
 
         if (weatherManager == null)
+        {
             weatherManager = FindFirstObjectByType<WeatherManager>();
+        }
 
         //        DebugLog($"Auto-found WeatherManager: {weatherManager != null}");
     }
@@ -77,29 +82,39 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     }
 
     /// <summary>
-    /// Extracts current weather system state from the manager.
-    /// Returns only weather-related data - no time information.
+    /// FIXED: Extracts current weather system state from the WeatherManager.
+    /// Returns actual weather data including active events and temperature info.
     /// </summary>
     public override object GetDataToSave()
     {
+        return ExtractWeatherDataFromManager();
+    }
+
+    private WeatherSaveData ExtractWeatherDataFromManager()
+    {
         if (weatherManager == null)
         {
-            DebugLog("Cannot save - WeatherManager reference is null, creating default data");
+            DebugLog("Cannot extract - WeatherManager reference is null, creating default data");
             return CreateDefaultWeatherData();
         }
-
-        // TODO: Replace this with actual weather manager data extraction
-        var saveData = new WeatherSaveData
+        else
         {
-            currentBaseTemperature = defaultBaseTemperature,
-            weatherTemperatureModifier = 0f,
-            lastWeatherUpdateTime = Time.time
-            // TODO: Extract actual weather events from your weather manager
-            // activeWeatherEvents = weatherManager.GetActiveWeatherEvents(),
-        };
+            WeatherSaveData extractedData = new WeatherSaveData
+            {
+                currentBaseTemperature = weatherManager.GetBaseTemperature(),
+                weatherTemperatureModifier = weatherManager.GetWeatherTemperatureModifier(),
+                lastWeatherUpdateTime = Time.time
+            };
 
-        DebugLog($"Saving weather system data: {saveData.GetActiveWeatherEventCount()} active events, Health check: {saveData.IsValid()}");
-        return saveData;
+            var activeEvents = weatherManager.GetActiveWeatherEvents();
+            foreach (var weatherEvent in activeEvents)
+            {
+                var eventData = weatherEvent.ToSaveData();
+                extractedData.AddWeatherEvent(eventData);
+            }
+
+            return extractedData;
+        }
     }
 
     /// <summary>
@@ -223,7 +238,8 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     #endregion
 
     /// <summary>
-    /// Context-aware data restoration to the weather manager.
+    /// FIXED: Context-aware data restoration to the weather manager.
+    /// Now properly restores weather events and temperature data.
     /// </summary>
     public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
@@ -245,8 +261,7 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
 
         if (weatherManager == null)
         {
-            DebugLog("WeatherManager not found - storing data for later restoration");
-            // You could store the data for when the manager becomes available
+            Debug.LogError("WeatherManager not found - cannot restore weather data!");
             return;
         }
 
@@ -263,22 +278,51 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     }
 
     /// <summary>
-    /// Applies weather system data to the weather manager.
-    /// TODO: Replace this with actual weather manager restoration calls.
+    /// FIXED: Applies weather system data to the weather manager.
+    /// Now properly restores temperature settings and recreates weather events.
     /// </summary>
     private void RestoreWeatherData(WeatherSaveData weatherData, RestoreContext context)
     {
-        DebugLog($"Restoring weather data to manager:");
-        DebugLog($"  Base temperature: {weatherData.currentBaseTemperature}°C");
-        DebugLog($"  Weather modifier: {weatherData.weatherTemperatureModifier}°C");
         DebugLog($"  Active events: {weatherData.GetActiveWeatherEventCount()}");
 
-        // TODO: Apply weather data to your actual weather manager
-        // weatherManager.SetBaseTemperature(weatherData.currentBaseTemperature);
-        // weatherManager.SetWeatherEvents(weatherData.activeWeatherEvents);
-        // weatherManager.SetLastUpdateTime(weatherData.lastWeatherUpdateTime);
+        // Clear existing weather events
+        weatherManager.ClearAllWeather();
 
-        DebugLog("Weather data applied to manager");
+        // Restore base temperature
+        weatherManager.SetBaseTemperature(weatherData.currentBaseTemperature);
+
+        // FIXED: Restore active weather events
+        if (weatherData.activeWeatherEvents != null && weatherData.activeWeatherEvents.Count > 0)
+        {
+            DebugLog($"Restoring {weatherData.activeWeatherEvents.Count} weather events:");
+
+            foreach (var eventData in weatherData.activeWeatherEvents)
+            {
+                try
+                {
+                    // Create weather event instance from save data
+                    var restoredEvent = new WeatherEventInstance(eventData);
+
+                    // Add to weather manager
+                    weatherManager.RestoreWeatherEvent(restoredEvent);
+
+                    DebugLog($"  Restored: {restoredEvent.DisplayName} ({restoredEvent.CurrentPhase}, {restoredEvent.RemainingDuration:F1}h remaining)");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"Failed to restore weather event {eventData.eventType}: {e.Message}");
+                }
+            }
+        }
+        else
+        {
+            DebugLog("No weather events to restore");
+        }
+
+        // Force temperature recalculation
+        weatherManager.ForceTemperatureUpdate();
+
+        DebugLog("Weather data applied to manager successfully");
     }
 
     /// <summary>
@@ -303,11 +347,18 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     {
         DebugLog("Weather system data load completed - refreshing connected systems");
 
-        // TODO: Trigger any weather system updates needed after loading
-        // if (weatherManager != null)
-        // {
-        //     weatherManager.RefreshWeatherDisplay();
-        // }
+        // Force weather manager to update displays and events
+        if (weatherManager != null)
+        {
+            weatherManager.ForceTemperatureUpdate();
+        }
+
+        // Force weather debug UI to update
+        var weatherDebugUI = FindFirstObjectByType<WeatherDebugUI>();
+        if (weatherDebugUI != null)
+        {
+            weatherDebugUI.ForceUpdate();
+        }
     }
 
     /// <summary>
@@ -328,21 +379,48 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     }
 
     /// <summary>
-    /// Manual button to test the save component registration.
+    /// Manual button to test weather event creation and saving.
     /// </summary>
-    [Button("Test Registration")]
-    public void TestRegistration()
+    [Button("Test Weather Events for Save")]
+    public void TestWeatherEventsForSave()
     {
-        if (PlayerPersistenceManager.Instance != null)
+        if (weatherManager != null)
         {
-            PlayerPersistenceManager.Instance.RegisterComponent(this);
-            DebugLog("Manually registered with PlayerPersistenceManager");
+            var events = weatherManager.GetActiveWeatherEvents();
+            DebugLog($"Current active weather events: {events.Count}");
+
+            foreach (var evt in events)
+            {
+                DebugLog($"  {evt.DisplayName}: {evt.CurrentPhase}, {evt.RemainingDuration:F1}h, Intensity: {evt.CurrentIntensity:F2}");
+            }
+
+            if (events.Count == 0)
+            {
+                DebugLog("No active weather events - try manually starting one first");
+            }
         }
         else
         {
-            DebugLog("PlayerPersistenceManager not found");
+            DebugLog("WeatherManager not found");
         }
     }
+
+    // /// <summary>
+    // /// Manual button to test the save component registration.
+    // /// </summary>
+    // [Button("Test Registration")]
+    // public void TestRegistration()
+    // {
+    //     if (PlayerPersistenceManager.Instance != null)
+    //     {
+    //         PlayerPersistenceManager.Instance.RegisterComponent(this);
+    //         DebugLog("Manually registered with PlayerPersistenceManager");
+    //     }
+    //     else
+    //     {
+    //         DebugLog("PlayerPersistenceManager not found");
+    //     }
+    // }
 
     private void OnDestroy()
     {

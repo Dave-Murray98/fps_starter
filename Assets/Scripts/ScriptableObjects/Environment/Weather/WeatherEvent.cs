@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using Sirenix.OdinInspector;
 
 /// <summary>
-/// Scriptable Object that defines a configurable weather event type.
-/// Contains all the parameters needed to create and manage weather events
-/// like rain, snow, thunderstorms, blizzards, etc.
+/// FIXED: Scriptable Object that defines a configurable weather event type.
+/// All timing values are now in game time for consistency and simplicity.
 /// </summary>
 [CreateAssetMenu(fileName = "New Weather Event", menuName = "Environment/Weather/Weather Event")]
 public class WeatherEvent : ScriptableObject
@@ -19,13 +18,16 @@ public class WeatherEvent : ScriptableObject
     [SerializeField] private List<SeasonType> allowedSeasons = new List<SeasonType>();
     [SerializeField] private bool canOccurInAllSeasons = false;
 
-    [Header("Duration Settings (in game hours)")]
-    [SerializeField, MinValue(0.1f)] private float minDuration = 1f;
-    [SerializeField, MinValue(0.1f)] private float maxDuration = 4f;
+    [Header("Duration Settings (ALL IN GAME TIME)")]
+    [SerializeField, MinValue(0.1f)] private float minDuration = 1f; // Game hours
+    [SerializeField, MinValue(0.1f)] private float maxDuration = 4f; // Game hours
 
-    [Header("Transition Timing (in real-time minutes)")]
-    [SerializeField, MinValue(0.1f)] private float buildUpTime = 2f;
-    [SerializeField, MinValue(0.1f)] private float waningTime = 1.5f;
+    [Header("Transition Timing (IN GAME TIME)")]
+    [SerializeField, MinValue(0.01f)] private float buildUpTime = 0.3f; // Game hours (was real minutes)
+    [SerializeField, MinValue(0.01f)] private float waningTime = 0.2f; // Game hours (was real minutes)
+
+    [Header("Helpful Time Reference")]
+    [SerializeField, ReadOnly] private string timeReference = "With 20min real day: 0.1 game hours = 2 real minutes";
 
     [Header("Temperature Effects")]
     [SerializeField] private float temperatureModifier = 0f;
@@ -57,8 +59,8 @@ public class WeatherEvent : ScriptableObject
     public bool CanOccurInAllSeasons => canOccurInAllSeasons;
     public float MinDuration => minDuration;
     public float MaxDuration => maxDuration;
-    public float BuildUpTime => buildUpTime;
-    public float WaningTime => waningTime;
+    public float BuildUpTime => buildUpTime; // Now in game hours
+    public float WaningTime => waningTime; // Now in game hours
     public float TemperatureModifier => temperatureModifier;
     public bool HasTemperatureEffect => hasTemperatureEffect;
     public float BaseIntensity => baseIntensity;
@@ -165,7 +167,7 @@ public class WeatherEvent : ScriptableObject
     }
 
     /// <summary>
-    /// Validates the weather event configuration and returns any issues found.
+    /// FIXED: Validates the weather event configuration with game time considerations.
     /// </summary>
     public List<string> ValidateConfiguration()
     {
@@ -183,6 +185,14 @@ public class WeatherEvent : ScriptableObject
         if (waningTime <= 0f)
             issues.Add("Waning time must be greater than 0");
 
+        // FIXED: Check that transition times don't exceed total duration
+        float totalTransitionTime = buildUpTime + waningTime;
+        if (totalTransitionTime >= minDuration)
+            issues.Add($"Transition times ({totalTransitionTime:F1}h) exceed minimum duration ({minDuration:F1}h)");
+
+        if (totalTransitionTime >= maxDuration * 0.8f)
+            issues.Add($"Transition times ({totalTransitionTime:F1}h) use more than 80% of maximum duration ({maxDuration:F1}h)");
+
         if (!canOccurInAllSeasons && allowedSeasons.Count == 0)
             issues.Add("Weather event must be allowed in at least one season or all seasons");
 
@@ -196,6 +206,30 @@ public class WeatherEvent : ScriptableObject
     }
 
     /// <summary>
+    /// FIXED: Returns estimated real-time duration for this weather event.
+    /// Helpful for designers to understand how long events will feel to players.
+    /// </summary>
+    public string GetEstimatedRealTime()
+    {
+        if (InGameTimeManager.Instance == null)
+            return "Unknown (TimeManager not available)";
+
+        float timeRate = InGameTimeManager.Instance.GetTimeProgressionRate();
+        if (timeRate <= 0f)
+            return "Unknown (Invalid time rate)";
+
+        // Calculate real-time durations
+        float avgDuration = (minDuration + maxDuration) / 2f;
+        float realSeconds = avgDuration / timeRate;
+        float realMinutes = realSeconds / 60f;
+
+        float buildUpRealMinutes = buildUpTime / timeRate / 60f;
+        float waningRealMinutes = waningTime / timeRate / 60f;
+
+        return $"Avg Duration: {realMinutes:F1} real min (BuildUp: {buildUpRealMinutes:F1}min, Waning: {waningRealMinutes:F1}min)";
+    }
+
+    /// <summary>
     /// Returns a formatted string with weather event information for debugging.
     /// </summary>
     public string GetDebugInfo()
@@ -203,8 +237,8 @@ public class WeatherEvent : ScriptableObject
         var info = new System.Text.StringBuilder();
         info.AppendLine($"=== {DisplayName} Weather Event ===");
         info.AppendLine($"Type: {eventType}");
-        info.AppendLine($"Duration: {minDuration:F1} - {maxDuration:F1} hours");
-        info.AppendLine($"Build-up: {buildUpTime:F1} min, Waning: {waningTime:F1} min");
+        info.AppendLine($"Duration: {minDuration:F1} - {maxDuration:F1} game hours");
+        info.AppendLine($"Build-up: {buildUpTime:F1} game hours, Waning: {waningTime:F1} game hours");
         info.AppendLine($"Temperature Effect: {(hasTemperatureEffect ? $"{temperatureModifier:+0.0;-0.0}°C" : "None")}");
         info.AppendLine($"Base Intensity: {baseIntensity:F1}");
         info.AppendLine($"Rarity Weight: {rarityWeight:F1}");
@@ -219,6 +253,9 @@ public class WeatherEvent : ScriptableObject
 
         if (incompatibleWeatherTypes.Count > 0)
             info.AppendLine($"Incompatible with: {string.Join(", ", incompatibleWeatherTypes)}");
+
+        // Add real-time estimation
+        info.AppendLine($"Real-time estimation: {GetEstimatedRealTime()}");
 
         return info.ToString();
     }
@@ -236,10 +273,28 @@ public class WeatherEvent : ScriptableObject
             displayName = eventType.ToString();
         }
 
-        // Ensure build-up and waning times are reasonable
-        buildUpTime = Mathf.Max(0.1f, buildUpTime);
-        waningTime = Mathf.Max(0.1f, waningTime);
+        // FIXED: Ensure transition times are reasonable relative to duration
+        buildUpTime = Mathf.Max(0.01f, buildUpTime);
+        waningTime = Mathf.Max(0.01f, waningTime);
         rarityWeight = Mathf.Max(0.1f, rarityWeight);
 
+        // Auto-adjust transition times if they're too large
+        float totalTransitionTime = buildUpTime + waningTime;
+        if (totalTransitionTime >= minDuration * 0.8f)
+        {
+            float scale = (minDuration * 0.6f) / totalTransitionTime;
+            buildUpTime *= scale;
+            waningTime *= scale;
+            Debug.LogWarning($"[{name}] Auto-adjusted transition times to fit within duration");
+        }
+
+        // Update time reference for designer convenience
+        if (Application.isPlaying && InGameTimeManager.Instance != null)
+        {
+            float dayDuration = InGameTimeManager.Instance.dayDurationMinutes;
+            float gameHoursPerRealMinute = 24f / dayDuration;
+            float realMinutesPerGameHour = dayDuration / 24f;
+            timeReference = $"With {dayDuration}min real day: 1 game hour = {realMinutesPerGameHour:F1} real minutes";
+        }
     }
 }

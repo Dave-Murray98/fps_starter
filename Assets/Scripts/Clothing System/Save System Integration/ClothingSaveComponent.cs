@@ -41,7 +41,7 @@ public class ClothingSaveComponent : SaveComponentBase, IPlayerDependentSaveable
                               ClothingManager.Instance ??
                               FindFirstObjectByType<ClothingManager>();
 
-        DebugLog($"Auto-found clothing reference: {clothingManager != null}");
+        //        DebugLog($"Auto-found clothing reference: {clothingManager != null}");
     }
 
     /// <summary>

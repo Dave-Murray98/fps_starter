@@ -57,7 +57,7 @@ public class WeatherManager : MonoBehaviour, IManager
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            DebugLog("WeatherManager initialized");
+            //            DebugLog("WeatherManager initialized");
         }
         else
         {
@@ -71,19 +71,20 @@ public class WeatherManager : MonoBehaviour, IManager
     {
         RefreshReferences();
         CalculateCurrentTemperature();
-        DebugLog($"WeatherManager initialized with {availableWeatherEvents.Count} available weather events");
     }
 
     public void RefreshReferences()
     {
-        DebugLog("Refreshing weather manager references");
+
         timeManager = InGameTimeManager.Instance;
+
+        Cleanup();
+
         if (timeManager != null)
         {
             // Subscribe to time events for weather updates
             InGameTimeManager.OnTimeChanged += HandleTimeChanged;
             InGameTimeManager.OnSeasonChanged += HandleSeasonChanged;
-            DebugLog("Connected to InGameTimeManager");
         }
         else
         {
@@ -98,7 +99,6 @@ public class WeatherManager : MonoBehaviour, IManager
             InGameTimeManager.OnTimeChanged -= HandleTimeChanged;
             InGameTimeManager.OnSeasonChanged -= HandleSeasonChanged;
         }
-        DebugLog("WeatherManager cleanup completed");
     }
 
     #endregion
@@ -146,7 +146,6 @@ public class WeatherManager : MonoBehaviour, IManager
         if (Mathf.Abs(currentTemperature - previousTemperature) > 0.1f)
         {
             OnTemperatureChanged?.Invoke(currentTemperature);
-            //            DebugLog($"Temperature updated: {currentTemperature:F1}°C (Base:{calculatedBaseTemp:F1} + Seasonal:{seasonalModifier:+0.0;-0.0} + Day/Night:{dayNightModifier:+0.0;-0.0} + Weather:{weatherModifier:+0.0;-0.0})");
         }
     }
 
@@ -214,7 +213,6 @@ public class WeatherManager : MonoBehaviour, IManager
     {
         baseTemperature = temperature;
         CalculateCurrentTemperature();
-        DebugLog($"Base temperature set to {baseTemperature}°C");
     }
 
     /// <summary>
@@ -224,7 +222,6 @@ public class WeatherManager : MonoBehaviour, IManager
     {
         seasonalTemperatureVariance = Mathf.Max(0f, variance);
         CalculateCurrentTemperature();
-        DebugLog($"Seasonal temperature variance set to {seasonalTemperatureVariance:F1}°C");
     }
 
     /// <summary>
@@ -234,7 +231,6 @@ public class WeatherManager : MonoBehaviour, IManager
     {
         dayNightTemperatureVariance = Mathf.Max(0f, variance);
         CalculateCurrentTemperature();
-        DebugLog($"Day/night temperature variance set to {dayNightTemperatureVariance:F1}°C");
     }
 
     #endregion
@@ -264,16 +260,21 @@ public class WeatherManager : MonoBehaviour, IManager
         CalculateCurrentTemperature();
     }
 
+
+    private float lastUpdateTime = -1f; // Make this a class field if it isn't already
     /// <summary>
     /// Calculates the actual game time that has passed since the last weather update.
     /// </summary>
+    /// 
     private float CalculateGameTimeDelta()
     {
-        if (timeManager == null) return 0f;
+        if (timeManager == null)
+        {
+            return 0f;
+        }
 
         // Get current time
         float currentTime = timeManager.GetCurrentTimeOfDay();
-        float lastUpdateTime = -1f;
 
         if (lastUpdateTime < 0f)
         {
@@ -283,27 +284,35 @@ public class WeatherManager : MonoBehaviour, IManager
 
         // Calculate delta, handling day rollover
         float delta = currentTime - lastUpdateTime;
-        if (delta < 0f) delta += 24f; // Handle day boundary crossing
+        if (delta < 0f)
+        {
+            delta += 24f; // Handle day boundary crossing
+        }
 
         lastUpdateTime = currentTime;
 
         // Limit delta to prevent huge jumps (e.g., when loading saves)
+        float originalDelta = delta;
         delta = Mathf.Min(delta, 2f); // Max 2 game hours per update
 
         return delta;
     }
-
     /// <summary>
     /// Updates all currently active weather events with proper game time progression.
     /// IMPROVED: Better handling of time deltas and event cleanup.
     /// </summary>
     private void UpdateActiveWeatherEvents(float gameTimeDelta)
     {
-        if (gameTimeDelta <= 0f) return;
+        if (gameTimeDelta <= 0f)
+        {
+            return;
+        }
 
         for (int i = activeWeatherEvents.Count - 1; i >= 0; i--)
         {
             var weatherEvent = activeWeatherEvents[i];
+
+            // Update the event
             weatherEvent.UpdateEvent(gameTimeDelta);
 
             // Remove completed weather events
@@ -312,11 +321,13 @@ public class WeatherManager : MonoBehaviour, IManager
                 DebugLog($"Weather event ended: {weatherEvent.DisplayName} (ran for {weatherEvent.GetElapsedDuration():F1} game hours)");
                 EndWeatherEvent(weatherEvent);
             }
+
         }
 
         // Notify about active weather changes if there were any changes
         OnActiveWeatherChanged?.Invoke(activeWeatherEvents);
     }
+
 
     /// <summary>
     /// Determines if it's time to check for new weather events.
@@ -527,16 +538,29 @@ public class WeatherManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Manually ends all weather events (for testing).
+    /// Clears all active weather events. Used by save system and for testing.
     /// </summary>
-    [Button("Clear All Weather"), ShowIf("enableManualWeatherControl")]
     public void ClearAllWeather()
     {
-        while (activeWeatherEvents.Count > 0)
+        if (activeWeatherEvents.Count > 0)
         {
-            EndWeatherEvent(activeWeatherEvents[0]);
+            // Fire end events for each weather event
+            var eventsToEnd = new List<WeatherEventInstance>(activeWeatherEvents);
+            foreach (var weatherEvent in eventsToEnd)
+            {
+                OnWeatherEventEnded?.Invoke(weatherEvent);
+            }
+
+            activeWeatherEvents.Clear();
+
+            // Recalculate temperature without weather events
+            CalculateCurrentTemperature();
+
+            // Notify about weather changes
+            OnActiveWeatherChanged?.Invoke(activeWeatherEvents);
         }
     }
+
 
     /// <summary>
     /// Restores a weather event instance from save data (used by save system).
@@ -546,11 +570,16 @@ public class WeatherManager : MonoBehaviour, IManager
         if (weatherEventInstance != null && !weatherEventInstance.HasEnded)
         {
             activeWeatherEvents.Add(weatherEventInstance);
-            DebugLog($"Restored weather event: {weatherEventInstance.DisplayName}");
+            DebugLog($"Restored weather event: {weatherEventInstance.DisplayName} ({weatherEventInstance.CurrentPhase}, {weatherEventInstance.RemainingDuration:F1}h remaining)");
+
+            // Fire event for UI updates
             OnWeatherEventStarted?.Invoke(weatherEventInstance);
 
             // Recalculate temperature with restored weather event
             CalculateCurrentTemperature();
+
+            // Notify about active weather changes
+            OnActiveWeatherChanged?.Invoke(activeWeatherEvents);
         }
     }
 
@@ -559,35 +588,17 @@ public class WeatherManager : MonoBehaviour, IManager
     /// </summary>
     public void RestoreWeatherEvents(List<WeatherEventInstance> weatherEvents)
     {
+        if (weatherEvents == null || weatherEvents.Count == 0)
+        {
+            DebugLog("No weather events to restore");
+            return;
+        }
+
         foreach (var weatherEvent in weatherEvents)
         {
             RestoreWeatherEvent(weatherEvent);
         }
-    }
 
-    /// <summary>
-    /// Gets detailed weather system information for debugging.
-    /// </summary>
-    public string GetWeatherSystemInfo()
-    {
-        var info = new System.Text.StringBuilder();
-        info.AppendLine("=== Weather System Status ===");
-        info.AppendLine($"Total Temperature: {currentTemperature:F1}°C");
-        info.AppendLine($"├ Base: {calculatedBaseTemp:F1}°C");
-        info.AppendLine($"├ Seasonal: {seasonalModifier:+0.0;-0.0}°C");
-        info.AppendLine($"├ Day/Night: {dayNightModifier:+0.0;-0.0}°C");
-        info.AppendLine($"└ Weather: {weatherModifier:+0.0;-0.0}°C");
-        info.AppendLine($"Active Weather Events: {activeWeatherEvents.Count}");
-
-        foreach (var weatherEvent in activeWeatherEvents)
-        {
-            info.AppendLine($"  - {weatherEvent.GetDebugInfo()}");
-        }
-
-        info.AppendLine($"Available Weather Types: {availableWeatherEvents.Count}");
-        info.AppendLine($"Next Weather Check: {(weatherCheckInterval - (timeManager?.GetCurrentTimeOfDay() - lastWeatherCheckTime ?? 0)):F1}h");
-
-        return info.ToString();
     }
 
     /// <summary>
@@ -596,40 +607,6 @@ public class WeatherManager : MonoBehaviour, IManager
     public void ForceTemperatureUpdate()
     {
         CalculateCurrentTemperature();
-        DebugLog("Temperature recalculation forced");
-    }
-
-    /// <summary>
-    /// Manual method to test weather event durations (for debugging).
-    /// </summary>
-    [Button("Test Weather Duration")]
-    public void TestWeatherDuration()
-    {
-        if (availableWeatherEvents.Count == 0)
-        {
-            DebugLog("No weather events available to test");
-            return;
-        }
-
-        var testEvent = availableWeatherEvents[0];
-        var instance = new WeatherEventInstance(testEvent);
-
-        DebugLog($"=== TESTING WEATHER DURATION ===");
-        DebugLog($"Event: {testEvent.DisplayName}");
-        DebugLog($"Total Duration: {instance.TotalDuration:F1} game hours");
-        DebugLog($"Build-up Duration: {testEvent.BuildUpTime} real minutes");
-        DebugLog($"Waning Duration: {testEvent.WaningTime} real minutes");
-
-        if (timeManager != null)
-        {
-            float timeRate = timeManager.GetTimeProgressionRate();
-            float realMinutesForTotal = instance.TotalDuration / timeRate / 60f;
-            DebugLog($"Total event will take ~{realMinutesForTotal:F1} real minutes to complete");
-            DebugLog($"Time progression rate: {timeRate:F4} game hours per real second");
-        }
-
-        // Start the test event
-        StartWeatherEvent(testEvent);
     }
 
     #endregion

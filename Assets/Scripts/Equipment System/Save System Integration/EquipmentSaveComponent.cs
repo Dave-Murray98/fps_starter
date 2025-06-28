@@ -55,7 +55,7 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
         if (equippedItemManager == null)
             equippedItemManager = FindFirstObjectByType<EquippedItemManager>();
 
-        DebugLog($"Auto-found equipment reference: {equippedItemManager != null}");
+        //        DebugLog($"Auto-found equipment reference: {equippedItemManager != null}");
     }
 
     /// <summary>
@@ -78,6 +78,9 @@ public class EquipmentSaveComponent : SaveComponentBase, IPlayerDependentSaveabl
     /// </summary>
     public override object GetDataToSave()
     {
+
+        Debug.Log("=== EXTRACTING EQUIPMENT DATA FOR SAVE ===");
+
         if (equippedItemManager == null)
         {
             DebugLog("Cannot save equipment - EquippedItemManager not found");

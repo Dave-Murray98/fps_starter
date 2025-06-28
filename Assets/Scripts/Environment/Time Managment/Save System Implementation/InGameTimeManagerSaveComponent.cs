@@ -32,16 +32,16 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     {
         ValidateReferences();
 
-        // Register with PlayerPersistenceManager if available
-        if (PlayerPersistenceManager.Instance != null)
-        {
-            PlayerPersistenceManager.Instance.RegisterComponent(this);
-            //    DebugLog("Registered with PlayerPersistenceManager");
-        }
-        else
-        {
-            // DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
-        }
+        // // Register with PlayerPersistenceManager if available
+        // if (PlayerPersistenceManager.Instance != null)
+        // {
+        //     PlayerPersistenceManager.Instance.RegisterComponent(this);
+        //     //    DebugLog("Registered with PlayerPersistenceManager");
+        // }
+        // else
+        // {
+        //     // DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
+        // }
     }
 
     /// <summary>
@@ -377,22 +377,22 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         }
     }
 
-    /// <summary>
-    /// Manual button to test the save component registration.
-    /// </summary>
-    [Button("Test Registration")]
-    public void TestRegistration()
-    {
-        if (PlayerPersistenceManager.Instance != null)
-        {
-            PlayerPersistenceManager.Instance.RegisterComponent(this);
-            DebugLog("Manually registered with PlayerPersistenceManager");
-        }
-        else
-        {
-            DebugLog("PlayerPersistenceManager not found");
-        }
-    }
+    // /// <summary>
+    // /// Manual button to test the save component registration.
+    // /// </summary>
+    // [Button("Test Registration")]
+    // public void TestRegistration()
+    // {
+    //     // if (PlayerPersistenceManager.Instance != null)
+    //     // {
+    //     //     PlayerPersistenceManager.Instance.RegisterComponent(this);
+    //     //     DebugLog("Manually registered with PlayerPersistenceManager");
+    //     // }
+    //     // else
+    //     // {
+    //     //     DebugLog("PlayerPersistenceManager not found");
+    //     // }
+    // }
 
     private void OnDestroy()
     {
