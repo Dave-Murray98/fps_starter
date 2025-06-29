@@ -4,65 +4,56 @@ using Sirenix.OdinInspector;
 using DistantLands.Cozy;
 
 /// <summary>
-/// Manages the day/night cycle and game time progression using Cozy Weather 3 as the time driver.
+/// Simplified time manager that lets Cozy Weather 3 handle all time progression while providing
+/// a clean interface for saving/loading time data and accessing current time information.
 /// 
-/// COZY-DRIVEN APPROACH: Cozy handles smooth time progression and visual transitions,
-/// while this manager translates Cozy's time into your game logic (seasons, days, events).
-/// This provides smooth visuals while maintaining your existing game systems.
-/// 
-/// Your game logic, save system, and UI remain exactly the same - only the time source changes.
+/// COZY-DRIVEN APPROACH: Cozy controls time progression, we just monitor and persist it.
+/// This provides the simplest possible integration while maintaining all functionality.
 /// </summary>
 public class InGameTimeManager : MonoBehaviour, IManager
 {
     public static InGameTimeManager Instance { get; private set; }
 
-    [Header("Time Configuration")]
-    [SerializeField] public float dayDurationMinutes = 20f; // Real-time minutes per game day
-    [SerializeField] public float startTimeOfDay = 6f; // Starting hour (0-24)
+    [Header("Cozy Integration")]
+    [SerializeField] private bool useCozyTimeSystem = true;
+    [SerializeField] private float cozyReadInterval = 0.1f; // How often to read from Cozy
+    [SerializeField] private bool enableEventTracking = true;
 
-    [Header("Season & Date Configuration")]
-    [SerializeField] public int daysPerSeason = 30;
-    [SerializeField] public SeasonType startingSeason = SeasonType.Spring;
-    [SerializeField] public int startingDayOfSeason = 1;
+    [Header("Manual Fallback Settings (if Cozy unavailable)")]
+    [SerializeField] private float dayDurationMinutes = 20f;
+    [SerializeField] private float startTimeOfDay = 6f;
 
-    [Header("Cozy Integration Settings")]
-    [SerializeField] private bool useCozyTimeProgression = true;
-    [SerializeField] private bool initializeCozyOnStart = true;
-    [SerializeField] private float cozyReadInterval = 0.05f; // How often to read from Cozy
-    [SerializeField] private int daysPerYear = 120;
-
-    [Header("Manual Override (When Cozy Disabled)")]
-    [SerializeField] private bool enableManualProgression = true;
-
-    [Header("Event Timing")]
-    [SerializeField] private float eventFireIntervalSeconds = 0.5f;
-    [SerializeField] private bool forceEventOnSignificantChange = true;
+    [Header("Season Configuration")]
+    [SerializeField] private int daysPerSeason = 30;
+    [SerializeField] private SeasonType startingSeason = SeasonType.Spring;
 
     [Header("Debug Settings")]
-    public bool showDebugLogs = true;
+    [SerializeField] private bool showDebugLogs = true;
 
-    // Current time state (derived from Cozy or calculated manually)
+    // Cozy connection state
+    [ShowInInspector, ReadOnly] private bool isCozyConnected = false;
+    [ShowInInspector, ReadOnly] private CozyTimeModule timeModule;
+    [ShowInInspector, ReadOnly] private float lastCozyReadTime = 0f;
+
+    // Current time state (read from Cozy or calculated manually)
     [ShowInInspector, ReadOnly] private float currentTimeOfDay = 6f; // 0-24 hours
+    [ShowInInspector, ReadOnly] private int currentDayOfYear = 1; // 1-based day of year
     [ShowInInspector, ReadOnly] private SeasonType currentSeason = SeasonType.Spring;
     [ShowInInspector, ReadOnly] private int currentDayOfSeason = 1;
-    [ShowInInspector, ReadOnly] private int totalDaysElapsed = 0;
 
-    // Cozy integration state
-    [ShowInInspector, ReadOnly] private bool isCozyConnected = false;
-    [ShowInInspector, ReadOnly] private float lastCozyReadTime = 0f;
-    [ShowInInspector, ReadOnly] private float previousCozyTime = -1f;
-    [ShowInInspector, ReadOnly] private int previousCozyDay = -1;
+    // Change tracking for events
+    [ShowInInspector, ReadOnly] private float previousTimeOfDay = -1f;
+    [ShowInInspector, ReadOnly] private int previousDayOfYear = -1;
+    [ShowInInspector, ReadOnly] private SeasonType previousSeason = (SeasonType)(-1);
 
-    // Manual time progression (fallback)
-    [ShowInInspector, ReadOnly] private float timeProgressionRate;
-    [ShowInInspector, ReadOnly] private float timeSinceLastEvent = 0f;
-    private float lastFiredTimeOfDay = -1f;
-    private float minEventGameTimeInterval = 0.0167f;
+    // Manual time progression (fallback when Cozy unavailable)
+    private float manualTimeProgressionRate;
 
-    // Events for external systems (preserved for compatibility)
+    // Events for external systems
     public static event Action<float> OnTimeChanged; // Current time (0-24)
-    public static event Action<int> OnDayChanged; // Day of season
+    public static event Action<int, SeasonType> OnDayChanged; // Day of season, current season
     public static event Action<SeasonType> OnSeasonChanged; // New season
+    public static event Action<TimeData> OnTimeDataUpdated; // Complete time data
 
     private void Awake()
     {
@@ -70,8 +61,8 @@ public class InGameTimeManager : MonoBehaviour, IManager
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            CalculateTimeProgressionRate();
-            DebugLog("InGameTimeManager initialized");
+            CalculateManualProgressionRate();
+            DebugLog("InGameTimeManager initialized as Cozy time interface");
         }
         else
         {
@@ -86,11 +77,11 @@ public class InGameTimeManager : MonoBehaviour, IManager
 
     private void Update()
     {
-        if (useCozyTimeProgression && isCozyConnected)
+        if (useCozyTimeSystem && isCozyConnected)
         {
             ReadFromCozy();
         }
-        else if (enableManualProgression && Time.timeScale > 0f)
+        else if (!useCozyTimeSystem && Time.timeScale > 0f)
         {
             ProgressTimeManually();
         }
@@ -102,18 +93,17 @@ public class InGameTimeManager : MonoBehaviour, IManager
     {
         ConnectToCozy();
 
-        if (initializeCozyOnStart && isCozyConnected)
+        if (isCozyConnected)
         {
-            InitializeCozySettings();
+            ReadInitialCozyState();
         }
         else
         {
-            // Set initial values manually
-            SetTimeOfDay(startTimeOfDay);
-            SetGameDate(startingSeason, startingDayOfSeason, currentTimeOfDay);
+            // Set initial manual values
+            SetManualTime(startTimeOfDay, currentSeason, 1);
         }
 
-        DebugLog($"Initialized - {GetFormattedDate()} at {GetFormattedTime()}");
+        DebugLog($"Initialized - {GetFormattedDateTime()}");
     }
 
     public void RefreshReferences()
@@ -129,60 +119,62 @@ public class InGameTimeManager : MonoBehaviour, IManager
 
     #endregion
 
-    #region Cozy Integration - Reading from Cozy
+    #region Cozy Integration
 
     /// <summary>
-    /// Connects to Cozy Weather 3 system
+    /// Connects to Cozy Weather 3's time system
     /// </summary>
     private void ConnectToCozy()
     {
-        if (CozyWeather.instance != null && CozyWeather.instance.timeModule != null)
+        if (!useCozyTimeSystem)
         {
+            isCozyConnected = false;
+            DebugLog("Cozy time system disabled - using manual progression");
+            return;
+        }
+
+        if (CozyWeather.instance?.timeModule != null)
+        {
+            timeModule = CozyWeather.instance.timeModule;
             isCozyConnected = true;
-            DebugLog("Successfully connected to Cozy Weather 3");
+            DebugLog("Successfully connected to Cozy time system");
         }
         else
         {
             isCozyConnected = false;
-            DebugLog("Cozy Weather 3 not found - using manual time progression");
+            DebugLog("Cozy time module not found - using manual progression");
         }
     }
 
     /// <summary>
-    /// Sets up Cozy with our initial configuration (day length, year structure)
+    /// Reads initial time state from Cozy
     /// </summary>
-    private void InitializeCozySettings()
+    private void ReadInitialCozyState()
     {
         if (!isCozyConnected) return;
 
         try
         {
-            var timeModule = CozyWeather.instance.timeModule;
+            ReadCozyTimeData();
 
-            // Set up year structure
-            daysPerYear = daysPerSeason * 4;
-            SetupCozyYearStructure(timeModule);
+            // Initialize previous values for change detection
+            previousTimeOfDay = currentTimeOfDay;
+            previousDayOfYear = currentDayOfYear;
+            previousSeason = currentSeason;
 
-            // Set time progression speed to match our day duration
-            SetupCozyTimeSpeed(timeModule);
-
-            // Set initial time and day
-            SetInitialCozyTime(timeModule);
-
-            DebugLog("Cozy initialized with our settings");
+            DebugLog($"Initial Cozy time: {GetFormattedDateTime()}");
         }
         catch (System.Exception e)
         {
-            DebugLog($"Error initializing Cozy: {e.Message}");
+            DebugLog($"Error reading initial Cozy state: {e.Message}");
         }
     }
 
     /// <summary>
-    /// Reads current time from Cozy and translates to our game logic
+    /// Reads current time data from Cozy at regular intervals
     /// </summary>
     private void ReadFromCozy()
     {
-        // Read at intervals to avoid excessive processing
         if (Time.time - lastCozyReadTime < cozyReadInterval) return;
         lastCozyReadTime = Time.time;
 
@@ -194,17 +186,12 @@ public class InGameTimeManager : MonoBehaviour, IManager
 
         try
         {
-            var timeModule = CozyWeather.instance.timeModule;
-            MeridiemTime cozyTime = timeModule.currentTime;
+            ReadCozyTimeData();
 
-            // Convert Cozy's time to our format
-            float newTimeOfDay = cozyTime.hours + (cozyTime.minutes / 60f);
-
-            // Get day of year from Cozy (if available)
-            int cozyDayOfYear = GetCozyDayOfYear(timeModule);
-
-            // Update our time state
-            UpdateTimeFromCozy(newTimeOfDay, cozyDayOfYear);
+            if (enableEventTracking)
+            {
+                CheckForTimeChanges();
+            }
         }
         catch (System.Exception e)
         {
@@ -214,218 +201,39 @@ public class InGameTimeManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Updates our internal time state based on Cozy's values
+    /// Reads time data from Cozy's time module
     /// </summary>
-    private void UpdateTimeFromCozy(float newTimeOfDay, int cozyDayOfYear)
+    private void ReadCozyTimeData()
     {
-        int previousDay = currentDayOfSeason;
-        SeasonType previousSeason = currentSeason;
+        if (timeModule == null) return;
 
-        // Detect day changes by monitoring Cozy's day transitions
-        if (previousCozyTime >= 0f && newTimeOfDay < previousCozyTime && previousCozyTime > 20f && newTimeOfDay < 4f)
-        {
-            // Day rollover detected (time went from ~23:xx to ~0:xx)
-            AdvanceDay();
-        }
-        else if (cozyDayOfYear >= 0 && cozyDayOfYear != previousCozyDay)
-        {
-            // Day changed according to Cozy's day counter
-            TranslateDayFromCozy(cozyDayOfYear);
-        }
+        // Read current time
+        var currentTime = timeModule.currentTime;
+        currentTimeOfDay = currentTime.hours + (currentTime.minutes / 60f);
 
-        // Update current time
-        currentTimeOfDay = newTimeOfDay;
+        // Read day of year (Cozy uses 1-based indexing)
+        currentDayOfYear = Mathf.Max(1, timeModule.currentDay);
 
-        // Fire events based on time changes
-        bool significantTimeChange = Mathf.Abs(newTimeOfDay - previousCozyTime) > 0.01f;
-        if (significantTimeChange)
-        {
-            timeSinceLastEvent += Mathf.Abs(newTimeOfDay - previousCozyTime);
-
-            if (timeSinceLastEvent >= minEventGameTimeInterval)
-            {
-                OnTimeChanged?.Invoke(currentTimeOfDay);
-                timeSinceLastEvent = 0f;
-                lastFiredTimeOfDay = currentTimeOfDay;
-            }
-        }
-
-        // Fire day/season change events
-        if (currentDayOfSeason != previousDay)
-        {
-            OnDayChanged?.Invoke(currentDayOfSeason);
-        }
-
-        if (currentSeason != previousSeason)
-        {
-            OnSeasonChanged?.Invoke(currentSeason);
-        }
-
-        // Cache current values
-        previousCozyTime = newTimeOfDay;
-        previousCozyDay = cozyDayOfYear;
+        // Calculate season and day of season from day of year
+        CalculateSeasonFromDayOfYear();
     }
 
     /// <summary>
-    /// Translates Cozy's day of year to our season/day system
+    /// Calculates current season and day of season from day of year
     /// </summary>
-    private void TranslateDayFromCozy(int cozyDayOfYear)
+    private void CalculateSeasonFromDayOfYear()
     {
-        if (cozyDayOfYear <= 0 || daysPerSeason <= 0) return;
+        if (daysPerSeason <= 0) return;
 
-        // Calculate which season and day within season
-        int seasonIndex = (cozyDayOfYear - 1) / daysPerSeason;
-        int dayInSeason = ((cozyDayOfYear - 1) % daysPerSeason) + 1;
+        // Calculate which season we're in (0-based)
+        int seasonIndex = (currentDayOfYear - 1) / daysPerSeason;
+        seasonIndex = seasonIndex % 4; // Wrap around after 4 seasons
 
-        // Clamp to valid ranges
-        seasonIndex = Mathf.Clamp(seasonIndex, 0, 3);
-        dayInSeason = Mathf.Clamp(dayInSeason, 1, daysPerSeason);
+        // Calculate day within the current season (1-based)
+        currentDayOfSeason = ((currentDayOfYear - 1) % daysPerSeason) + 1;
 
+        // Set current season
         currentSeason = (SeasonType)seasonIndex;
-        currentDayOfSeason = dayInSeason;
-        totalDaysElapsed = cozyDayOfYear - 1;
-
-        DebugLog($"Translated Cozy day {cozyDayOfYear} to {currentSeason} day {currentDayOfSeason}");
-    }
-
-    #endregion
-
-    #region Cozy Setup Helpers
-
-    /// <summary>
-    /// Configures Cozy's year structure to match our season system
-    /// </summary>
-    private void SetupCozyYearStructure(object timeModule)
-    {
-        try
-        {
-            // Set total days per year
-            if (HasProperty(timeModule, "daysPerYear"))
-            {
-                SetProperty(timeModule, "daysPerYear", daysPerYear);
-            }
-            else if (HasProperty(timeModule, "yearLength"))
-            {
-                SetProperty(timeModule, "yearLength", daysPerYear);
-            }
-
-            // Disable realistic year if possible (use our custom system)
-            if (HasProperty(timeModule, "realisticYear"))
-            {
-                SetProperty(timeModule, "realisticYear", false);
-            }
-
-            DebugLog($"Set Cozy year structure: {daysPerYear} days per year");
-        }
-        catch (System.Exception e)
-        {
-            DebugLog($"Could not configure Cozy year structure: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Sets Cozy's time progression speed to match our day duration
-    /// </summary>
-    private void SetupCozyTimeSpeed(object timeModule)
-    {
-        try
-        {
-            // Calculate the time speed multiplier
-            float cozyTimeSpeed = 1440f / (dayDurationMinutes * 60f); // 1440 minutes in 24 hours
-
-            // Try different property names that Cozy might use
-            bool speedSet = false;
-            string[] speedProperties = { "timeSpeed", "speedMultiplier", "daySpeed", "progressionSpeed" };
-
-            foreach (string prop in speedProperties)
-            {
-                if (HasProperty(timeModule, prop))
-                {
-                    SetProperty(timeModule, prop, cozyTimeSpeed);
-                    DebugLog($"Set Cozy {prop} to: {cozyTimeSpeed:F4}");
-                    speedSet = true;
-                    break;
-                }
-            }
-
-            if (!speedSet)
-            {
-                DebugLog("Could not find time speed property in Cozy - you may need to set it manually");
-            }
-        }
-        catch (System.Exception e)
-        {
-            DebugLog($"Error setting Cozy time speed: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Sets Cozy's initial time and day to match our starting values
-    /// </summary>
-    private void SetInitialCozyTime(object timeModule)
-    {
-        try
-        {
-            // Set initial time
-            int hours = Mathf.FloorToInt(startTimeOfDay);
-            int minutes = Mathf.FloorToInt((startTimeOfDay - hours) * 60f);
-            MeridiemTime initialTime = new MeridiemTime(hours, minutes);
-            timeModule.GetType().GetProperty("currentTime")?.SetValue(timeModule, initialTime);
-
-            // Set initial day of year
-            int initialDayOfYear = CalculateDayOfYear(startingSeason, startingDayOfSeason);
-            if (HasProperty(timeModule, "currentDay"))
-            {
-                SetProperty(timeModule, "currentDay", initialDayOfYear);
-            }
-            else if (HasProperty(timeModule, "dayOfYear"))
-            {
-                SetProperty(timeModule, "dayOfYear", initialDayOfYear);
-            }
-
-            // Update our state to match
-            currentTimeOfDay = startTimeOfDay;
-            currentSeason = startingSeason;
-            currentDayOfSeason = startingDayOfSeason;
-
-            DebugLog($"Set Cozy initial state: {GetFormattedDateTime()}");
-        }
-        catch (System.Exception e)
-        {
-            DebugLog($"Error setting Cozy initial time: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Gets the current day of year from Cozy (if available)
-    /// </summary>
-    private int GetCozyDayOfYear(object timeModule)
-    {
-        try
-        {
-            if (HasProperty(timeModule, "currentDay"))
-            {
-                var prop = timeModule.GetType().GetProperty("currentDay");
-                if (prop != null && prop.PropertyType == typeof(int))
-                {
-                    return (int)prop.GetValue(timeModule);
-                }
-            }
-            else if (HasProperty(timeModule, "dayOfYear"))
-            {
-                var prop = timeModule.GetType().GetProperty("dayOfYear");
-                if (prop != null && prop.PropertyType == typeof(int))
-                {
-                    return (int)prop.GetValue(timeModule);
-                }
-            }
-        }
-        catch (System.Exception e)
-        {
-            DebugLog($"Error getting Cozy day of year: {e.Message}");
-        }
-
-        return -1; // Not available
     }
 
     #endregion
@@ -433,17 +241,12 @@ public class InGameTimeManager : MonoBehaviour, IManager
     #region Manual Time Progression (Fallback)
 
     /// <summary>
-    /// Manual time progression when Cozy is not available (your original logic)
+    /// Manual time progression when Cozy is not available
     /// </summary>
     private void ProgressTimeManually()
     {
-        int previousDay = currentDayOfSeason;
-        SeasonType previousSeason = currentSeason;
-
-        // Progress time
-        float timeAdvancement = timeProgressionRate * Time.deltaTime;
+        float timeAdvancement = manualTimeProgressionRate * Time.deltaTime;
         currentTimeOfDay += timeAdvancement;
-        timeSinceLastEvent += timeAdvancement;
 
         // Handle day rollover
         if (currentTimeOfDay >= 24f)
@@ -452,84 +255,69 @@ public class InGameTimeManager : MonoBehaviour, IManager
             AdvanceDay();
         }
 
-        // Fire time events
-        if (timeSinceLastEvent >= minEventGameTimeInterval)
+        if (enableEventTracking)
         {
-            OnTimeChanged?.Invoke(currentTimeOfDay);
-            timeSinceLastEvent = 0f;
-            lastFiredTimeOfDay = currentTimeOfDay;
-        }
-
-        // Check for significant time jumps
-        if (forceEventOnSignificantChange && lastFiredTimeOfDay >= 0f)
-        {
-            float timeDifference = Mathf.Abs(currentTimeOfDay - lastFiredTimeOfDay);
-            if (timeDifference > 12f) timeDifference = 24f - timeDifference;
-
-            if (timeDifference > minEventGameTimeInterval * 2f)
-            {
-                OnTimeChanged?.Invoke(currentTimeOfDay);
-                timeSinceLastEvent = 0f;
-                lastFiredTimeOfDay = currentTimeOfDay;
-            }
-        }
-
-        // Fire day/season events
-        if (currentDayOfSeason != previousDay)
-        {
-            OnDayChanged?.Invoke(currentDayOfSeason);
-        }
-
-        if (currentSeason != previousSeason)
-        {
-            OnSeasonChanged?.Invoke(currentSeason);
+            CheckForTimeChanges();
         }
     }
 
-    #endregion
-
-    #region Day and Season Management (Your Original Logic)
-
     /// <summary>
-    /// Advances to the next day and handles season transitions
+    /// Advances to the next day in manual mode
     /// </summary>
     private void AdvanceDay()
     {
-        currentDayOfSeason++;
-        totalDaysElapsed++;
-
-        DebugLog($"Day advanced to: {GetFormattedDate()}");
-
-        // Check for season transition
-        if (currentDayOfSeason > daysPerSeason)
-        {
-            currentDayOfSeason = 1;
-            AdvanceSeason();
-        }
+        currentDayOfYear++;
+        CalculateSeasonFromDayOfYear();
+        DebugLog($"Day advanced to: {GetFormattedDateTime()}");
     }
 
     /// <summary>
-    /// Advances to the next season in the cycle
+    /// Calculates manual time progression rate
     /// </summary>
-    private void AdvanceSeason()
+    private void CalculateManualProgressionRate()
     {
-        SeasonType previousSeason = currentSeason;
-
-        currentSeason = currentSeason switch
-        {
-            SeasonType.Spring => SeasonType.Summer,
-            SeasonType.Summer => SeasonType.Fall,
-            SeasonType.Fall => SeasonType.Winter,
-            SeasonType.Winter => SeasonType.Spring,
-            _ => SeasonType.Spring
-        };
-
-        DebugLog($"Season changed from {previousSeason} to {currentSeason}");
+        manualTimeProgressionRate = 24f / (dayDurationMinutes * 60f);
     }
 
     #endregion
 
-    #region Manual Control Methods (For Save System and Manual Override)
+    #region Change Detection and Events
+
+    /// <summary>
+    /// Checks for time changes and fires appropriate events
+    /// </summary>
+    private void CheckForTimeChanges()
+    {
+        // Check for time of day changes
+        if (Mathf.Abs(currentTimeOfDay - previousTimeOfDay) > 0.01f)
+        {
+            OnTimeChanged?.Invoke(currentTimeOfDay);
+            previousTimeOfDay = currentTimeOfDay;
+        }
+
+        // Check for day changes
+        if (currentDayOfYear != previousDayOfYear)
+        {
+            DebugLog($"Day changed: {previousDayOfYear} → {currentDayOfYear}");
+            OnDayChanged?.Invoke(currentDayOfSeason, currentSeason);
+            previousDayOfYear = currentDayOfYear;
+        }
+
+        // Check for season changes
+        if (currentSeason != previousSeason)
+        {
+            DebugLog($"Season changed: {previousSeason} → {currentSeason}");
+            OnSeasonChanged?.Invoke(currentSeason);
+            previousSeason = currentSeason;
+        }
+
+        // Fire comprehensive update event
+        OnTimeDataUpdated?.Invoke(GetCurrentTimeData());
+    }
+
+    #endregion
+
+    #region Public Time Control API
 
     /// <summary>
     /// Manually sets the time of day (updates Cozy if connected)
@@ -538,134 +326,198 @@ public class InGameTimeManager : MonoBehaviour, IManager
     public void SetTimeOfDay(float hours)
     {
         hours = Mathf.Clamp(hours, 0f, 23.99f);
-        currentTimeOfDay = hours;
 
-        // Update Cozy if connected
-        if (isCozyConnected)
+        if (isCozyConnected && timeModule != null)
         {
-            try
-            {
-                var timeModule = CozyWeather.instance.timeModule;
-                int h = Mathf.FloorToInt(hours);
-                int m = Mathf.FloorToInt((hours - h) * 60f);
-                timeModule.currentTime = new MeridiemTime(h, m);
-            }
-            catch (System.Exception e)
-            {
-                DebugLog($"Error setting Cozy time: {e.Message}");
-            }
+            // Set time in Cozy
+            int h = Mathf.FloorToInt(hours);
+            int m = Mathf.FloorToInt((hours - h) * 60f);
+            timeModule.currentTime = new MeridiemTime(h, m);
+            DebugLog($"Set Cozy time to: {h:D2}:{m:D2}");
+        }
+        else
+        {
+            // Set manual time
+            currentTimeOfDay = hours;
+            DebugLog($"Set manual time to: {GetFormattedTime()}");
         }
 
         // Fire event
         OnTimeChanged?.Invoke(currentTimeOfDay);
-        timeSinceLastEvent = 0f;
-        lastFiredTimeOfDay = currentTimeOfDay;
-        DebugLog($"Time manually set to: {GetFormattedTime()}");
     }
 
     /// <summary>
-    /// Manually sets the current season and day
+    /// Manually sets the current day of year (updates Cozy if connected)
+    /// </summary>
+    [Button("Set Day of Year")]
+    public void SetDayOfYear(int dayOfYear)
+    {
+        dayOfYear = Mathf.Max(1, dayOfYear);
+
+        if (isCozyConnected && timeModule != null)
+        {
+            // Set day in Cozy
+            timeModule.currentDay = dayOfYear;
+            DebugLog($"Set Cozy day to: {dayOfYear}");
+        }
+        else
+        {
+            // Set manual day
+            currentDayOfYear = dayOfYear;
+            CalculateSeasonFromDayOfYear();
+            DebugLog($"Set manual day to: {dayOfYear}");
+        }
+
+        // Fire events
+        OnDayChanged?.Invoke(currentDayOfSeason, currentSeason);
+    }
+
+    /// <summary>
+    /// Manually sets season and day within season
     /// </summary>
     [Button("Set Season")]
     public void SetSeason(SeasonType season, int dayOfSeason = 1)
     {
         dayOfSeason = Mathf.Clamp(dayOfSeason, 1, daysPerSeason);
 
-        SeasonType previousSeason = currentSeason;
-        currentSeason = season;
-        currentDayOfSeason = dayOfSeason;
+        // Calculate day of year from season and day
+        int seasonOffset = (int)season * daysPerSeason;
+        int targetDayOfYear = seasonOffset + dayOfSeason;
 
-        // Update Cozy if connected
-        if (isCozyConnected)
-        {
-            try
-            {
-                var timeModule = CozyWeather.instance.timeModule;
-                int dayOfYear = CalculateDayOfYear(season, dayOfSeason);
-
-                if (HasProperty(timeModule, "currentDay"))
-                {
-                    SetProperty(timeModule, "currentDay", dayOfYear);
-                }
-                else if (HasProperty(timeModule, "dayOfYear"))
-                {
-                    SetProperty(timeModule, "dayOfYear", dayOfYear);
-                }
-            }
-            catch (System.Exception e)
-            {
-                DebugLog($"Error setting Cozy day: {e.Message}");
-            }
-        }
-
-        if (previousSeason != currentSeason)
-        {
-            OnSeasonChanged?.Invoke(currentSeason);
-        }
-
-        OnDayChanged?.Invoke(currentDayOfSeason);
-        DebugLog($"Season manually set to: {GetFormattedDate()}");
+        SetDayOfYear(targetDayOfYear);
+        DebugLog($"Set season to: {season}, day {dayOfSeason}");
     }
 
     /// <summary>
-    /// Sets complete game date and time
+    /// Sets complete date and time
     /// </summary>
-    [Button("Set Game Date")]
-    public void SetGameDate(SeasonType season, int dayOfSeason, float timeOfDay)
+    [Button("Set Complete DateTime")]
+    public void SetDateTime(SeasonType season, int dayOfSeason, float timeOfDay)
     {
         SetSeason(season, dayOfSeason);
         SetTimeOfDay(timeOfDay);
-        DebugLog($"Game date manually set to: {GetFormattedDateTime()}");
-    }
-
-    /// <summary>
-    /// Toggles between Cozy-driven and manual time progression
-    /// </summary>
-    [Button("Toggle Cozy Time")]
-    public void ToggleCozyTimeProgression()
-    {
-        useCozyTimeProgression = !useCozyTimeProgression;
-
-        if (useCozyTimeProgression)
-        {
-            ConnectToCozy();
-            if (isCozyConnected)
-            {
-                InitializeCozySettings();
-            }
-        }
-
-        DebugLog($"Cozy time progression {(useCozyTimeProgression ? "enabled" : "disabled")}");
-    }
-
-    /// <summary>
-    /// Forces reconnection and resync with Cozy
-    /// </summary>
-    [Button("Reconnect to Cozy")]
-    public void ReconnectToCozy()
-    {
-        ConnectToCozy();
-        if (isCozyConnected)
-        {
-            InitializeCozySettings();
-        }
+        DebugLog($"Set complete date/time to: {GetFormattedDateTime()}");
     }
 
     #endregion
 
-    #region Getters & Information (Your Original API - Preserved)
+    #region Internal Time Management (Save Component Interface)
 
+    /// <summary>
+    /// Internal method for save component to set time data during restoration
+    /// </summary>
+    internal void RestoreTimeData(TimeData timeData)
+    {
+        if (timeData == null) return;
+
+        DebugLog($"Restoring time data: {timeData.GetFormattedDateTime()}");
+
+        // Apply the time data using our public API
+        SetDateTime(timeData.season, timeData.dayOfSeason, timeData.timeOfDay);
+
+        DebugLog($"Time data restored successfully");
+    }
+
+    /// <summary>
+    /// Internal method for save component to get current time data
+    /// </summary>
+    internal TimeData GetTimeDataForSaving()
+    {
+        var timeData = new TimeData
+        {
+            timeOfDay = currentTimeOfDay,
+            dayOfYear = currentDayOfYear,
+            dayOfSeason = currentDayOfSeason,
+            season = currentSeason,
+            daysPerSeason = daysPerSeason,
+            wasCozyDriven = isCozyConnected,
+            saveTimestamp = System.DateTime.Now
+        };
+
+        DebugLog($"Providing time data for saving: {timeData.GetFormattedDateTime()}");
+        return timeData;
+    }
+
+    /// <summary>
+    /// Sets manual values (used internally when Cozy is not available)
+    /// </summary>
+    private void SetManualTime(float timeOfDay, SeasonType season, int dayOfSeason)
+    {
+        currentTimeOfDay = timeOfDay;
+        currentSeason = season;
+        currentDayOfSeason = dayOfSeason;
+        currentDayOfYear = ((int)season * daysPerSeason) + dayOfSeason;
+    }
+
+    #endregion
+
+    #region Public API for External Scripts
+
+    /// <summary>
+    /// Gets current time of day (0-24 hours)
+    /// </summary>
     public float GetCurrentTimeOfDay() => currentTimeOfDay;
-    public SeasonType GetCurrentSeason() => currentSeason;
-    public int GetCurrentDayOfSeason() => currentDayOfSeason;
-    public int GetTotalDaysElapsed() => totalDaysElapsed;
-    public bool IsDaytime() => currentTimeOfDay >= 6f && currentTimeOfDay < 18f;
-    public bool IsNighttime() => !IsDaytime();
-    public float GetTimeProgressionRate() => timeProgressionRate;
-    public bool IsCozyConnected() => isCozyConnected;
-    public int GetDayOfYear() => CalculateDayOfYear(currentSeason, currentDayOfSeason);
-    public int GetDaysPerYear() => daysPerYear;
 
+    /// <summary>
+    /// Gets current season
+    /// </summary>
+    public SeasonType GetCurrentSeason() => currentSeason;
+
+    /// <summary>
+    /// Gets current day of season (1-based)
+    /// </summary>
+    public int GetCurrentDayOfSeason() => currentDayOfSeason;
+
+    /// <summary>
+    /// Gets current day of year (1-based)
+    /// </summary>
+    public int GetCurrentDayOfYear() => currentDayOfYear;
+
+    /// <summary>
+    /// Checks if it's currently daytime (6 AM to 6 PM)
+    /// </summary>
+    public bool IsDaytime() => currentTimeOfDay >= 6f && currentTimeOfDay < 18f;
+
+    /// <summary>
+    /// Checks if it's currently nighttime
+    /// </summary>
+    public bool IsNighttime() => !IsDaytime();
+
+    /// <summary>
+    /// Checks if Cozy time system is connected and active
+    /// </summary>
+    public bool IsCozyConnected() => isCozyConnected;
+
+    /// <summary>
+    /// Gets days per season setting
+    /// </summary>
+    public int GetDaysPerSeason() => daysPerSeason;
+
+    /// <summary>
+    /// Gets total days per year (4 seasons)
+    /// </summary>
+    public int GetDaysPerYear() => daysPerSeason * 4;
+
+    /// <summary>
+    /// Gets complete time data structure for external use (read-only)
+    /// </summary>
+    public TimeData GetCurrentTimeData()
+    {
+        return new TimeData
+        {
+            timeOfDay = currentTimeOfDay,
+            dayOfYear = currentDayOfYear,
+            dayOfSeason = currentDayOfSeason,
+            season = currentSeason,
+            daysPerSeason = daysPerSeason,
+            wasCozyDriven = isCozyConnected,
+            saveTimestamp = System.DateTime.Now
+        };
+    }
+
+    /// <summary>
+    /// Gets formatted time string (HH:MM format)
+    /// </summary>
     public string GetFormattedTime()
     {
         int hours = Mathf.FloorToInt(currentTimeOfDay);
@@ -673,11 +525,17 @@ public class InGameTimeManager : MonoBehaviour, IManager
         return $"{hours:D2}:{minutes:D2}";
     }
 
+    /// <summary>
+    /// Gets formatted date string
+    /// </summary>
     public string GetFormattedDate()
     {
         return $"Day {currentDayOfSeason} of {currentSeason}";
     }
 
+    /// <summary>
+    /// Gets formatted date and time string
+    /// </summary>
     public string GetFormattedDateTime()
     {
         return $"{GetFormattedDate()} at {GetFormattedTime()}";
@@ -685,71 +543,76 @@ public class InGameTimeManager : MonoBehaviour, IManager
 
     #endregion
 
-    #region Utility Methods
+    #region Manual Controls (For Testing)
 
-    private int CalculateDayOfYear(SeasonType season, int dayOfSeason)
+    /// <summary>
+    /// Forces immediate read from Cozy
+    /// </summary>
+    [Button("Force Read From Cozy")]
+    public void ForceReadFromCozy()
     {
-        int seasonOffset = season switch
+        if (isCozyConnected)
         {
-            SeasonType.Spring => 0,
-            SeasonType.Summer => daysPerSeason,
-            SeasonType.Fall => daysPerSeason * 2,
-            SeasonType.Winter => daysPerSeason * 3,
-            _ => 0
-        };
-
-        return seasonOffset + dayOfSeason;
-    }
-
-    private void CalculateTimeProgressionRate()
-    {
-        timeProgressionRate = 24f / (dayDurationMinutes * 60f);
-        minEventGameTimeInterval = eventFireIntervalSeconds * timeProgressionRate;
-    }
-
-    public void SetTotalDaysElapsed(int days)
-    {
-        totalDaysElapsed = Mathf.Max(0, days);
-        DebugLog($"Total days elapsed set to: {totalDaysElapsed}");
-    }
-
-    public void TestEvents()
-    {
-        int subscriberCount = GetEventSubscriberCount();
-        DebugLog($"OnTimeChanged has {subscriberCount} subscribers");
-
-        if (subscriberCount > 0)
+            lastCozyReadTime = 0f;
+            ReadFromCozy();
+            DebugLog("Forced read from Cozy completed");
+        }
+        else
         {
-            OnTimeChanged?.Invoke(currentTimeOfDay);
-            timeSinceLastEvent = 0f;
-            lastFiredTimeOfDay = currentTimeOfDay;
-            DebugLog($"Test event fired with time: {currentTimeOfDay:F2}");
+            DebugLog("Not connected to Cozy - cannot force read");
         }
     }
 
-    public int GetEventSubscriberCount()
+    /// <summary>
+    /// Reconnects to Cozy time system
+    /// </summary>
+    [Button("Reconnect to Cozy")]
+    public void ReconnectToCozy()
     {
-        return OnTimeChanged?.GetInvocationList()?.Length ?? 0;
-    }
-
-    // Reflection helpers
-    private bool HasProperty(object obj, string propertyName)
-    {
-        return obj.GetType().GetProperty(propertyName) != null ||
-               obj.GetType().GetField(propertyName) != null;
-    }
-
-    private void SetProperty(object obj, string propertyName, object value)
-    {
-        var property = obj.GetType().GetProperty(propertyName);
-        if (property != null)
+        ConnectToCozy();
+        if (isCozyConnected)
         {
-            property.SetValue(obj, value);
-            return;
+            ReadInitialCozyState();
+            DebugLog("Reconnected to Cozy time system");
+        }
+    }
+
+    /// <summary>
+    /// Toggles between Cozy and manual time progression
+    /// </summary>
+    [Button("Toggle Cozy Time")]
+    public void ToggleCozyTime()
+    {
+        useCozyTimeSystem = !useCozyTimeSystem;
+
+        if (useCozyTimeSystem)
+        {
+            ConnectToCozy();
+            if (isCozyConnected)
+            {
+                ReadInitialCozyState();
+            }
         }
 
-        var field = obj.GetType().GetField(propertyName);
-        field?.SetValue(obj, value);
+        DebugLog($"Cozy time system {(useCozyTimeSystem ? "enabled" : "disabled")}");
+    }
+
+    /// <summary>
+    /// Advances time by one hour (for testing)
+    /// </summary>
+    [Button("Advance 1 Hour")]
+    public void AdvanceOneHour()
+    {
+        SetTimeOfDay(currentTimeOfDay + 1f);
+    }
+
+    /// <summary>
+    /// Advances to next day (for testing)
+    /// </summary>
+    [Button("Advance 1 Day")]
+    public void AdvanceOneDay()
+    {
+        SetDayOfYear(currentDayOfYear + 1);
     }
 
     #endregion
@@ -766,20 +629,19 @@ public class InGameTimeManager : MonoBehaviour, IManager
     {
         if (Application.isPlaying)
         {
-            CalculateTimeProgressionRate();
-            daysPerYear = daysPerSeason * 4;
+            CalculateManualProgressionRate();
         }
     }
 }
 
 /// <summary>
-/// Enum representing the four seasons.
+/// Enum representing the four seasons
 /// </summary>
 [Serializable]
 public enum SeasonType
 {
-    Spring,
-    Summer,
-    Fall,
-    Winter
+    Spring = 0,
+    Summer = 1,
+    Fall = 2,
+    Winter = 3
 }

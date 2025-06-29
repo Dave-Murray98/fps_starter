@@ -4,50 +4,54 @@ using Sirenix.OdinInspector;
 using DistantLands.Cozy;
 
 /// <summary>
-/// Weather data interface that reads from Cozy Weather 3's ecosystem and climate modules.
-/// This manager no longer controls weather - instead it reads Cozy's state for game logic,
-/// save/load operations, and UI display. Cozy handles all weather and temperature logic.
+/// Enhanced Weather Manager that properly integrates with Cozy Weather 3's native save system.
+/// Uses Cozy's built-in CozySaveLoadModule module for state persistence rather than trying to read
+/// internal state. This provides reliable weather restoration across scene transitions and save/load.
 /// 
-/// COZY-DRIVEN APPROACH: Cozy's forecast system, climate module, and ecosystem control
-/// all weather events and temperature. This manager just observes and persists that data.
+/// COZY-NATIVE APPROACH: Leverages Cozy's own save/load module for maximum compatibility
+/// and reliability. Weather state is handled by Cozy itself, we just coordinate the timing.
 /// </summary>
 public class WeatherManager : MonoBehaviour, IManager
 {
     public static WeatherManager Instance { get; private set; }
 
     [Header("Cozy Integration Settings")]
-    [SerializeField] private bool enableCozyReading = true;
-    [SerializeField] private float cozyReadInterval = 0.1f; // How often to read from Cozy
+    [SerializeField] private bool enableCozyIntegration = true;
+    [SerializeField] private float cozyReadInterval = 0.2f; // How often to read from Cozy
     [SerializeField] private bool trackWeatherChanges = true;
     [SerializeField] private bool trackTemperatureChanges = true;
 
-    [Header("Data Persistence Settings")]
-    [SerializeField] private bool saveCozyState = true;
-    [SerializeField] private bool restoreCozyState = true;
+    [Header("Save Integration Settings")]
+    [SerializeField] private bool useCozySaveModule = true;
+    [SerializeField] private string cozyDataFileName = "CozyWeatherState";
     [SerializeField] private float significantTempChange = 0.5f; // °C change to trigger events
 
     [Header("Debug Settings")]
     [SerializeField] private bool showDebugLogs = true;
 
-    // Current state read from Cozy (read-only data for game logic)
-    [ShowInInspector, ReadOnly] private string currentWeatherName = "Clear";
-    [ShowInInspector, ReadOnly] private float currentTemperature = 20f;
-    [ShowInInspector, ReadOnly] private float currentPrecipitation = 0f;
+    // Cozy module references
+    [ShowInInspector, ReadOnly] private CozySaveLoadModule cozySaveModule;
+    [ShowInInspector, ReadOnly] private CozyWeatherModule weatherModule;
+    [ShowInInspector, ReadOnly] private CozyClimateModule climateModule;
     [ShowInInspector, ReadOnly] private bool isCozyConnected = false;
 
-    // Weather change tracking
+    // Current state read from Cozy
+    [ShowInInspector, ReadOnly] private string currentWeatherName = "Clear";
+    [ShowInInspector, ReadOnly] private float currentTemperature = 20f;
+    [ShowInInspector, ReadOnly] private float currentHumidity = 0.5f;
+    [ShowInInspector, ReadOnly] private float currentPrecipitation = 0f;
+
+    // Change tracking
     [ShowInInspector, ReadOnly] private string previousWeatherName = "";
     [ShowInInspector, ReadOnly] private float previousTemperature = 20f;
     [ShowInInspector, ReadOnly] private float lastCozyReadTime = 0f;
 
-    // Cached Cozy references
-    private object currentWeatherProfile;
-    private InGameTimeManager timeManager;
-
-    // Events for external systems (simplified for Cozy-driven approach)
+    // Events for external systems
     public static event System.Action<string> OnWeatherChanged; // Weather profile name
     public static event System.Action<float> OnTemperatureChanged; // Current temperature
     public static event System.Action<CozyWeatherData> OnCozyWeatherUpdated; // Complete weather data
+    public static event System.Action OnWeatherSaveComplete;
+    public static event System.Action<bool> OnWeatherLoadComplete; // bool = success
 
     private void Awake()
     {
@@ -55,7 +59,7 @@ public class WeatherManager : MonoBehaviour, IManager
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            DebugLog("WeatherManager initialized as Cozy data interface");
+            DebugLog("WeatherManager initialized with Cozy Weather 3 integration");
         }
         else
         {
@@ -75,12 +79,11 @@ public class WeatherManager : MonoBehaviour, IManager
             ReadInitialCozyState();
         }
 
-        DebugLog("WeatherManager initialized - reading from Cozy Weather 3");
+        DebugLog("WeatherManager initialized - using Cozy Weather 3 native save system");
     }
 
     public void RefreshReferences()
     {
-        timeManager = InGameTimeManager.Instance;
         ConnectToCozy();
         DebugLog("References refreshed");
     }
@@ -94,39 +97,70 @@ public class WeatherManager : MonoBehaviour, IManager
 
     private void Update()
     {
-        if (enableCozyReading && isCozyConnected)
+        if (enableCozyIntegration && isCozyConnected)
         {
             ReadFromCozy();
         }
     }
 
-    #region Cozy Data Reading
+    #region Cozy Connection and Data Reading
 
     /// <summary>
-    /// Connects to Cozy Weather 3's modules for data reading
+    /// Connects to Cozy Weather 3's modules and save system
     /// </summary>
     private void ConnectToCozy()
     {
-        if (CozyWeather.instance != null)
+        if (!enableCozyIntegration)
         {
-            bool hasWeatherModule = CozyWeather.instance.weatherModule != null;
-            bool hasClimateModule = CozyWeather.instance.climateModule != null;
+            isCozyConnected = false;
+            DebugLog("Cozy integration disabled");
+            return;
+        }
 
-            isCozyConnected = hasWeatherModule || hasClimateModule;
+        if (CozyWeather.instance == null)
+        {
+            isCozyConnected = false;
+            DebugLog("CozyWeather.instance not found");
+            return;
+        }
+
+        try
+        {
+            // Connect to weather module
+            weatherModule = CozyWeather.instance.weatherModule;
+
+            // Connect to climate module
+            climateModule = CozyWeather.instance.climateModule;
+
+            // Connect to save/load module
+            if (useCozySaveModule)
+            {
+                cozySaveModule = CozyWeather.instance.GetModule<CozySaveLoadModule>();
+                if (cozySaveModule == null)
+                {
+                    Debug.LogWarning("[WeatherManager] CozySaveLoadModule module not found! Add the Save & Load module to Cozy Weather 3");
+                }
+            }
+
+            bool hasWeatherModule = weatherModule != null;
+            bool hasClimateModule = climateModule != null;
+            bool hasSaveModule = !useCozySaveModule || cozySaveModule != null;
+
+            isCozyConnected = hasWeatherModule && hasSaveModule;
 
             if (isCozyConnected)
             {
-                DebugLog($"Connected to Cozy - Weather Module: {hasWeatherModule}, Climate Module: {hasClimateModule}");
+                DebugLog($"Connected to Cozy - Weather: {hasWeatherModule}, Climate: {hasClimateModule}, Save: {hasSaveModule}");
             }
             else
             {
-                DebugLog("Cozy Weather 3 found but no weather or climate modules available");
+                DebugLog("Failed to connect to required Cozy modules");
             }
         }
-        else
+        catch (System.Exception e)
         {
+            DebugLog($"Error connecting to Cozy: {e.Message}");
             isCozyConnected = false;
-            DebugLog("Cozy Weather 3 not found");
         }
     }
 
@@ -139,20 +173,15 @@ public class WeatherManager : MonoBehaviour, IManager
 
         try
         {
-            // Read weather state
             ReadCurrentWeather();
-
-            // Read temperature state
             ReadCurrentTemperature();
-
-            // Read precipitation state
-            ReadCurrentPrecipitation();
+            ReadCurrentClimateData();
 
             // Initialize previous values
             previousWeatherName = currentWeatherName;
             previousTemperature = currentTemperature;
 
-            DebugLog($"Initial Cozy state - Weather: {currentWeatherName}, Temp: {currentTemperature:F1}°C, Precip: {currentPrecipitation:F2}");
+            DebugLog($"Initial Cozy state - Weather: {currentWeatherName}, Temp: {currentTemperature:F1}°C");
         }
         catch (System.Exception e)
         {
@@ -177,16 +206,12 @@ public class WeatherManager : MonoBehaviour, IManager
 
         try
         {
-            // Read current values
             ReadCurrentWeather();
             ReadCurrentTemperature();
-            ReadCurrentPrecipitation();
+            ReadCurrentClimateData();
 
-            // Check for changes and fire events
             CheckForWeatherChanges();
             CheckForTemperatureChanges();
-
-            // Fire comprehensive update event
             FireWeatherDataUpdateEvent();
         }
         catch (System.Exception e)
@@ -201,25 +226,14 @@ public class WeatherManager : MonoBehaviour, IManager
     /// </summary>
     private void ReadCurrentWeather()
     {
-        if (CozyWeather.instance?.weatherModule?.ecosystem == null) return;
+        if (weatherModule?.ecosystem == null) return;
 
         try
         {
-            // Get current weather profile
-            currentWeatherProfile = CozyWeather.instance.weatherModule.ecosystem.currentWeather;
-
-            if (currentWeatherProfile != null)
+            var currentWeather = weatherModule.ecosystem.currentWeather;
+            if (currentWeather != null)
             {
-                // Try to get the weather profile name
-                var nameProperty = currentWeatherProfile.GetType().GetProperty("name");
-                if (nameProperty != null)
-                {
-                    currentWeatherName = nameProperty.GetValue(currentWeatherProfile) as string ?? "Unknown";
-                }
-                else
-                {
-                    currentWeatherName = currentWeatherProfile.GetType().Name;
-                }
+                currentWeatherName = currentWeather.name ?? "Unknown";
             }
             else
             {
@@ -240,38 +254,11 @@ public class WeatherManager : MonoBehaviour, IManager
     {
         try
         {
-            // Try to get temperature from climate module
-            if (CozyWeather.instance?.climateModule != null)
+            if (climateModule != null)
             {
-                var climateModule = CozyWeather.instance.climateModule;
-
-                // Try different possible property names for temperature
-                float? temp = GetFloatProperty(climateModule, "currentTemperature") ??
-                             GetFloatProperty(climateModule, "temperature") ??
-                             GetFloatProperty(climateModule, "globalTemperature");
-
-                if (temp.HasValue)
-                {
-                    currentTemperature = temp.Value;
-                    return;
-                }
+                // Use Cozy's temperature system
+                currentTemperature = climateModule.currentTemperature;
             }
-
-            // Fallback: try to get temperature from weather sphere directly
-            if (CozyWeather.instance != null)
-            {
-                float? temp = GetFloatProperty(CozyWeather.instance, "currentTemperature") ??
-                             GetFloatProperty(CozyWeather.instance, "temperature");
-
-                if (temp.HasValue)
-                {
-                    currentTemperature = temp.Value;
-                    return;
-                }
-            }
-
-            // If no temperature source found, keep previous value
-            DebugLog("No temperature source found in Cozy");
         }
         catch (System.Exception e)
         {
@@ -280,29 +267,34 @@ public class WeatherManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Reads current precipitation from Cozy's climate module
+    /// Reads additional climate data from Cozy
     /// </summary>
-    private void ReadCurrentPrecipitation()
+    private void ReadCurrentClimateData()
     {
         try
         {
-            if (CozyWeather.instance?.climateModule != null)
+            if (climateModule != null)
             {
-                var climateModule = CozyWeather.instance.climateModule;
-
-                float? precip = GetFloatProperty(climateModule, "currentPrecipitation") ??
-                               GetFloatProperty(climateModule, "precipitation") ??
-                               GetFloatProperty(climateModule, "globalPrecipitation");
-
-                if (precip.HasValue)
+                // Read humidity if available
+                var humidityProperty = climateModule.GetType().GetProperty("humidity") ??
+                                     climateModule.GetType().GetProperty("currentHumidity");
+                if (humidityProperty != null)
                 {
-                    currentPrecipitation = precip.Value;
+                    currentHumidity = (float)humidityProperty.GetValue(climateModule);
+                }
+
+                // Read precipitation if available
+                var precipProperty = climateModule.GetType().GetProperty("precipitation") ??
+                                   climateModule.GetType().GetProperty("currentPrecipitation");
+                if (precipProperty != null)
+                {
+                    currentPrecipitation = (float)precipProperty.GetValue(climateModule);
                 }
             }
         }
         catch (System.Exception e)
         {
-            DebugLog($"Error reading precipitation: {e.Message}");
+            DebugLog($"Error reading climate data: {e.Message}");
         }
     }
 
@@ -349,14 +341,146 @@ public class WeatherManager : MonoBehaviour, IManager
         var weatherData = new CozyWeatherData
         {
             weatherName = currentWeatherName,
-            weatherProfile = currentWeatherProfile,
+            weatherProfile = weatherModule?.ecosystem?.currentWeather,
             temperature = currentTemperature,
+            humidity = currentHumidity,
             precipitation = currentPrecipitation,
             isConnected = isCozyConnected,
             timestamp = Time.time
         };
 
         OnCozyWeatherUpdated?.Invoke(weatherData);
+    }
+
+    #endregion
+
+    #region Cozy Native Save/Load Integration
+
+    /// <summary>
+    /// Saves current Cozy weather state using Cozy's native save system
+    /// </summary>
+    public void SaveCozyWeatherState()
+    {
+        if (!isCozyConnected || cozySaveModule == null)
+        {
+            DebugLog("Cannot save Cozy state - not connected or save module missing");
+            return;
+        }
+
+        try
+        {
+            DebugLog("Saving Cozy weather state using native save module");
+            cozySaveModule.Save();
+            OnWeatherSaveComplete?.Invoke();
+            DebugLog("Cozy weather state saved successfully");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[WeatherManager] Failed to save Cozy state: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Loads Cozy weather state using Cozy's native save system
+    /// </summary>
+    public void LoadCozyWeatherState()
+    {
+        if (!isCozyConnected || cozySaveModule == null)
+        {
+            DebugLog("Cannot load Cozy state - not connected or save module missing");
+            OnWeatherLoadComplete?.Invoke(false);
+            return;
+        }
+
+        try
+        {
+            DebugLog("Loading Cozy weather state using native save module");
+            cozySaveModule.Load();
+
+            // Wait a frame then read the updated state
+            StartCoroutine(PostLoadStateUpdate());
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[WeatherManager] Failed to load Cozy state: {e.Message}");
+            OnWeatherLoadComplete?.Invoke(false);
+        }
+    }
+
+    /// <summary>
+    /// Updates our cached state after Cozy load completes
+    /// </summary>
+    private System.Collections.IEnumerator PostLoadStateUpdate()
+    {
+        yield return new WaitForEndOfFrame();
+
+        // Force immediate state read
+        lastCozyReadTime = 0f;
+        ReadFromCozy();
+
+        DebugLog("Cozy weather state loaded and updated successfully");
+        OnWeatherLoadComplete?.Invoke(true);
+    }
+
+    /// <summary>
+    /// Gets basic weather data for external save systems (fallback)
+    /// </summary>
+    public CozyWeatherSaveData GetBasicWeatherData()
+    {
+        return new CozyWeatherSaveData
+        {
+            weatherName = currentWeatherName,
+            temperature = currentTemperature,
+            humidity = currentHumidity,
+            precipitation = currentPrecipitation,
+            saveTimestamp = System.DateTime.Now,
+            cozyConnected = isCozyConnected,
+            usesNativeSave = useCozySaveModule
+        };
+    }
+
+    /// <summary>
+    /// Applies basic weather data (fallback for when native save isn't available)
+    /// </summary>
+    public void ApplyBasicWeatherData(CozyWeatherSaveData saveData)
+    {
+        if (saveData == null)
+        {
+            DebugLog("Cannot apply weather data - data is null");
+            return;
+        }
+
+        DebugLog($"Applying fallback weather data - Weather: {saveData.weatherName}, Temp: {saveData.temperature:F1}°C");
+
+        // This is a fallback - we can't directly set Cozy's state without the save module
+        // But we can try to find and set a weather profile with the saved name
+        if (weatherModule?.ecosystem != null && !string.IsNullOrEmpty(saveData.weatherName))
+        {
+            TrySetWeatherByName(saveData.weatherName);
+        }
+
+        // Force immediate read to sync our state
+        ReadInitialCozyState();
+    }
+
+    /// <summary>
+    /// Attempts to set weather by finding a profile with the given name
+    /// </summary>
+    private void TrySetWeatherByName(string weatherName)
+    {
+        try
+        {
+            // This would require access to Cozy's weather profile list
+            // Implementation depends on Cozy's specific API for weather profiles
+            DebugLog($"Attempting to set weather to: {weatherName} (implementation depends on Cozy API)");
+
+            // You would need to implement profile lookup based on Cozy's available API
+            // For example: weatherModule.ecosystem.SetWeather(foundProfile);
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error setting weather by name: {e.Message}");
+        }
     }
 
     #endregion
@@ -374,6 +498,11 @@ public class WeatherManager : MonoBehaviour, IManager
     public float GetCurrentTemperature() => currentTemperature;
 
     /// <summary>
+    /// Gets current humidity from Cozy (0-1)
+    /// </summary>
+    public float GetCurrentHumidity() => currentHumidity;
+
+    /// <summary>
     /// Gets current precipitation level from Cozy
     /// </summary>
     public float GetCurrentPrecipitation() => currentPrecipitation;
@@ -381,12 +510,17 @@ public class WeatherManager : MonoBehaviour, IManager
     /// <summary>
     /// Gets current weather profile object from Cozy
     /// </summary>
-    public object GetCurrentWeatherProfile() => currentWeatherProfile;
+    public object GetCurrentWeatherProfile() => weatherModule?.ecosystem?.currentWeather;
 
     /// <summary>
     /// Checks if currently connected to Cozy
     /// </summary>
     public bool IsCozyConnected() => isCozyConnected;
+
+    /// <summary>
+    /// Checks if using Cozy's native save system
+    /// </summary>
+    public bool IsUsingNativeSave() => useCozySaveModule && cozySaveModule != null;
 
     /// <summary>
     /// Gets complete weather data structure
@@ -396,8 +530,9 @@ public class WeatherManager : MonoBehaviour, IManager
         return new CozyWeatherData
         {
             weatherName = currentWeatherName,
-            weatherProfile = currentWeatherProfile,
+            weatherProfile = weatherModule?.ecosystem?.currentWeather,
             temperature = currentTemperature,
+            humidity = currentHumidity,
             precipitation = currentPrecipitation,
             isConnected = isCozyConnected,
             timestamp = Time.time
@@ -424,95 +559,6 @@ public class WeatherManager : MonoBehaviour, IManager
 
     #endregion
 
-    #region Save/Load Interface
-
-    /// <summary>
-    /// Gets data that should be saved (current Cozy state)
-    /// </summary>
-    public CozyWeatherSaveData GetSaveData()
-    {
-        return new CozyWeatherSaveData
-        {
-            weatherName = currentWeatherName,
-            temperature = currentTemperature,
-            precipitation = currentPrecipitation,
-            saveTimestamp = System.DateTime.Now,
-            cozyConnected = isCozyConnected
-        };
-    }
-
-    /// <summary>
-    /// Restores Cozy state from saved data (attempts to set Cozy's state)
-    /// </summary>
-    public void RestoreFromSaveData(CozyWeatherSaveData saveData)
-    {
-        if (saveData == null || !restoreCozyState)
-        {
-            DebugLog("Cannot restore - invalid data or restoration disabled");
-            return;
-        }
-
-        DebugLog($"Restoring Cozy state - Weather: {saveData.weatherName}, Temp: {saveData.temperature:F1}°C");
-
-        // Attempt to restore weather if possible
-        if (!string.IsNullOrEmpty(saveData.weatherName) && saveData.weatherName != "Clear")
-        {
-            SetCozyWeatherByName(saveData.weatherName);
-        }
-
-        // Attempt to restore temperature if possible (this might not be supported by Cozy)
-        if (saveData.temperature != 0f)
-        {
-            SetCozyTemperature(saveData.temperature);
-        }
-
-        // Force immediate read to sync our state
-        ReadInitialCozyState();
-    }
-
-    /// <summary>
-    /// Attempts to set Cozy weather by profile name (for save restoration)
-    /// </summary>
-    private void SetCozyWeatherByName(string weatherName)
-    {
-        try
-        {
-            if (CozyWeather.instance?.weatherModule?.ecosystem == null) return;
-
-            // This is tricky since we need to find the weather profile by name
-            // We would need access to Cozy's weather profile list to do this properly
-            DebugLog($"Attempting to restore weather: {weatherName} (this may not be fully supported)");
-
-            // In a full implementation, you would:
-            // 1. Get list of available weather profiles from Cozy
-            // 2. Find profile with matching name
-            // 3. Set that profile as current weather
-        }
-        catch (System.Exception e)
-        {
-            DebugLog($"Error setting Cozy weather: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Attempts to set Cozy temperature (may not be supported)
-    /// </summary>
-    private void SetCozyTemperature(float temperature)
-    {
-        try
-        {
-            // Climate module might not allow direct temperature setting
-            // since it's usually controlled by the climate profile and time of year
-            DebugLog($"Attempting to set temperature: {temperature:F1}°C (may not be supported by Cozy)");
-        }
-        catch (System.Exception e)
-        {
-            DebugLog($"Error setting Cozy temperature: {e.Message}");
-        }
-    }
-
-    #endregion
-
     #region Manual Controls (For Testing)
 
     /// <summary>
@@ -523,7 +569,7 @@ public class WeatherManager : MonoBehaviour, IManager
     {
         if (isCozyConnected)
         {
-            lastCozyReadTime = 0f; // Force immediate read
+            lastCozyReadTime = 0f;
             ReadFromCozy();
             DebugLog("Forced read from Cozy completed");
         }
@@ -548,59 +594,57 @@ public class WeatherManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Toggles Cozy reading on/off
+    /// Tests Cozy native save functionality
     /// </summary>
-    [Button("Toggle Cozy Reading")]
-    public void ToggleCozyReading()
+    [Button("Test Cozy Save")]
+    public void TestCozySave()
     {
-        enableCozyReading = !enableCozyReading;
-        DebugLog($"Cozy reading {(enableCozyReading ? "enabled" : "disabled")}");
+        if (IsUsingNativeSave())
+        {
+            SaveCozyWeatherState();
+        }
+        else
+        {
+            DebugLog("Cozy native save not available");
+        }
     }
 
     /// <summary>
-    /// Tests save/restore functionality
+    /// Tests Cozy native load functionality
     /// </summary>
-    [Button("Test Save/Restore")]
-    public void TestSaveRestore()
+    [Button("Test Cozy Load")]
+    public void TestCozyLoad()
     {
-        var saveData = GetSaveData();
-        DebugLog($"Current state: {saveData.GetDebugInfo()}");
-
-        // Test restoration (this won't change much since we're restoring current state)
-        RestoreFromSaveData(saveData);
+        if (IsUsingNativeSave())
+        {
+            LoadCozyWeatherState();
+        }
+        else
+        {
+            DebugLog("Cozy native load not available");
+        }
     }
 
-    #endregion
-
-    #region Utility Methods
-
     /// <summary>
-    /// Attempts to get a float property from an object using reflection
+    /// Toggles Cozy integration on/off
     /// </summary>
-    private float? GetFloatProperty(object obj, string propertyName)
+    [Button("Toggle Cozy Integration")]
+    public void ToggleCozyIntegration()
     {
-        if (obj == null) return null;
-
-        try
+        enableCozyIntegration = !enableCozyIntegration;
+        if (enableCozyIntegration)
         {
-            var property = obj.GetType().GetProperty(propertyName);
-            if (property != null && (property.PropertyType == typeof(float) || property.PropertyType == typeof(double)))
+            ConnectToCozy();
+            if (isCozyConnected)
             {
-                return (float)property.GetValue(obj);
-            }
-
-            var field = obj.GetType().GetField(propertyName);
-            if (field != null && (field.FieldType == typeof(float) || field.FieldType == typeof(double)))
-            {
-                return (float)field.GetValue(obj);
+                ReadInitialCozyState();
             }
         }
-        catch
+        else
         {
-            // Property/field doesn't exist or isn't accessible
+            isCozyConnected = false;
         }
-
-        return null;
+        DebugLog($"Cozy integration {(enableCozyIntegration ? "enabled" : "disabled")}");
     }
 
     #endregion
@@ -621,7 +665,7 @@ public class WeatherManager : MonoBehaviour, IManager
 }
 
 /// <summary>
-/// Data structure for current weather information read from Cozy
+/// Enhanced data structure for current weather information from Cozy
 /// </summary>
 [System.Serializable]
 public class CozyWeatherData
@@ -629,37 +673,41 @@ public class CozyWeatherData
     public string weatherName;
     public object weatherProfile;
     public float temperature;
+    public float humidity;
     public float precipitation;
     public bool isConnected;
     public float timestamp;
 
     public string GetDebugInfo()
     {
-        return $"Weather: {weatherName}, Temp: {temperature:F1}°C, Precip: {precipitation:F2}, Connected: {isConnected}";
+        return $"Weather: {weatherName}, Temp: {temperature:F1}°C, Humidity: {humidity:F2}, Precip: {precipitation:F2}, Connected: {isConnected}";
     }
 }
 
 /// <summary>
-/// Simplified save data structure for Cozy weather state
+/// Enhanced save data structure for Cozy weather state
 /// </summary>
 [System.Serializable]
 public class CozyWeatherSaveData
 {
     public string weatherName = "Clear";
     public float temperature = 20f;
+    public float humidity = 0.5f;
     public float precipitation = 0f;
     public System.DateTime saveTimestamp;
     public bool cozyConnected = false;
+    public bool usesNativeSave = false;
 
     public bool IsValid()
     {
         return !string.IsNullOrEmpty(weatherName) &&
                temperature > -100f && temperature < 100f &&
-               precipitation >= 0f;
+               precipitation >= 0f &&
+               humidity >= 0f && humidity <= 1f;
     }
 
     public string GetDebugInfo()
     {
-        return $"Weather: {weatherName}, Temp: {temperature:F1}°C, Precip: {precipitation:F2}, Saved: {saveTimestamp:yyyy-MM-dd HH:mm}";
+        return $"Weather: {weatherName}, Temp: {temperature:F1}°C, Humidity: {humidity:F2}, Precip: {precipitation:F2}, Native Save: {usesNativeSave}, Saved: {saveTimestamp:yyyy-MM-dd HH:mm}";
     }
 }
