@@ -6867,7 +6867,7 @@ MonoBehaviour:
   lockToCamera: 0
   disableSunAtNight: 1
   handleSceneLighting: 1
-  dontDestroyOnLoad: 0
+  dontDestroyOnLoad: 1
   m_Stars:
   - {fileID: 354256224}
   - {fileID: 1660835633}
@@ -7012,9 +7012,13 @@ MonoBehaviour:
   cozyReadInterval: 0.05
   enableEventTracking: 1
   dayDurationMinutes: 5
-  startTimeOfDay: 6
-  daysPerSeason: 3
-  startingSeason: 0
+  startTime:
+    hours: 6
+    minutes: 0
+    seconds: 0
+    milliseconds: 0
+    timeAsPercentage: 0
+  startDay: 1
   showDebugLogs: 0
 --- !u!1 &1250292880
 GameObject:

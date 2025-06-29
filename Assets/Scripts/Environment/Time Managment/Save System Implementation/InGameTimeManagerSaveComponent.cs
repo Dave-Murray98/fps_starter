@@ -1,17 +1,20 @@
 using UnityEngine;
 using Sirenix.OdinInspector;
-
+using DistantLands.Cozy;
 
 /// <summary>
-/// Save component for the Cozy-driven time system. This component ONLY handles saving and loading
-/// time data. All time logic, public API, and Cozy integration is handled by InGameTimeManager.
+/// Save component for the Cozy-native time system. This component ONLY handles saving and loading
+/// time data using Cozy's native format (MeridiemTime, day system, etc.).
 /// 
-/// CLEAR SEPARATION OF CONCERNS:
-/// - InGameTimeManager: All time logic, public API, Cozy integration, events
+/// PURE COZY INTEGRATION:
+/// - Uses Cozy's MeridiemTime instead of float hours
+/// - Uses Cozy's day numbering system
+/// - Uses Cozy's season objects directly
+/// - No custom conversions or mappings
+/// 
+/// CLEAR SEPARATION:
+/// - InGameTimeManager: All time logic, Cozy integration, public API
 /// - InGameTimeManagerSaveComponent: Save/load operations ONLY
-/// 
-/// The save component acts as a pure data persistence layer that delegates to the TimeManager
-/// for all actual time operations.
 /// </summary>
 public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -74,7 +77,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     }
 
     /// <summary>
-    /// Gets time data from the TimeManager for saving. Pure data delegation.
+    /// Gets time data from the TimeManager for saving using Cozy's native format.
     /// </summary>
     public override object GetDataToSave()
     {
@@ -84,29 +87,28 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             return CreateDefaultTimeData();
         }
 
-        // Delegate to TimeManager to get current time data
+        // Delegate to TimeManager to get current time data in Cozy format
         var timeData = timeManager.GetTimeDataForSaving();
-        DebugLog($"Retrieved time data for saving: {timeData.GetFormattedDateTime()}");
+        DebugLog($"Retrieved Cozy time data for saving: {timeData.GetFormattedDateTime()}");
         return timeData;
     }
 
     /// <summary>
-    /// Creates default time data when manager is unavailable or for new games
+    /// Creates default time data using Cozy's native format
     /// </summary>
     private TimeData CreateDefaultTimeData()
     {
         var defaultData = new TimeData
         {
-            timeOfDay = 6f,
-            dayOfYear = 1,
-            dayOfSeason = 1,
-            season = SeasonType.Spring,
-            daysPerSeason = 30,
+            time = new MeridiemTime(6, 0), // 6:00 AM
+            day = 1,
+            temperature = 20f,
+            season = "Spring",
             wasCozyDriven = false,
             saveTimestamp = System.DateTime.Now
         };
 
-        DebugLog($"Created default time data: {defaultData.GetFormattedDateTime()}");
+        DebugLog($"Created default Cozy time data: {defaultData.GetFormattedDateTime()}");
         return defaultData;
     }
 
@@ -115,7 +117,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
-        DebugLog($"Extracting time data from container type: {saveContainer?.GetType().Name ?? "null"}");
+        DebugLog($"Extracting Cozy time data from container type: {saveContainer?.GetType().Name ?? "null"}");
 
         if (saveContainer is TimeData timeData)
         {
@@ -131,7 +133,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             }
             else
             {
-                DebugLog("No time data found in persistent data");
+                DebugLog("No Cozy time data found in persistent data");
             }
             return extractedData;
         }
@@ -144,7 +146,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             }
             else
             {
-                DebugLog("No time data found in player save data");
+                DebugLog("No Cozy time data found in player save data");
             }
             return extractedData;
         }
@@ -156,7 +158,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     #region IPlayerDependentSaveable Implementation
 
     /// <summary>
-    /// Extracts time data from the unified save structure.
+    /// Extracts Cozy time data from the unified save structure.
     /// </summary>
     public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
     {
@@ -175,53 +177,53 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         }
         else
         {
-            DebugLog("No time data found in unified save structure");
+            DebugLog("No Cozy time data found in unified save structure");
         }
 
         return extractedData;
     }
 
     /// <summary>
-    /// Creates default time data for new games.
+    /// Creates default Cozy time data for new games.
     /// </summary>
     public object CreateDefaultData()
     {
-        DebugLog("Creating default time data for new game");
+        DebugLog("Creating default Cozy time data for new game");
         return CreateDefaultTimeData();
     }
 
     /// <summary>
-    /// Stores time data into the unified save structure.
+    /// Stores Cozy time data into the unified save structure.
     /// </summary>
     public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
     {
         if (componentData is TimeData timeData && unifiedData != null)
         {
-            DebugLog($"Contributing time data to unified save: {timeData.GetFormattedDateTime()}");
+            DebugLog($"Contributing Cozy time data to unified save: {timeData.GetFormattedDateTime()}");
             unifiedData.SetComponentData(SaveID, timeData);
         }
         else
         {
-            DebugLog($"Invalid data for contribution - expected TimeData, got {componentData?.GetType().Name ?? "null"}");
+            DebugLog($"Invalid data for contribution - expected CozyTimeData, got {componentData?.GetType().Name ?? "null"}");
         }
     }
 
     #endregion
 
     /// <summary>
-    /// Context-aware data restoration. Delegates actual time setting to TimeManager.
+    /// Context-aware data restoration using Cozy's native format.
     /// </summary>
     public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
-        DebugLog($"=== LOADING TIME DATA (Context: {context}) ===");
+        DebugLog($"=== LOADING COZY TIME DATA (Context: {context}) ===");
 
         if (!(data is TimeData timeData))
         {
-            DebugLog($"Invalid save data type - expected TimeData, got {data?.GetType().Name ?? "null"}");
+            DebugLog($"Invalid save data type - expected CozyTimeData, got {data?.GetType().Name ?? "null"}");
             return;
         }
 
-        DebugLog($"Received valid data - Time: {timeData.GetFormattedDateTime()}");
+        DebugLog($"Received valid Cozy data - Time: {timeData.GetFormattedDateTime()}");
 
         // Refresh manager reference in case it changed after scene load
         if (autoFindManager && timeManager == null)
@@ -244,70 +246,77 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
         // Validate data before applying
         if (!timeData.IsValid())
         {
-            Debug.LogWarning("Time save data failed validation - applying anyway with corrections");
+            Debug.LogWarning("Cozy time save data failed validation - applying anyway with corrections");
         }
 
         // Handle restoration based on context
-        HandleTimeDataRestoration(timeData, context);
+        HandleCozyTimeRestoration(timeData, context);
 
-        DebugLog($"Time data restoration complete for context: {context}");
+        DebugLog($"Cozy time data restoration complete for context: {context}");
     }
 
     /// <summary>
-    /// Handles time restoration based on context. Coordinates when to restore vs when to let time flow naturally.
+    /// Handles Cozy time restoration based on context.
     /// </summary>
-    private void HandleTimeDataRestoration(TimeData timeData, RestoreContext context)
+    private void HandleCozyTimeRestoration(TimeData timeData, RestoreContext context)
     {
         switch (context)
         {
             case RestoreContext.DoorwayTransition:
-                DebugLog("Doorway transition - letting time continue naturally (no restoration needed)");
-                // For doorway transitions, time should flow naturally with Cozy
-                // We don't restore time data - this allows natural progression
+                DebugLog("Doorway transition - letting Cozy time continue naturally");
+                // For doorway transitions, let Cozy time flow naturally
+                // This allows seamless time progression between scenes
                 break;
 
             case RestoreContext.SaveFileLoad:
-                DebugLog("Save file load - restoring exact time and date");
-                RestoreExactTimeData(timeData);
+                DebugLog("Save file load - restoring exact Cozy time and date");
+                RestoreExactCozyTime(timeData);
                 break;
 
             case RestoreContext.NewGame:
-                DebugLog("New game - setting starting time and date");
-                RestoreExactTimeData(timeData);
+                DebugLog("New game - setting starting Cozy time and date");
+                RestoreExactCozyTime(timeData);
                 break;
 
             default:
                 DebugLog($"Unknown restore context: {context} - defaulting to exact restoration");
-                RestoreExactTimeData(timeData);
+                RestoreExactCozyTime(timeData);
                 break;
         }
     }
 
     /// <summary>
-    /// Restores exact time and date by delegating to the TimeManager
+    /// Restores exact Cozy time by delegating to the TimeManager
     /// </summary>
-    private void RestoreExactTimeData(TimeData timeData)
+    private void RestoreExactCozyTime(TimeData timeData)
     {
-        // Wait a frame for systems to be ready, then delegate restoration to TimeManager
-        StartCoroutine(DelayedTimeRestoration(timeData));
+        // Wait a frame for Cozy systems to be ready, then delegate restoration
+        StartCoroutine(DelayedCozyTimeRestoration(timeData));
     }
 
     /// <summary>
-    /// Delayed time restoration to ensure all systems are ready
+    /// Delayed Cozy time restoration to ensure all systems are ready
     /// </summary>
-    private System.Collections.IEnumerator DelayedTimeRestoration(TimeData timeData)
+    private System.Collections.IEnumerator DelayedCozyTimeRestoration(TimeData timeData)
     {
-        // Wait for end of frame to ensure all systems are initialized
+        // Wait for end of frame to ensure Cozy and all systems are initialized
         yield return new WaitForEndOfFrame();
 
-        DebugLog("Delegating time restoration to TimeManager");
+        DebugLog("Delegating Cozy time restoration to TimeManager");
 
-        // Delegate to the TimeManager - it handles all the actual time setting logic
+        // Delegate to the TimeManager - it handles all Cozy time setting logic
         timeManager.RestoreTimeData(timeData);
 
         // Verify restoration was successful
         var currentData = timeManager.GetCurrentTimeData();
-        DebugLog($"Time restoration complete - Manager now shows: {currentData.GetFormattedDateTime()}");
+        DebugLog($"Cozy time restoration complete - Manager shows: {currentData.GetFormattedDateTime()}");
+
+        // Additional verification that Cozy was actually updated
+        if (timeManager.IsCozyConnected())
+        {
+            var cozyTime = timeManager.GetCurrentTime();
+            DebugLog($"Verified Cozy time: {cozyTime.hours:D2}:{cozyTime.minutes:D2} on day {timeManager.GetCurrentDay()}");
+        }
     }
 
     /// <summary>
@@ -315,7 +324,7 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     /// </summary>
     public override void OnBeforeSave()
     {
-        DebugLog("Preparing time data for save operation");
+        DebugLog("Preparing Cozy time data for save operation");
 
         if (autoFindManager)
         {
@@ -330,27 +339,27 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     /// </summary>
     public override void OnAfterLoad()
     {
-        DebugLog("Time data load completed - refreshing connected systems");
+        DebugLog("Cozy time data load completed - refreshing connected systems");
 
-        if (timeManager != null)
-        {
-            // Force a read from Cozy to ensure sync
-            timeManager.ForceReadFromCozy();
+        // if (timeManager != null)
+        // {
+        //     // Force a read from Cozy to ensure sync
+        //     timeManager.ForceReadFromCozy();
 
-            // Update any time debug UI components
-            var timeDebugUI = FindFirstObjectByType<InGameTimeDebugUI>();
-            if (timeDebugUI != null)
-            {
-                timeDebugUI.ForceUpdate();
-                DebugLog("Refreshed time debug UI");
-            }
-        }
+        //     // Update any time debug UI components
+        //     var timeDebugUI = FindFirstObjectByType<InGameTimeDebugUI>();
+        //     if (timeDebugUI != null)
+        //     {
+        //         timeDebugUI.ForceUpdate();
+        //         DebugLog("Refreshed time debug UI");
+        //     }
+        // }
     }
 
     #region Manual Testing Controls
 
     /// <summary>
-    /// Manual method to force complete restoration from saved data (for debugging)
+    /// Manual method to test restoration with current Cozy data
     /// </summary>
     [Button("Force Restore Test")]
     public void ForceRestoreTest()
@@ -361,46 +370,48 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             return;
         }
 
-        // Get current data and test restoration
+        // Get current Cozy data and test restoration
         var currentData = GetDataToSave() as TimeData;
         if (currentData != null)
         {
-            DebugLog("Testing restoration with current data");
+            DebugLog("Testing restoration with current Cozy data");
+            DebugLog($"Testing with: {currentData.GetFormattedDateTime()}");
             LoadSaveDataWithContext(currentData, RestoreContext.SaveFileLoad);
         }
         else
         {
-            DebugLog("Failed to get current data for testing");
+            DebugLog("Failed to get current Cozy data for testing");
         }
     }
 
     /// <summary>
-    /// Toggles time data saving/restoration
+    /// Toggles Cozy time data saving/restoration
     /// </summary>
-    [Button("Toggle Time Save/Restore")]
-    public void ToggleTimeSaveRestore()
+    [Button("Toggle Cozy Save/Restore")]
+    public void ToggleCozyTimeSaveRestore()
     {
         saveTimeData = !saveTimeData;
         restoreTimeData = saveTimeData; // Keep them in sync
-        DebugLog($"Time save/restore {(saveTimeData ? "enabled" : "disabled")}");
+        DebugLog($"Cozy time save/restore {(saveTimeData ? "enabled" : "disabled")}");
     }
 
     /// <summary>
-    /// Forces immediate save of current time state (for debugging)
+    /// Forces immediate save of current Cozy time state
     /// </summary>
-    [Button("Force Save Current State")]
-    public void ForceSaveCurrentState()
+    [Button("Force Save Current Cozy State")]
+    public void ForceSaveCurrentCozyState()
     {
         if (timeManager != null)
         {
             var saveData = GetDataToSave() as TimeData;
             if (saveData != null)
             {
-                DebugLog($"Current time state: {saveData.GetDebugInfo()}");
+                DebugLog($"Current Cozy time state: {saveData.GetDebugInfo()}");
+                DebugLog($"Formatted: {saveData.GetFormattedDateTime()}");
             }
             else
             {
-                DebugLog("Failed to get save data");
+                DebugLog("Failed to get Cozy save data");
             }
         }
         else
@@ -410,12 +421,12 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     }
 
     /// <summary>
-    /// Gets detailed information about current save state
+    /// Gets detailed information about current Cozy save state
     /// </summary>
-    [Button("Show Save Info")]
-    public void ShowSaveInfo()
+    [Button("Show Cozy Save Info")]
+    public void ShowCozySaveInfo()
     {
-        DebugLog("=== TIME SAVE COMPONENT INFO ===");
+        DebugLog("=== COZY TIME SAVE COMPONENT INFO ===");
         DebugLog($"Save ID: {SaveID}");
         DebugLog($"Save Enabled: {saveTimeData}");
         DebugLog($"Restore Enabled: {restoreTimeData}");
@@ -428,7 +439,16 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             DebugLog($"Cozy Connected: {timeManager.IsCozyConnected()}");
 
             var currentData = timeManager.GetCurrentTimeData();
-            DebugLog($"Current Time State: {currentData.GetDebugInfo()}");
+            DebugLog($"Current Cozy State: {currentData.GetDebugInfo()}");
+            DebugLog($"Formatted: {currentData.GetFormattedDateTime()}");
+
+            if (timeManager.IsCozyConnected())
+            {
+                var cozyTime = timeManager.GetCurrentTime();
+                DebugLog($"Raw Cozy Time: {cozyTime.hours}:{cozyTime.minutes:D2}");
+                DebugLog($"Raw Cozy Day: {timeManager.GetCurrentDay()}");
+                DebugLog($"Raw Cozy Season: {timeManager.GetCurrentSeasonString()}");
+            }
         }
         else
         {
@@ -437,10 +457,10 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
     }
 
     /// <summary>
-    /// Tests the complete save/load cycle
+    /// Tests the complete Cozy save/load cycle
     /// </summary>
-    [Button("Test Save/Load Cycle")]
-    public void TestSaveLoadCycle()
+    [Button("Test Cozy Save/Load Cycle")]
+    public void TestCozySaveLoadCycle()
     {
         if (timeManager == null)
         {
@@ -448,42 +468,42 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             return;
         }
 
-        StartCoroutine(TestSaveLoadCycleCoroutine());
+        StartCoroutine(TestCozySaveLoadCycleCoroutine());
     }
 
     /// <summary>
-    /// Coroutine that tests the complete save/load cycle
+    /// Coroutine that tests the complete Cozy save/load cycle
     /// </summary>
-    private System.Collections.IEnumerator TestSaveLoadCycleCoroutine()
+    private System.Collections.IEnumerator TestCozySaveLoadCycleCoroutine()
     {
-        DebugLog("=== STARTING SAVE/LOAD CYCLE TEST ===");
+        DebugLog("=== STARTING COZY SAVE/LOAD CYCLE TEST ===");
 
-        // Get initial state
+        // Get initial Cozy state
         var initialData = timeManager.GetCurrentTimeData();
-        DebugLog($"Initial state: {initialData.GetFormattedDateTime()}");
+        DebugLog($"Initial Cozy state: {initialData.GetFormattedDateTime()}");
 
         // Get save data
         var saveData = GetDataToSave() as TimeData;
         if (saveData == null)
         {
-            DebugLog("FAILED: Could not get save data");
+            DebugLog("FAILED: Could not get Cozy save data");
             yield break;
         }
-        DebugLog($"Save data captured: {saveData.GetFormattedDateTime()}");
+        DebugLog($"Cozy save data captured: {saveData.GetFormattedDateTime()}");
 
-        // Change time to something different
-        var originalTime = timeManager.GetCurrentTimeOfDay();
-        var testTime = originalTime + 6f; // Add 6 hours
-        if (testTime >= 24f) testTime -= 24f; // Wrap around
+        // Change time to something different using Cozy format
+        var originalTime = timeManager.GetCurrentTime();
+        var testHour = (originalTime.hours + 6) % 24; // Add 6 hours, wrap around
+        var testMinutes = (originalTime.minutes + 30) % 60; // Add 30 minutes
 
-        timeManager.SetTimeOfDay(testTime);
+        timeManager.SetTime(testHour, testMinutes);
         yield return new WaitForSecondsRealtime(0.5f);
 
         var changedData = timeManager.GetCurrentTimeData();
-        DebugLog($"Changed state: {changedData.GetFormattedDateTime()}");
+        DebugLog($"Changed Cozy state: {changedData.GetFormattedDateTime()}");
 
         // Test restoration
-        DebugLog("Testing restoration...");
+        DebugLog("Testing Cozy restoration...");
         LoadSaveDataWithContext(saveData, RestoreContext.SaveFileLoad);
 
         // Wait for restoration to complete
@@ -491,19 +511,27 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
 
         // Check final state
         var finalData = timeManager.GetCurrentTimeData();
-        DebugLog($"Final state: {finalData.GetFormattedDateTime()}");
+        DebugLog($"Final Cozy state: {finalData.GetFormattedDateTime()}");
 
-        // Verify restoration worked
-        bool restoreSuccessful = Mathf.Abs(finalData.timeOfDay - saveData.timeOfDay) < 0.1f &&
-                               finalData.dayOfSeason == saveData.dayOfSeason &&
-                               finalData.season == saveData.season;
+        // Verify restoration worked using Cozy's native format
+        bool restoreSuccessful = finalData.time.hours == saveData.time.hours &&
+                               finalData.time.minutes == saveData.time.minutes &&
+                               finalData.day == saveData.day;
 
-        DebugLog($"=== SAVE/LOAD CYCLE TEST {(restoreSuccessful ? "PASSED" : "FAILED")} ===");
+        DebugLog($"=== COZY SAVE/LOAD CYCLE TEST {(restoreSuccessful ? "PASSED" : "FAILED")} ===");
 
         if (!restoreSuccessful)
         {
             DebugLog($"Expected: {saveData.GetFormattedDateTime()}");
             DebugLog($"Actual: {finalData.GetFormattedDateTime()}");
+            DebugLog($"Time Expected: {saveData.time.hours}:{saveData.time.minutes:D2}");
+            DebugLog($"Time Actual: {finalData.time.hours}:{finalData.time.minutes:D2}");
+            DebugLog($"Day Expected: {saveData.day}");
+            DebugLog($"Day Actual: {finalData.day}");
+        }
+        else
+        {
+            DebugLog("All Cozy time values restored correctly!");
         }
     }
 
@@ -520,166 +548,42 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
 }
 
 /// <summary>
-/// TimeData - Save data structure for time system with proper validation and helper methods.
-/// This is the data structure that gets saved/loaded by the save system.
+/// Time data structure using Cozy's native format
 /// </summary>
 [System.Serializable]
 public class TimeData
 {
-    [Header("Time & Date")]
-    public float timeOfDay = 6f; // 0-24 hours
-    public int dayOfYear = 1; // 1-based day of year
-    public int dayOfSeason = 1; // 1-based day of season
-    public SeasonType season = SeasonType.Spring;
+    public MeridiemTime time;
+    public int day;
+    public float temperature;
+    public string season;
+    public bool wasCozyDriven;
+    public System.DateTime saveTimestamp;
 
-    [Header("Configuration")]
-    public int daysPerSeason = 30; // Days in each season
-    public bool wasCozyDriven = false; // Whether this data came from Cozy
-    public System.DateTime saveTimestamp; // When this was saved
-
-    public TimeData()
-    {
-        timeOfDay = 6f;
-        dayOfYear = 1;
-        dayOfSeason = 1;
-        season = SeasonType.Spring;
-        daysPerSeason = 30;
-        wasCozyDriven = false;
-        saveTimestamp = System.DateTime.Now;
-    }
-
-    /// <summary>
-    /// Copy constructor for creating independent copies
-    /// </summary>
-    public TimeData(TimeData other)
-    {
-        if (other == null) return;
-
-        timeOfDay = other.timeOfDay;
-        dayOfYear = other.dayOfYear;
-        dayOfSeason = other.dayOfSeason;
-        season = other.season;
-        daysPerSeason = other.daysPerSeason;
-        wasCozyDriven = other.wasCozyDriven;
-        saveTimestamp = other.saveTimestamp;
-    }
-
-    #region Validation and Debugging
-
-    /// <summary>
-    /// Validates the integrity of the time data
-    /// </summary>
-    public bool IsValid()
-    {
-        // Check time bounds
-        if (timeOfDay < 0f || timeOfDay >= 24f)
-            return false;
-
-        // Check day bounds
-        if (dayOfSeason < 1 || dayOfSeason > daysPerSeason)
-            return false;
-
-        // Check day of year
-        if (dayOfYear < 1)
-            return false;
-
-        // Check days per season
-        if (daysPerSeason <= 0)
-            return false;
-
-        return true;
-    }
-
-    /// <summary>
-    /// Gets detailed debug information
-    /// </summary>
     public string GetDebugInfo()
     {
-        var info = new System.Text.StringBuilder();
-        info.AppendLine("=== Time Data Debug Info ===");
-        info.AppendLine($"Time: {GetFormattedTime()} ({timeOfDay:F2})");
-        info.AppendLine($"Date: Day {dayOfSeason} of {season}");
-        info.AppendLine($"Day of Year: {dayOfYear}");
-        info.AppendLine($"Days Per Season: {daysPerSeason}");
-        info.AppendLine($"Was Cozy Driven: {wasCozyDriven}");
-        info.AppendLine($"Save Timestamp: {saveTimestamp:yyyy-MM-dd HH:mm:ss}");
-        info.AppendLine($"Data Valid: {IsValid()}");
-
-        return info.ToString();
+        return $"Time: {time}, Day: {day}, Season: {season}, Temp: {temperature:F1}°C, Cozy: {wasCozyDriven}";
     }
 
-    /// <summary>
-    /// Gets a formatted time string (HH:MM format)
-    /// </summary>
     public string GetFormattedTime()
     {
-        int hours = Mathf.FloorToInt(timeOfDay);
-        int minutes = Mathf.FloorToInt((timeOfDay - hours) * 60f);
-        return $"{hours:D2}:{minutes:D2}";
+        return $"{time.hours:D2}:{time.minutes:D2}";
     }
 
-    /// <summary>
-    /// Gets a formatted date string
-    /// </summary>
     public string GetFormattedDate()
     {
-        return $"Day {dayOfSeason} of {season}";
+        return $"Day {day} ({season})";
     }
 
-    /// <summary>
-    /// Gets a formatted date and time string
-    /// </summary>
     public string GetFormattedDateTime()
     {
         return $"{GetFormattedDate()} at {GetFormattedTime()}";
     }
 
-    #endregion
-
-    #region Helper Methods
-
-    /// <summary>
-    /// Checks if it's currently daytime (6 AM to 6 PM)
-    /// </summary>
-    public bool IsDaytime() => timeOfDay >= 6f && timeOfDay < 18f;
-
-    /// <summary>
-    /// Checks if it's currently nighttime
-    /// </summary>
-    public bool IsNighttime() => !IsDaytime();
-
-    /// <summary>
-    /// Gets the time of day as a normalized value (0-1, where 0.5 is noon)
-    /// </summary>
-    public float GetNormalizedTimeOfDay()
+    public bool IsValid()
     {
-        return timeOfDay / 24f;
+        return time.hours >= 0 && time.hours < 24 &&
+               time.minutes >= 0 && time.minutes < 60 &&
+               day > 0;
     }
-
-    /// <summary>
-    /// Gets the day progress within the current season (0-1)
-    /// </summary>
-    public float GetSeasonProgress()
-    {
-        return Mathf.Clamp01((dayOfSeason - 1) / (float)(daysPerSeason - 1));
-    }
-
-    /// <summary>
-    /// Gets the progress through the current year (0-1)
-    /// </summary>
-    public float GetYearProgress()
-    {
-        int totalDaysInYear = daysPerSeason * 4;
-        return Mathf.Clamp01((dayOfYear - 1) / (float)(totalDaysInYear - 1));
-    }
-
-    /// <summary>
-    /// Updates the save timestamp to current time
-    /// </summary>
-    public void UpdateTimestamp()
-    {
-        saveTimestamp = System.DateTime.Now;
-    }
-
-    #endregion
 }
