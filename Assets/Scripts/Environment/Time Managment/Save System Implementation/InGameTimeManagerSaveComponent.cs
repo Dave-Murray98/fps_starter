@@ -246,12 +246,6 @@ public class InGameTimeManagerSaveComponent : SaveComponentBase, IPlayerDependen
             return;
         }
 
-        // Validate data before applying
-        if (!timeData.IsValid())
-        {
-            Debug.LogWarning("Cozy time save data failed validation - applying anyway with corrections");
-        }
-
         // Handle restoration based on context
         HandleCozyTimeRestoration(timeData, context);
 
@@ -390,13 +384,6 @@ public class TimeData
     public string GetFormattedDateTime()
     {
         return $"{GetFormattedDate()} at {GetFormattedTime()}";
-    }
-
-    public bool IsValid()
-    {
-        return time.hours >= 0 && time.hours < 24 &&
-               time.minutes >= 0 && time.minutes < 60 &&
-               day > 0;
     }
 }
 
