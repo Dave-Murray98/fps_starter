@@ -1,12 +1,12 @@
 using UnityEngine;
 using Sirenix.OdinInspector;
-using System.Collections.Generic;
-using System.Linq;
 
 /// <summary>
-/// FIXED: Dedicated save component for weather systems. Now properly handles all persistence,
-/// save/load operations, and data restoration for weather-related managers.
-/// Uses WeatherSaveData specifically for weather-related data only.
+/// Save component for the Cozy-driven weather system. Since Cozy now handles all weather
+/// and temperature logic, this component simply saves/loads Cozy's current state for
+/// persistence across scene transitions and game sessions.
+/// 
+/// Much simpler than before - just captures Cozy's state and attempts to restore it.
 /// </summary>
 public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSaveable
 {
@@ -14,16 +14,16 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     [SerializeField] private WeatherManager weatherManager;
     [SerializeField] private bool autoFindManager = true;
 
-    [Header("Weather Settings")]
-    [SerializeField] private float defaultBaseTemperature = 20f;
+    [Header("Save Settings")]
+    [SerializeField] private bool saveCozyState = true;
+    [SerializeField] private bool restoreCozyState = true;
 
     public override SaveDataCategory SaveCategory => SaveDataCategory.PlayerDependent;
 
     protected override void Awake()
     {
-        saveID = "Weather_Main";
+        saveID = "CozyWeather_Interface";
         autoGenerateID = false;
-        //enableDebugLogs = true;
         base.Awake();
 
         if (autoFindManager)
@@ -35,17 +35,6 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     private void Start()
     {
         ValidateReferences();
-
-        // // Register with PlayerPersistenceManager if available
-        // if (PlayerPersistenceManager.Instance != null)
-        // {
-        //     PlayerPersistenceManager.Instance.RegisterComponent(this);
-        //     // DebugLog("Registered with PlayerPersistenceManager");
-        // }
-        // else
-        // {
-        //     DebugLog("PlayerPersistenceManager not found - will be discovered automatically");
-        // }
     }
 
     /// <summary>
@@ -62,8 +51,6 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
         {
             weatherManager = FindFirstObjectByType<WeatherManager>();
         }
-
-        //        DebugLog($"Auto-found WeatherManager: {weatherManager != null}");
     }
 
     /// <summary>
@@ -73,98 +60,87 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     {
         if (weatherManager == null)
         {
-            Debug.LogWarning($"[{name}] WeatherManager reference missing! Weather data won't be saved.");
+            Debug.LogWarning($"[{name}] WeatherManager reference missing! Cozy weather state won't be saved.");
         }
         else
         {
-            //            DebugLog("WeatherManager reference validated successfully");
+            DebugLog("WeatherManager reference validated successfully");
         }
     }
 
     /// <summary>
-    /// FIXED: Extracts current weather system state from the WeatherManager.
-    /// Returns actual weather data including active events and temperature info.
+    /// Gets current Cozy weather state for saving.
+    /// Much simpler now - just captures what Cozy is currently doing.
     /// </summary>
     public override object GetDataToSave()
     {
-        return ExtractWeatherDataFromManager();
-    }
-
-    private WeatherSaveData ExtractWeatherDataFromManager()
-    {
-        if (weatherManager == null)
+        if (weatherManager == null || !saveCozyState)
         {
-            DebugLog("Cannot extract - WeatherManager reference is null, creating default data");
-            return CreateDefaultWeatherData();
+            DebugLog("Cannot save - WeatherManager reference missing or save disabled");
+            return CreateDefaultSaveData();
         }
-        else
+
+        if (!weatherManager.IsCozyConnected())
         {
-            WeatherSaveData extractedData = new WeatherSaveData
-            {
-                currentBaseTemperature = weatherManager.GetBaseTemperature(),
-                weatherTemperatureModifier = weatherManager.GetWeatherTemperatureModifier(),
-                lastWeatherUpdateTime = Time.time
-            };
-
-            var activeEvents = weatherManager.GetActiveWeatherEvents();
-            foreach (var weatherEvent in activeEvents)
-            {
-                var eventData = weatherEvent.ToSaveData();
-                extractedData.AddWeatherEvent(eventData);
-            }
-
-            return extractedData;
+            DebugLog("Cozy not connected - saving default state");
+            return CreateDefaultSaveData();
         }
+
+        var saveData = weatherManager.GetSaveData();
+        DebugLog($"Saving Cozy weather state: {saveData.GetDebugInfo()}");
+        return saveData;
     }
 
     /// <summary>
-    /// Creates default weather data when no manager is available.
+    /// Creates default save data when Cozy isn't available
     /// </summary>
-    private WeatherSaveData CreateDefaultWeatherData()
+    private CozyWeatherSaveData CreateDefaultSaveData()
     {
-        return new WeatherSaveData
+        return new CozyWeatherSaveData
         {
-            currentBaseTemperature = defaultBaseTemperature,
-            weatherTemperatureModifier = 0f,
-            lastWeatherUpdateTime = 0f
+            weatherName = "Clear",
+            temperature = 20f,
+            precipitation = 0f,
+            saveTimestamp = System.DateTime.Now,
+            cozyConnected = false
         };
     }
 
     /// <summary>
-    /// Extracts weather system data from various save container formats.
+    /// Extracts weather data from various save container formats.
     /// </summary>
     public override object ExtractRelevantData(object saveContainer)
     {
-        DebugLog($"Extracting weather system data from container type: {saveContainer?.GetType().Name ?? "null"}");
+        DebugLog($"Extracting Cozy weather data from container type: {saveContainer?.GetType().Name ?? "null"}");
 
-        if (saveContainer is WeatherSaveData weatherData)
+        if (saveContainer is CozyWeatherSaveData weatherData)
         {
-            DebugLog($"Direct extraction - Weather events: {weatherData.GetActiveWeatherEventCount()}");
+            DebugLog($"Direct extraction - {weatherData.GetDebugInfo()}");
             return weatherData;
         }
         else if (saveContainer is PlayerPersistentData persistentData)
         {
-            var extractedData = persistentData.GetComponentData<WeatherSaveData>(SaveID);
+            var extractedData = persistentData.GetComponentData<CozyWeatherSaveData>(SaveID);
             if (extractedData != null)
             {
-                DebugLog($"Extracted from persistent data - Weather events: {extractedData.GetActiveWeatherEventCount()}");
+                DebugLog($"Extracted from persistent data - {extractedData.GetDebugInfo()}");
             }
             else
             {
-                DebugLog("No weather system data found in persistent data");
+                DebugLog("No Cozy weather data found in persistent data");
             }
             return extractedData;
         }
         else if (saveContainer is PlayerSaveData playerSaveData)
         {
-            var extractedData = playerSaveData.GetCustomData<WeatherSaveData>(SaveID);
+            var extractedData = playerSaveData.GetCustomData<CozyWeatherSaveData>(SaveID);
             if (extractedData != null)
             {
-                DebugLog($"Extracted from player save data - Weather events: {extractedData.GetActiveWeatherEventCount()}");
+                DebugLog($"Extracted from player save data - {extractedData.GetDebugInfo()}");
             }
             else
             {
-                DebugLog("No weather system data found in player save data");
+                DebugLog("No Cozy weather data found in player save data");
             }
             return extractedData;
         }
@@ -176,7 +152,7 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     #region IPlayerDependentSaveable Implementation
 
     /// <summary>
-    /// Extracts weather system data from the unified save structure.
+    /// Extracts Cozy weather data from the unified save structure.
     /// </summary>
     public object ExtractFromUnifiedSave(PlayerPersistentData unifiedData)
     {
@@ -187,71 +163,73 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
         }
 
         DebugLog("Using modular extraction from unified save data");
-        var extractedData = unifiedData.GetComponentData<WeatherSaveData>(SaveID);
+        var extractedData = unifiedData.GetComponentData<CozyWeatherSaveData>(SaveID);
 
         if (extractedData != null)
         {
-            DebugLog($"Modular extraction successful - Weather events: {extractedData.GetActiveWeatherEventCount()}");
+            DebugLog($"Modular extraction successful - {extractedData.GetDebugInfo()}");
         }
         else
         {
-            DebugLog("No weather system data found in unified save structure");
+            DebugLog("No Cozy weather data found in unified save structure");
         }
 
         return extractedData;
     }
 
     /// <summary>
-    /// Creates default weather system data for new games.
+    /// Creates default Cozy weather data for new games.
     /// </summary>
     public object CreateDefaultData()
     {
-        DebugLog("Creating default weather system data for new game");
+        DebugLog("Creating default Cozy weather data for new game");
 
-        var defaultData = new WeatherSaveData
+        var defaultData = new CozyWeatherSaveData
         {
-            currentBaseTemperature = defaultBaseTemperature,
-            weatherTemperatureModifier = 0f,
-            lastWeatherUpdateTime = 0f
+            weatherName = "Clear",
+            temperature = 20f,
+            precipitation = 0f,
+            saveTimestamp = System.DateTime.Now,
+            cozyConnected = false
         };
 
-        DebugLog($"Created default weather data: Base temp {defaultData.currentBaseTemperature}°C");
+        DebugLog($"Created default Cozy weather data: {defaultData.GetDebugInfo()}");
         return defaultData;
     }
 
     /// <summary>
-    /// Stores weather system data into the unified save structure.
+    /// Stores Cozy weather data into the unified save structure.
     /// </summary>
     public void ContributeToUnifiedSave(object componentData, PlayerPersistentData unifiedData)
     {
-        if (componentData is WeatherSaveData weatherData && unifiedData != null)
+        if (componentData is CozyWeatherSaveData weatherData && unifiedData != null)
         {
-            DebugLog($"Contributing weather system data to unified save: {weatherData.GetActiveWeatherEventCount()} events");
+            DebugLog($"Contributing Cozy weather data to unified save: {weatherData.GetDebugInfo()}");
             unifiedData.SetComponentData(SaveID, weatherData);
         }
         else
         {
-            DebugLog($"Invalid data for contribution - expected WeatherSaveData, got {componentData?.GetType().Name ?? "null"}");
+            DebugLog($"Invalid data for contribution - expected CozyWeatherSaveData, got {componentData?.GetType().Name ?? "null"}");
         }
     }
 
     #endregion
 
     /// <summary>
-    /// FIXED: Context-aware data restoration to the weather manager.
-    /// Now properly restores weather events and temperature data.
+    /// Context-aware data restoration. Attempts to restore Cozy's state from saved data.
+    /// This may have limited success since Cozy controls its own weather logic.
     /// </summary>
     public override void LoadSaveDataWithContext(object data, RestoreContext context)
     {
-        DebugLog($"=== LOADING WEATHER SYSTEM DATA (Context: {context}) ===");
+        DebugLog($"=== LOADING COZY WEATHER DATA (Context: {context}) ===");
 
-        if (!(data is WeatherSaveData weatherData))
+        if (!(data is CozyWeatherSaveData weatherData))
         {
-            DebugLog($"Invalid save data type - expected WeatherSaveData, got {data?.GetType().Name ?? "null"}");
+            DebugLog($"Invalid save data type - expected CozyWeatherSaveData, got {data?.GetType().Name ?? "null"}");
             return;
         }
 
-        DebugLog($"Received valid data - Weather events: {weatherData.GetActiveWeatherEventCount()}");
+        DebugLog($"Received valid data - {weatherData.GetDebugInfo()}");
 
         // Refresh manager reference in case it changed after scene load
         if (autoFindManager && weatherManager == null)
@@ -261,68 +239,82 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
 
         if (weatherManager == null)
         {
-            Debug.LogError("WeatherManager not found - cannot restore weather data!");
+            Debug.LogError("WeatherManager not found - cannot restore Cozy weather data!");
             return;
         }
 
         // Validate data before applying
         if (!weatherData.IsValid())
         {
-            Debug.LogWarning("Weather system save data failed validation - applying anyway with corrections");
+            Debug.LogWarning("Cozy weather save data failed validation - applying anyway with corrections");
         }
 
-        // Apply the data to the manager
-        RestoreWeatherData(weatherData, context);
+        // Attempt to restore Cozy state
+        if (restoreCozyState)
+        {
+            RestoreCozyWeatherData(weatherData, context);
+        }
+        else
+        {
+            DebugLog("Cozy state restoration disabled - skipping restoration");
+        }
 
-        DebugLog($"Weather system data restoration complete for context: {context}");
+        DebugLog($"Cozy weather data restoration complete for context: {context}");
     }
 
     /// <summary>
-    /// FIXED: Applies weather system data to the weather manager.
-    /// Now properly restores temperature settings and recreates weather events.
+    /// Attempts to restore Cozy weather state. Success depends on Cozy's API support.
+    /// Since Cozy controls its own logic, this may have limited effectiveness.
     /// </summary>
-    private void RestoreWeatherData(WeatherSaveData weatherData, RestoreContext context)
+    private void RestoreCozyWeatherData(CozyWeatherSaveData weatherData, RestoreContext context)
     {
-        DebugLog($"  Active events: {weatherData.GetActiveWeatherEventCount()}");
+        DebugLog($"Attempting to restore Cozy state:");
+        DebugLog($"  Weather: {weatherData.weatherName}");
+        DebugLog($"  Temperature: {weatherData.temperature:F1}°C");
+        DebugLog($"  Precipitation: {weatherData.precipitation:F2}");
 
-        // Clear existing weather events
-        weatherManager.ClearAllWeather();
+        // Wait a frame for Cozy to be fully initialized, then attempt restoration
+        StartCoroutine(RestoreCozyStateDelayed(weatherData, context));
+    }
 
-        // Restore base temperature
-        weatherManager.SetBaseTemperature(weatherData.currentBaseTemperature);
+    /// <summary>
+    /// Delayed restoration to ensure Cozy is fully initialized
+    /// </summary>
+    private System.Collections.IEnumerator RestoreCozyStateDelayed(CozyWeatherSaveData weatherData, RestoreContext context)
+    {
+        // Wait for Cozy to be ready
+        yield return new WaitForSecondsRealtime(0.2f);
 
-        // FIXED: Restore active weather events
-        if (weatherData.activeWeatherEvents != null && weatherData.activeWeatherEvents.Count > 0)
+        DebugLog("Attempting delayed Cozy state restoration");
+
+        // Ensure weather manager is connected to Cozy
+        weatherManager.ReconnectToCozy();
+
+        yield return new WaitForSecondsRealtime(0.1f);
+
+        // Attempt to restore the weather state
+        if (weatherManager.IsCozyConnected())
         {
-            DebugLog($"Restoring {weatherData.activeWeatherEvents.Count} weather events:");
-
-            foreach (var eventData in weatherData.activeWeatherEvents)
+            try
             {
-                try
-                {
-                    // Create weather event instance from save data
-                    var restoredEvent = new WeatherEventInstance(eventData);
-
-                    // Add to weather manager
-                    weatherManager.RestoreWeatherEvent(restoredEvent);
-
-                    DebugLog($"  Restored: {restoredEvent.DisplayName} ({restoredEvent.CurrentPhase}, {restoredEvent.RemainingDuration:F1}h remaining)");
-                }
-                catch (System.Exception e)
-                {
-                    Debug.LogError($"Failed to restore weather event {eventData.eventType}: {e.Message}");
-                }
+                weatherManager.RestoreFromSaveData(weatherData);
+                DebugLog("Cozy state restoration attempted");
+            }
+            catch (System.Exception e)
+            {
+                DebugLog($"Error during Cozy state restoration: {e.Message}");
             }
         }
         else
         {
-            DebugLog("No weather events to restore");
+            DebugLog("Cannot restore Cozy state - not connected to Cozy");
         }
 
-        // Force temperature recalculation
-        weatherManager.ForceTemperatureUpdate();
+        // Force a read to ensure our data is current after restoration attempt
+        yield return new WaitForSecondsRealtime(0.1f);
+        weatherManager.ForceReadFromCozy();
 
-        DebugLog("Weather data applied to manager successfully");
+        DebugLog("Delayed Cozy weather restoration completed");
     }
 
     /// <summary>
@@ -330,7 +322,7 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     /// </summary>
     public override void OnBeforeSave()
     {
-        DebugLog("Preparing weather system data for save operation");
+        DebugLog("Preparing Cozy weather data for save operation");
 
         if (autoFindManager)
         {
@@ -338,6 +330,12 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
         }
 
         ValidateReferences();
+
+        // Force a read from Cozy to ensure we have the latest state
+        if (weatherManager != null && weatherManager.IsCozyConnected())
+        {
+            weatherManager.ForceReadFromCozy();
+        }
     }
 
     /// <summary>
@@ -345,20 +343,104 @@ public class WeatherSystemSaveComponent : SaveComponentBase, IPlayerDependentSav
     /// </summary>
     public override void OnAfterLoad()
     {
-        DebugLog("Weather system data load completed - refreshing connected systems");
+        DebugLog("Cozy weather data load completed - refreshing connected systems");
 
-        // Force weather manager to update displays and events
         if (weatherManager != null)
         {
-            weatherManager.ForceTemperatureUpdate();
-        }
+            // Force weather manager to reconnect and read current state
+            weatherManager.ReconnectToCozy();
 
-        // Force weather debug UI to update
-        var weatherDebugUI = FindFirstObjectByType<WeatherDebugUI>();
-        if (weatherDebugUI != null)
-        {
-            weatherDebugUI.ForceUpdate();
+            // // Update any weather debug UI components
+            // var weatherDebugUI = FindFirstObjectByType<WeatherDebugUI>();
+            // if (weatherDebugUI != null)
+            // {
+            //     weatherDebugUI.ForceUpdate();
+            //     DebugLog("Refreshed weather debug UI");
+            // }
         }
     }
 
+    /// <summary>
+    /// Manual method to force complete restoration from saved data (for debugging)
+    /// </summary>
+    [Button("Force Restore Test")]
+    public void ForceRestoreTest()
+    {
+        if (weatherManager == null)
+        {
+            DebugLog("Cannot test - WeatherManager reference missing");
+            return;
+        }
+
+        // Get current Cozy state
+        var currentData = GetDataToSave() as CozyWeatherSaveData;
+        if (currentData != null)
+        {
+            DebugLog("Testing restoration with current Cozy data");
+            LoadSaveDataWithContext(currentData, RestoreContext.SaveFileLoad);
+        }
+    }
+
+    /// <summary>
+    /// Toggles Cozy state saving/restoration
+    /// </summary>
+    [Button("Toggle Cozy Save/Restore")]
+    public void ToggleCozySaveRestore()
+    {
+        saveCozyState = !saveCozyState;
+        restoreCozyState = saveCozyState; // Keep them in sync
+        DebugLog($"Cozy save/restore {(saveCozyState ? "enabled" : "disabled")}");
+    }
+
+    /// <summary>
+    /// Forces immediate save of current Cozy state (for debugging)
+    /// </summary>
+    [Button("Force Save Current State")]
+    public void ForceSaveCurrentState()
+    {
+        if (weatherManager != null && weatherManager.IsCozyConnected())
+        {
+            var saveData = GetDataToSave() as CozyWeatherSaveData;
+            if (saveData != null)
+            {
+                DebugLog($"Current Cozy state: {saveData.GetDebugInfo()}");
+            }
+        }
+        else
+        {
+            DebugLog("Cannot save - WeatherManager not connected to Cozy");
+        }
+    }
+
+    /// <summary>
+    /// Gets detailed information about current save state
+    /// </summary>
+    [Button("Show Save Info")]
+    public void ShowSaveInfo()
+    {
+        DebugLog("=== COZY WEATHER SAVE INFO ===");
+        DebugLog($"Save Enabled: {saveCozyState}");
+        DebugLog($"Restore Enabled: {restoreCozyState}");
+        DebugLog($"Manager Connected: {weatherManager != null}");
+
+        if (weatherManager != null)
+        {
+            DebugLog($"Cozy Connected: {weatherManager.IsCozyConnected()}");
+
+            if (weatherManager.IsCozyConnected())
+            {
+                var currentData = weatherManager.GetCurrentWeatherData();
+                DebugLog($"Current State: {currentData.GetDebugInfo()}");
+            }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // Unregister from persistence manager
+        if (PlayerPersistenceManager.Instance != null)
+        {
+            PlayerPersistenceManager.Instance.UnregisterComponent(this);
+        }
+    }
 }
