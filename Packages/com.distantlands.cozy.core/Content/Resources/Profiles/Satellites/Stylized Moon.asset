@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac36c75b9c2af5b42a8f1907e068490d, type: 3}
   m_Name: Stylized Moon
   m_EditorClassIdentifier: 
-  satelliteReference: {fileID: 2012264065759116755, guid: 114d5c9d925258141a3450e2d56f525d,
-    type: 3}
+  satelliteReference: {fileID: 2012264065759116755, guid: 114d5c9d925258141a3450e2d56f525d, type: 3}
   orbitRef: {fileID: 0}
   moonRef: {fileID: 0}
   lightRef: {fileID: 0}
@@ -27,8 +26,8 @@ MonoBehaviour:
   rotationPeriod: 28
   rotationPeriodOffset: 0
   satelliteRotateAxis: {x: 0, y: 0, z: 0}
-  satelliteDirection: 0
-  satelliteRotation: 134.30312
+  satelliteDirection: 98
+  satelliteRotation: -2.2117393
   satellitePitch: 0
   declination: 30
   declinationPeriod: 192
