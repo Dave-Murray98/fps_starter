@@ -6604,7 +6604,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.6507589, y: 1.6507589, z: 1.6507589}
+  m_LocalScale: {x: 1.7320508, y: 1.7320508, z: 1.7320508}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 617901218}
@@ -6926,7 +6926,7 @@ Transform:
   m_GameObject: {fileID: 1221061238}
   serializedVersion: 2
   m_LocalRotation: {x: 0.0000000037252899, y: -0, z: -0.0000000074505797, w: 1}
-  m_LocalPosition: {x: -31.223513, y: 52.938396, z: 34.746613}
+  m_LocalPosition: {x: -4.784338, y: 2.2216659, z: 38.024487}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6976,7 +6976,7 @@ MonoBehaviour:
   useCozySaveModule: 1
   cozyDataFileName: CozyWeatherState
   significantTempChange: 0.5
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!114 &1221061243
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7011,14 +7011,6 @@ MonoBehaviour:
   useCozyTimeSystem: 1
   cozyReadInterval: 0.05
   enableEventTracking: 1
-  dayDurationMinutes: 5
-  startTime:
-    hours: 6
-    minutes: 0
-    seconds: 0
-    milliseconds: 0
-    timeAsPercentage: 0
-  startDay: 1
   showDebugLogs: 0
 --- !u!1 &1250292880
 GameObject:

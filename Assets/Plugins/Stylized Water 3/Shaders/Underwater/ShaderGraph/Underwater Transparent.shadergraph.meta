@@ -13,5 +13,6 @@ AssetOrigin:
   productId: 322081
   packageName: Underwater Rendering for Stylized Water 3 (Extension)
   packageVersion: 3.2.2
-  assetPath: Assets/Stylized Water 3/Shaders/Underwater/ShaderGraph/Underwater Transparent.shadergraph
+  assetPath: Assets/Plugins/Stylized Water 3/Shaders/Underwater/ShaderGraph/Underwater
+    Transparent.shadergraph
   uploadId: 767990
