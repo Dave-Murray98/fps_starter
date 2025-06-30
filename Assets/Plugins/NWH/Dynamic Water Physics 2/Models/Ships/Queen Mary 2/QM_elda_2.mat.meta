@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dc4b507abe0d46649834c3a0a0f1967c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/Queen Mary 2/QM_elda_2.mat
+  uploadId: 690874

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c943aec006d406e41b624b234de8912b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Props/LifeBuoy/LifeBuoy.prefab
+  uploadId: 690874

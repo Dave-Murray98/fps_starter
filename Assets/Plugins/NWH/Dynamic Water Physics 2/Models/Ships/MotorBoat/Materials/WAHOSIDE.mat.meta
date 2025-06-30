@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e0452d430bdbab743b7df3ad41695197
+timeCreated: 1494184439
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/MotorBoat/Materials/WAHOSIDE.mat
+  uploadId: 690874

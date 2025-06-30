@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5b12d8936ab2b124a80b42a6eeb873e1
+timeCreated: 1494184328
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/TorpedoBoat/Materials/nanubgls.mat
+  uploadId: 690874

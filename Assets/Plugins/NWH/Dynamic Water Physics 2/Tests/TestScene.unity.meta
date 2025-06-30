@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: bcf2520429f5ebb4a9aa5004659b5fcc
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Tests/TestScene.unity
+  uploadId: 690874

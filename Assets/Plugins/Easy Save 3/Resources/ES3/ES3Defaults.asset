@@ -39,8 +39,12 @@ MonoBehaviour:
     - Assembly-CSharp
     - Assembly-CSharp-firstpass
     - AstarPathfindingProject
+    - Crest
+    - Crest.Examples
     - DistantLands.Cozy.Runtime
     - Drawing
+    - NWH.Common
+    - NWH.DWP2
     - PackageTools
     showAdvancedSettings: 0
   addMgrToSceneAutomatically: 0

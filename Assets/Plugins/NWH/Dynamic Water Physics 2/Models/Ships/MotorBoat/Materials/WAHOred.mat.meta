@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2503461b543b61c4a964039d7248700c
+timeCreated: 1494184439
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/MotorBoat/Materials/WAHOred.mat
+  uploadId: 690874

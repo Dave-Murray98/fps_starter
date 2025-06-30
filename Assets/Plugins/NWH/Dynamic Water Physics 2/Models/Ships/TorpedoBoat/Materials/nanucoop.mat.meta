@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f76ee232f488ada43b27092a0da814dd
+timeCreated: 1494184328
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/TorpedoBoat/Materials/nanucoop.mat
+  uploadId: 690874

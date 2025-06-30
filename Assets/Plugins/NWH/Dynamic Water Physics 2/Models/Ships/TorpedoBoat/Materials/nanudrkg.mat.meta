@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5eb5d7aec35243b4b9b2b840cfde52aa
+timeCreated: 1494184328
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/TorpedoBoat/Materials/nanudrkg.mat
+  uploadId: 690874

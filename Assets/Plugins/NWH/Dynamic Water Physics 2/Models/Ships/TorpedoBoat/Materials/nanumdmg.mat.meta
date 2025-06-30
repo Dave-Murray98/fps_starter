@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7fef059f6a534eb4f9be1eab5705d19d
+timeCreated: 1494184328
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/TorpedoBoat/Materials/nanumdmg.mat
+  uploadId: 690874

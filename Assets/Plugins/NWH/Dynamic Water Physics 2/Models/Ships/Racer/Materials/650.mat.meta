@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3ecdb32eae8319a4aa63601e21feeb21
+timeCreated: 1494186493
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Ships/Racer/Materials/650.mat
+  uploadId: 690874

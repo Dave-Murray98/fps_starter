@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 9e17574f387a73948bda77ca9b154a1a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Prefabs/UI/Canvas.prefab
+  uploadId: 690874

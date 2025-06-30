@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7b0fafe04b9975d468cd121a91cc66a1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Prefabs/Ships/MotorizedRubberDuck.prefab
+  uploadId: 690874

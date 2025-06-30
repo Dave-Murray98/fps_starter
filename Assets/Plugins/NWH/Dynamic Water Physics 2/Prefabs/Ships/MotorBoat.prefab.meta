@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cc49f32d2370da340abb3b1c8ae5921b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/NWH/Dynamic Water Physics 2/Prefabs/Ships/MotorBoat.prefab
+  uploadId: 690874
