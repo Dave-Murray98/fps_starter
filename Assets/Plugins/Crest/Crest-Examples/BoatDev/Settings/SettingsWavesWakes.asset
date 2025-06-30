@@ -19,6 +19,6 @@ MonoBehaviour:
   _damping: 0
   _courantNumber: 1
   _attenuationInShallows: 1
-  _horizDisplace: 9.66
+  _horizDisplace: 20
   _displaceClamp: 0.3
   _gravityMultiplier: 1
