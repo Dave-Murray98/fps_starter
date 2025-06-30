@@ -213,6 +213,12 @@ Shader "Crest/Ocean URP"
 
 			// Culling user defined - can be inverted for under water
 			Cull[_CullMode]
+			Stencil  //ADDED FOR COZY INTEGRATION
+			{
+				Ref 221
+				Comp Always
+				Pass Replace
+			}
 
 			HLSLPROGRAM
 			// Required to compile gles 2.0 with standard SRP library
@@ -275,6 +281,7 @@ Shader "Crest/Ocean URP"
 
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+			#include "Packages/com.distantlands.cozy.core/Runtime/Shaders/Includes/StylizedFogIncludes.cginc" //ADDED FOR COZY INTEGRATION
 #if UNITY_VERSION >= 202230
 			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
@@ -744,7 +751,9 @@ Shader "Crest/Ocean URP"
 				if (!underwater)
 				{
 					// Above water - do atmospheric fog. If you are using a third party sky package such as Azure, replace this with their stuff!
-					col = MixFog(col, m_InitializeInputDataFog(float4(input.positionWS_fogFactor.xyz, 1.0), input.positionWS_fogFactor.w));
+					//col = MixFog(col, m_InitializeInputDataFog(float4(input.positionWS_fogFactor.xyz, 1.0), input.positionWS_fogFactor.w));
+				    col = BlendStylizedFog(input.positionWS_fogFactor, float4(col.xyz, 1)); //REPLACED FOR COZY INTEGRATION
+
 				}
 #if CREST_UNDERWATER_BEFORE_TRANSPARENT
 				else
