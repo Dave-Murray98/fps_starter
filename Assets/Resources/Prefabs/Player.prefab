@@ -142,6 +142,8 @@ GameObject:
   - component: {fileID: 8720639517232090967}
   - component: {fileID: 2170338431935352176}
   - component: {fileID: 6614210278226016749}
+  - component: {fileID: 5204788647208767145}
+  - component: {fileID: 3969708537005614776}
   m_Layer: 6
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -299,6 +301,45 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!124 &5204788647208767145
+Behaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2722009498164535054}
+  m_Enabled: 1
+--- !u!114 &3969708537005614776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2722009498164535054}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b0c0a69611596146aceb2f60532940c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _version: 0
+  _mode: 0
+  _filterOceanData: 13
+  _meniscus: 1
+  _depthFogDensityFactor: 1
+  _volumeGeometry: {fileID: 0}
+  _invertCulling: 0
+  _enableShaderAPI: 0
+  _transparentObjectLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  _copyOceanMaterialParamsEachFrame: 1
+  _farPlaneMultiplier: 0.68
+  _debug:
+    _viewOceanMask: 0
+    _disableOceanMask: 0
+    _viewStencil: 0
+    _disableHeightAboveWaterOptimization: 0
+    _disableArtifactCorrection: 0
 --- !u!1 &4010381084805428103
 GameObject:
   m_ObjectHideFlags: 0
@@ -736,10 +777,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveID: Player_Main
   autoGenerateID: 0
-  enableDebugLogs: 1
+  enableDebugLogs: 0
   playerController: {fileID: 5026250899846009166}
   playerManager: {fileID: 0}
   playerData: {fileID: 11400000, guid: fb46b840e8974a14fb0e0f5059c27420, type: 2}
+  autoFindReferences: 1
 --- !u!114 &9014781814499418554
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -843,7 +885,7 @@ MonoBehaviour:
     FieldOfView: 40
     OrthographicSize: 10
     NearClipPlane: 0.1
-    FarClipPlane: 5000
+    FarClipPlane: 500
     Dutch: 0
     ModeOverride: 0
     PhysicalProperties:

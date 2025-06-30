@@ -2,23 +2,38 @@
 %TAG !u! tag:unity3d.com,2011:
 --- !u!21 &2100000
 Material:
-  serializedVersion: 6
+  serializedVersion: 8
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Ocean-Underwater
   m_Shader: {fileID: 4800000, guid: 986f7c6732e8a6e4881407d7f15f25c3, type: 3}
-  m_ShaderKeywords: _CAUSTICS_ON _CLIPSURFACE_ON _COMPUTEDIRECTIONALLIGHT_ON
-    _DEBUGMULTIPLYBYLIGHT0COLOR_ON _FOAM3DLIGHTING_ON _FOAM_ON _SHADOWS_ON _SUBSURFACEHEIGHTLERP_ON
-    _SUBSURFACESCATTERING_ON _TRANSPARENCY_ON _UNDERWATER_ON
-    _VARYSMOOTHNESSOVERDISTANCE_ON
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _CAUSTICS_ON
+  - _FLOW_ON
+  - _FOAM3DLIGHTING_ON
+  - _FOAM_ON
+  - _SHADOWS_ON
+  - _SUBSURFACESCATTERING_ON
+  - _SUBSURFACESHALLOWCOLOUR_ON
+  - _TRANSPARENCY_ON
+  - _UNDERWATER_ON
+  - _VARYSMOOTHNESSOVERDISTANCE_ON
+  m_InvalidKeywords:
+  - _COMPUTEDIRECTIONALLIGHT_ON
+  - _DEBUGMULTIPLYBYLIGHT0COLOR_ON
+  - _PROJECTION_BOTH
+  - _SUBSURFACEHEIGHTLERP_ON
   m_LightmapFlags: 5
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -78,6 +93,7 @@ Material:
         m_Texture: {fileID: 8400000, guid: 33331381cbc5c564583cd5e47314cf78, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    m_Ints: []
     m_Floats:
     - _Albedo: 0
     - _ApplyFlowToNormals: 0
@@ -86,14 +102,14 @@ Material:
     - _Caustics: 1
     - _CausticsBase: 0.07
     - _CausticsBias: 0.7
-    - _CausticsDepthOfField: 0.33
+    - _CausticsDepthOfField: 1.2
     - _CausticsDistortionScale: 25
     - _CausticsDistortionStrength: 0.16
     - _CausticsFocalDepth: 2
     - _CausticsStrength: 3.2
     - _CausticsTextureAverage: 0.07
     - _CausticsTextureScale: 5
-    - _ClipSurface: 1
+    - _ClipSurface: 0
     - _ClipUnderTerrain: 0
     - _CompileShaderWithDebugInfo: 0
     - _ComputeDirectionalLight: 1
@@ -108,11 +124,11 @@ Material:
     - _DebugVisualiseShapeSample: 0
     - _DirectionalLightBoost: 7
     - _DirectionalLightFallOff: 275
-    - _Flow: 0
+    - _Flow: 1
     - _Foam: 1
     - _Foam3DLighting: 1
     - _FoamBubbleParallax: 0.14
-    - _FoamScale: 10
+    - _FoamScale: 8.1
     - _ForceUnderwater: 0
     - _FresnelPower: 5
     - _Invert: 1
@@ -123,6 +139,7 @@ Material:
     - _NormalsStrength: 0.36
     - _NormalsStrengthOverall: 1
     - _Offset: 0.00008
+    - _PlanarReflectionDistanceFactor: 0
     - _PlanarReflectionIntensity: 1
     - _PlanarReflectionNormalsStrength: 1
     - _PlanarReflections: 0
@@ -136,7 +153,7 @@ Material:
     - _Roughness: 0
     - _S: 1
     - _Shadows: 1
-    - _ShorelineFoamMinDepth: 0.27
+    - _ShorelineFoamMinDepth: 0.01
     - _SkyDirectionality: 0.875
     - _Smoothness: 0.924
     - _SmoothnessFar: 0
@@ -152,7 +169,7 @@ Material:
     - _SubSurfaceHeightMax: 50
     - _SubSurfaceHeightPower: 3.5
     - _SubSurfaceScattering: 1
-    - _SubSurfaceShallowColour: 0
+    - _SubSurfaceShallowColour: 1
     - _SubSurfaceSun: 1.68
     - _SubSurfaceSunFallOff: 5.26
     - _TexelSize: 0.125
@@ -166,8 +183,8 @@ Material:
     - _WaveFoamBubblesStart: 0.115
     - _WaveFoamBubblesStrength: 0.637
     - _WaveFoamCoverage: 0.38
-    - _WaveFoamFeather: 0.4
-    - _WaveFoamLightScale: 1.731
+    - _WaveFoamFeather: 0.894
+    - _WaveFoamLightScale: 0.89
     - _WaveFoamNormalStrength: 3.5
     - _WaveFoamNormalsY: 0.253
     - _WaveFoamSpecularBoost: 0.15
@@ -190,3 +207,4 @@ Material:
     - _SubSurfaceShallowColShadow: {r: 0.14417942, g: 0.2264151, b: 0.21173015, a: 1}
     - _SubSurfaceShallowColour: {r: 0.41999996, g: 0.75, b: 0.69, a: 1}
   m_BuildTextureStacks: []
+  m_AllowLocking: 1
