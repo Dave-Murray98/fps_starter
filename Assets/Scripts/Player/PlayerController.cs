@@ -94,11 +94,6 @@ public class PlayerController : MonoBehaviour
         playerCamera.Initialize(this);
         playerAudio.Initialize(this);
 
-        // Lock cursor for first-person
-        //Cursor.lockState = CursorLockMode.Locked;
-        //Cursor.visible = false;
-
-        //Debug.Log("PlayerController initialized");
     }
 
     private void OnInputManagerReady(InputManager newInputManager)
@@ -154,20 +149,6 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         if (!GameManager.Instance || GameManager.Instance.isPaused) return;
-
-        // // TEMPORARY DEBUG CODE - Remove after fixing
-        // if (Input.GetKeyDown(KeyCode.Space))
-        // {
-        //     Debug.Log("=== DEBUG: Space key pressed directly via Input.GetKeyDown ===");
-        //     if (inputManager != null)
-        //     {
-        //         inputManager.DebugInputState();
-        //     }
-        //     else
-        //     {
-        //         Debug.Log("InputManager is null in PlayerController!");
-        //     }
-        // }
 
         UpdateMovementState();
         HandleInput();

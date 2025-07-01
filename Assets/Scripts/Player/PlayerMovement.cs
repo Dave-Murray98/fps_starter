@@ -117,16 +117,8 @@ public class PlayerMovement : MonoBehaviour
             return groundTypeId.groundType;
         }
 
-        // Fallback to tag-based detection
-        switch (groundCollider.tag)
-        {
-            case "Grass": return GroundType.Grass;
-            case "Stone": return GroundType.Stone;
-            case "Metal": return GroundType.Metal;
-            case "Wood": return GroundType.Wood;
-            case "Water": return GroundType.Water;
-            default: return GroundType.Default;
-        }
+        // Fallback to default
+        return GroundType.Default;
     }
 
     private void ApplyMovement()
