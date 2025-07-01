@@ -9,6 +9,12 @@ public class PlayerMovement : MonoBehaviour
     public float groundCheckDistance = 0.1f;
     public float slopeLimit = 45f;
 
+    [Header("Movement")]
+    [Tooltip("How quickly the player reaches target speed")]
+    public float acceleration = 50f;
+    [Tooltip("How quickly the player stops when no input")]
+    public float deceleration = 50f;
+
     [Header("Debug")]
     public bool showGroundDebug = false;
 
@@ -48,17 +54,17 @@ public class PlayerMovement : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         capsuleCollider = GetComponent<CapsuleCollider>();
 
-        // Configure rigidbody
+        // Simple rigidbody setup
         rb.freezeRotation = true;
-        rb.useGravity = false; // We'll handle gravity manually
+        rb.useGravity = true; // Let Unity handle gravity - this is key!
+        rb.linearDamping = 0f;
+        rb.angularDamping = 0f;
 
         // Store original collider dimensions
         originalHeight = capsuleCollider.height;
         originalCenter = capsuleCollider.center;
         crouchHeight = originalHeight * 0.5f;
         crouchCenter = new Vector3(originalCenter.x, originalCenter.y - (originalHeight - crouchHeight) * 0.5f, originalCenter.z);
-
-        //        Debug.Log("PlayerMovement initialized");
     }
 
     private void FixedUpdate()
@@ -67,7 +73,8 @@ public class PlayerMovement : MonoBehaviour
 
         CheckGrounded();
         ApplyMovement();
-        ApplyGravity();
+        // No custom gravity - let Unity handle it
+        // No special ground snapping - let physics work naturally
     }
 
     private void CheckGrounded()
@@ -89,9 +96,10 @@ public class PlayerMovement : MonoBehaviour
             {
                 isGrounded = false;
             }
-
-            // Determine ground type
-            currentGroundType = DetermineGroundType(hit.collider);
+            else
+            {
+                currentGroundType = DetermineGroundType(hit.collider);
+            }
         }
         else
         {
@@ -103,27 +111,22 @@ public class PlayerMovement : MonoBehaviour
         // Landing detection
         if (!wasGrounded && isGrounded && rb.linearVelocity.y < -2f)
         {
-            // Trigger landing event/sound
             OnLanded();
         }
     }
 
     private GroundType DetermineGroundType(Collider groundCollider)
     {
-        // Check for GroundTypeIdentifier component first
         var groundTypeId = groundCollider.GetComponent<GroundTypeIdentifier>();
         if (groundTypeId != null)
         {
             return groundTypeId.groundType;
         }
-
-        // Fallback to default
         return GroundType.Default;
     }
 
     private void ApplyMovement()
     {
-        // Get movement speed based on state
         float targetSpeed = GetCurrentMovementSpeed();
 
         // Calculate movement direction relative to camera
@@ -135,34 +138,31 @@ public class PlayerMovement : MonoBehaviour
         if (movementInput.magnitude > 0.1f)
         {
             // Calculate desired movement direction
-            Vector3 desiredMoveDirection = (forward * movementInput.y + right * movementInput.x).normalized;
+            Vector3 moveDirection = (forward * movementInput.y + right * movementInput.x).normalized;
 
-            // Project movement onto slope
             if (isGrounded)
             {
-                desiredMoveDirection = Vector3.ProjectOnPlane(desiredMoveDirection, groundNormal).normalized;
+                // Project movement direction onto the slope
+                moveDirection = Vector3.ProjectOnPlane(moveDirection, groundNormal).normalized;
             }
 
-            // Calculate target velocity
-            targetVelocity = desiredMoveDirection * targetSpeed;
+            targetVelocity = moveDirection * targetSpeed;
         }
 
-        // Apply movement or stopping force
-        Vector3 currentHorizontalVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
-        Vector3 velocityChange = targetVelocity - currentHorizontalVelocity;
+        // Get current velocity but preserve Y component
+        Vector3 currentVelocity = rb.linearVelocity;
+        Vector3 currentHorizontalVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
+        Vector3 targetHorizontalVelocity = new Vector3(targetVelocity.x, 0, targetVelocity.z);
 
-        if (movementInput.magnitude < 0.1f && isGrounded)
-        {
-            // Apply stronger stopping force when no input and grounded
-            float stopForce = playerData?.stopForce ?? 10f;
-            velocityChange = -currentHorizontalVelocity * stopForce;
-            rb.AddForce(velocityChange, ForceMode.Acceleration);
-        }
-        else
-        {
-            // Normal movement
-            rb.AddForce(velocityChange, ForceMode.VelocityChange);
-        }
+        // Calculate horizontal force needed
+        Vector3 horizontalVelocityDifference = targetHorizontalVelocity - currentHorizontalVelocity;
+
+        // Use different acceleration based on whether we're accelerating or stopping
+        float currentAcceleration = movementInput.magnitude > 0.1f ? acceleration : deceleration;
+
+        // Apply only horizontal forces - let Unity's gravity handle Y
+        Vector3 force = horizontalVelocityDifference * currentAcceleration;
+        rb.AddForce(force, ForceMode.Acceleration);
     }
 
     private float GetCurrentMovementSpeed()
@@ -174,23 +174,12 @@ public class PlayerMovement : MonoBehaviour
         return playerData.walkSpeed;
     }
 
-    private void ApplyGravity()
-    {
-        if (!isGrounded)
-        {
-            float gravity = playerData?.gravity ?? -9.81f;
-            rb.AddForce(Vector3.up * gravity, ForceMode.Acceleration);
-        }
-    }
-
     public void Jump()
     {
         if (!isGrounded) return;
 
-        float jumpForce = Mathf.Sqrt(2f * Mathf.Abs(playerData?.gravity ?? 9.81f) * (playerData?.jumpHeight ?? 2f));
+        float jumpForce = Mathf.Sqrt(2f * Mathf.Abs(Physics.gravity.y) * (playerData?.jumpHeight ?? 2f));
         rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
-
-        //Debug.Log("Player jumped!");
     }
 
     public void StartCrouch()
@@ -198,11 +187,8 @@ public class PlayerMovement : MonoBehaviour
         if (isCrouching) return;
 
         isCrouching = true;
-
-        // Adjust collider
         capsuleCollider.height = crouchHeight;
         capsuleCollider.center = crouchCenter;
-
         Debug.Log("Started crouching");
     }
 
@@ -210,25 +196,19 @@ public class PlayerMovement : MonoBehaviour
     {
         if (!isCrouching) return;
 
-        // Check if there's room to stand up
         if (CanStandUp())
         {
             isCrouching = false;
-
-            // Restore collider
             capsuleCollider.height = originalHeight;
             capsuleCollider.center = originalCenter;
-
             Debug.Log("Stopped crouching");
         }
     }
 
     private bool CanStandUp()
     {
-        // Check position above the player's head when standing
         Vector3 checkPosition = transform.position + Vector3.up * (originalHeight - crouchHeight);
         bool canStand = !Physics.CheckSphere(checkPosition, capsuleCollider.radius * 0.9f, groundMask);
-
         Debug.Log($"CanStandUp check - Position: {checkPosition}, Can stand: {canStand}");
         return canStand;
     }
