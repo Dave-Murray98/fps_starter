@@ -14,5 +14,5 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Dynamic Water Physics 2/Scripts/WaterObject/WaterDataProvider/KWSWaterDataProvider.cs
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Scripts/WaterObject/WaterDataProvider/KWSWaterDataProvider.cs
   uploadId: 690874

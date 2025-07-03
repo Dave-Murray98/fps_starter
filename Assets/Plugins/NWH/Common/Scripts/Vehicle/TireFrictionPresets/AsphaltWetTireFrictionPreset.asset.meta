@@ -11,5 +11,5 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Common/Scripts/Vehicle/TireFrictionPresets/AsphaltWetTireFrictionPreset.asset
+  assetPath: Assets/Plugins/NWH/Common/Scripts/Vehicle/TireFrictionPresets/AsphaltWetTireFrictionPreset.asset
   uploadId: 690874

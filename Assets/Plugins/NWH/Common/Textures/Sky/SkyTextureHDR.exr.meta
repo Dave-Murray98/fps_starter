@@ -139,5 +139,5 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Common/Textures/Sky/SkyTextureHDR.exr
+  assetPath: Assets/Plugins/NWH/Common/Textures/Sky/SkyTextureHDR.exr
   uploadId: 690874

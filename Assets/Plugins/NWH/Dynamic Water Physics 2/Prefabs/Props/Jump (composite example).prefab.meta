@@ -10,5 +10,6 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Dynamic Water Physics 2/Prefabs/Props/Jump (composite example).prefab
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Prefabs/Props/Jump (composite
+    example).prefab
   uploadId: 690874

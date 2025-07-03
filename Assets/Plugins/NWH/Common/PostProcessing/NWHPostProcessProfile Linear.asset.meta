@@ -11,5 +11,5 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Common/PostProcessing/NWHPostProcessProfile Linear.asset
+  assetPath: Assets/Plugins/NWH/Common/PostProcessing/NWHPostProcessProfile Linear.asset
   uploadId: 690874

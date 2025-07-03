@@ -14,5 +14,5 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Dynamic Water Physics 2/Scripts/ShipController/Input/InputProviders/InputSystemProvider/ShipInputActions.cs
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Scripts/ShipController/Input/InputProviders/InputSystemProvider/ShipInputActions.cs
   uploadId: 690874

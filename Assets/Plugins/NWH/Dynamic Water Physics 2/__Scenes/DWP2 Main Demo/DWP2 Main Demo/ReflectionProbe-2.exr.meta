@@ -124,6 +124,6 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Dynamic Water Physics 2/__Scenes/DWP2 Main Demo/DWP2 Main
-    Demo/ReflectionProbe-2.exr
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/__Scenes/DWP2 Main Demo/DWP2
+    Main Demo/ReflectionProbe-2.exr
   uploadId: 690874

@@ -11,5 +11,5 @@ AssetOrigin:
   productId: 147990
   packageName: Dynamic Water Physics 2
   packageVersion: 2.22
-  assetPath: Assets/NWH/Dynamic Water Physics 2/Models/Terrain/Materials/terrainTexture.mat
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Terrain/Materials/terrainTexture.mat
   uploadId: 690874

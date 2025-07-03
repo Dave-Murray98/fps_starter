@@ -19,14 +19,16 @@ MonoBehaviour:
     Override: "{\r\n    \"$id\": 0,\r\n    \"$type\": \"0|Sirenix.OdinValidator.Editor.Validators.DuplicateComponentsValidator,
       Sirenix.OdinValidator.Editor\",\r\n    \"Severity\": 1,\r\n    \"TypeExceptions\":
       {\r\n        \"$id\": 1,\r\n        \"$type\": \"1|System.Type[], mscorlib\",\r\n       
-      \"$rlength\": 3,\r\n        \"$rcontent\": [\r\n            {\r\n               
+      \"$rlength\": 4,\r\n        \"$rcontent\": [\r\n            {\r\n               
       \"$id\": 2,\r\n                \"$type\": \"2|System.RuntimeType, mscorlib\",\r\n               
       \"UnityEngine.SphereCollider, UnityEngine.PhysicsModule\"\r\n            },\r\n           
       {\r\n                \"$id\": 3,\r\n                \"$type\": 2,\r\n               
       \"Crest.Examples.CustomPassForCamera, Crest.Examples\"\r\n            },\r\n           
       {\r\n                \"$id\": 4,\r\n                \"$type\": 2,\r\n               
-      \"UnityEngine.AudioSource, UnityEngine.AudioModule\"\r\n            }\r\n       
-      ]\r\n    },\r\n    \"PrefabExceptions\": {\r\n        \"$id\": 5,\r\n       
+      \"UnityEngine.AudioSource, UnityEngine.AudioModule\"\r\n            },\r\n           
+      {\r\n                \"$id\": 5,\r\n                \"$type\": 2,\r\n               
+      \"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"\r\n            }\r\n       
+      ]\r\n    },\r\n    \"PrefabExceptions\": {\r\n        \"$id\": 6,\r\n       
       \"$type\": \"3|System.Collections.Generic.List`1[[Sirenix.OdinValidator.Editor.Validators.DuplicateComponentsValidator+PrefabException,
       Sirenix.OdinValidator.Editor]], mscorlib\",\r\n        \"$rlength\": 0,\r\n       
       \"$rcontent\": [\r\n        ]\r\n    }\r\n}"
