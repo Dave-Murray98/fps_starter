@@ -65,9 +65,10 @@ public class InputManager : MonoBehaviour, IManager
 
     #endregion
 
-    private InputActionMap locomotionActionMap;
+    private InputActionMap groundLocomotionActionMap;
     private InputActionMap uiActionMap;
     private InputActionMap gameplayActionMap; //for player actions (ie interacting, attacking, using items, etc)
+    private InputActionMap inventoryActionMap;
 
     // Track if we're cleaned up to prevent calling events on destroyed objects
     private bool isCleanedUp = false;
@@ -80,7 +81,7 @@ public class InputManager : MonoBehaviour, IManager
     {
         if (isCleanedUp) return;
 
-        var action = locomotionActionMap?.FindAction(actionName);
+        var action = groundLocomotionActionMap?.FindAction(actionName);
         if (action != null)
         {
             if (enabled)
@@ -101,7 +102,7 @@ public class InputManager : MonoBehaviour, IManager
         EnableAllInputActions();
 
         // Subscribe to game events
-        GameEvents.OnGamePaused += DisableLocomotionAndGameplayInput;
+        GameEvents.OnGamePaused += DisableNonUIInput;
         GameEvents.OnGameResumed += ReenableAllInput;
 
         // Notify that InputManager is ready
@@ -135,7 +136,7 @@ public class InputManager : MonoBehaviour, IManager
         //OnPausePressed = null;
 
         // Unsubscribe from game events
-        GameEvents.OnGamePaused -= DisableLocomotionAndGameplayInput;
+        GameEvents.OnGamePaused -= DisableNonUIInput;
         GameEvents.OnGameResumed -= ReenableAllInput;
 
         // Disable and clean up input actions
@@ -153,11 +154,12 @@ public class InputManager : MonoBehaviour, IManager
             return;
         }
 
-        locomotionActionMap = inputActions.FindActionMap("Locomotion");
+        groundLocomotionActionMap = inputActions.FindActionMap("GroundLocomotion");
         uiActionMap = inputActions.FindActionMap("UI");
         gameplayActionMap = inputActions.FindActionMap("Gameplay");
+        inventoryActionMap = inputActions.FindActionMap("Inventory");
 
-        if (locomotionActionMap == null || uiActionMap == null || gameplayActionMap == null)
+        if (groundLocomotionActionMap == null || uiActionMap == null || gameplayActionMap == null)
         {
             Debug.LogError("Locomotion, UI or Gameplay action map not found in InputActionAsset.");
             return;
@@ -166,21 +168,23 @@ public class InputManager : MonoBehaviour, IManager
         SetupLocomotionInputActions();
         SetupUIInputActions();
         SetupGameplayInputActions();
+        SetupInventoryInputActions();
 
         SubscribeToInputActions();
 
         //  Debug.Log("Input actions set up successfully");
     }
 
+
     private void SetupLocomotionInputActions()
     {
-        if (locomotionActionMap == null) return;
+        if (groundLocomotionActionMap == null) return;
 
-        moveAction = locomotionActionMap.FindAction("Move");
-        lookAction = locomotionActionMap.FindAction("Look");
-        jumpAction = locomotionActionMap.FindAction("Jump");
-        sprintAction = locomotionActionMap.FindAction("Sprint");
-        crouchAction = locomotionActionMap.FindAction("Crouch");
+        moveAction = groundLocomotionActionMap.FindAction("Move");
+        lookAction = groundLocomotionActionMap.FindAction("Look");
+        jumpAction = groundLocomotionActionMap.FindAction("Jump");
+        sprintAction = groundLocomotionActionMap.FindAction("Sprint");
+        crouchAction = groundLocomotionActionMap.FindAction("Crouch");
     }
 
     private void SetupUIInputActions()
@@ -188,8 +192,7 @@ public class InputManager : MonoBehaviour, IManager
         if (uiActionMap == null) return;
 
         pauseAction = uiActionMap.FindAction("Pause");
-        toggleInventoryAction = uiActionMap.FindAction("ToggleInventory");
-        rotateInventoryItemAction = uiActionMap.FindAction("RotateInventoryItem");
+
 
         // Debug.Log("UI input actions set up successfully");
     }
@@ -213,6 +216,12 @@ public class InputManager : MonoBehaviour, IManager
         }
     }
 
+
+    private void SetupInventoryInputActions()
+    {
+        toggleInventoryAction = inventoryActionMap.FindAction("ToggleInventory");
+        rotateInventoryItemAction = inventoryActionMap.FindAction("RotateInventoryItem");
+    }
     #endregion
 
     #region Subscription and Unsubscription
@@ -223,7 +232,10 @@ public class InputManager : MonoBehaviour, IManager
         SubscribeLocomotionInputActions();
         SubscribeToUIInputActions();
         SubscribeToGameplayInputActions();
+        SubscribeToInventoryInputActions();
     }
+
+
 
     private void SubscribeLocomotionInputActions()
     {
@@ -245,16 +257,6 @@ public class InputManager : MonoBehaviour, IManager
         if (pauseAction != null)
         {
             pauseAction.performed += OnPausePerformed;
-        }
-
-        if (toggleInventoryAction != null)
-        {
-            toggleInventoryAction.performed += OnToggleInventoryPerformed;
-        }
-
-        if (rotateInventoryItemAction != null)
-        {
-            rotateInventoryItemAction.performed += OnRotateInventoryItemPerformed;
         }
     }
 
@@ -293,11 +295,25 @@ public class InputManager : MonoBehaviour, IManager
         }
     }
 
+    private void SubscribeToInventoryInputActions()
+    {
+        if (toggleInventoryAction != null)
+        {
+            toggleInventoryAction.performed += OnToggleInventoryPerformed;
+        }
+
+        if (rotateInventoryItemAction != null)
+        {
+            rotateInventoryItemAction.performed += OnRotateInventoryItemPerformed;
+        }
+    }
+
     private void UnsubscribeFromInputActions()
     {
         UnsubscribeFromLocomotionInputActions();
         UnsubscribeFromUIInputActions();
         UnsubscribeFromGameplayInputActions();
+        UnsubscribeFromInventoryInputActions();
 
     }
 
@@ -321,16 +337,6 @@ public class InputManager : MonoBehaviour, IManager
         if (pauseAction != null)
         {
             pauseAction.performed -= OnPausePerformed;
-        }
-
-        if (toggleInventoryAction != null)
-        {
-            toggleInventoryAction.performed -= OnToggleInventoryPerformed;
-        }
-
-        if (rotateInventoryItemAction != null)
-        {
-            rotateInventoryItemAction.performed -= OnRotateInventoryItemPerformed;
         }
     }
 
@@ -365,6 +371,19 @@ public class InputManager : MonoBehaviour, IManager
                 int slotNumber = i + 1;
                 hotkeyActions[i].performed -= _ => OnHotkeyPerformed(slotNumber);
             }
+        }
+    }
+
+    private void UnsubscribeFromInventoryInputActions()
+    {
+        if (toggleInventoryAction != null)
+        {
+            toggleInventoryAction.performed -= OnToggleInventoryPerformed;
+        }
+
+        if (rotateInventoryItemAction != null)
+        {
+            rotateInventoryItemAction.performed -= OnRotateInventoryItemPerformed;
         }
     }
 
@@ -478,7 +497,7 @@ public class InputManager : MonoBehaviour, IManager
     {
         if (isCleanedUp) return;
 
-        if (locomotionActionMap?.enabled == true)
+        if (groundLocomotionActionMap?.enabled == true)
             UpdateLocomotionInputValues();
     }
 
@@ -509,7 +528,7 @@ public class InputManager : MonoBehaviour, IManager
         //  Debug.Log("Enabling all input action maps");
 
         // CRITICAL: Ensure action maps are valid before enabling
-        if (locomotionActionMap == null || uiActionMap == null)
+        if (groundLocomotionActionMap == null || uiActionMap == null)
         {
             //Debug.LogWarning("Action maps are null, attempting to re-setup input actions");
             SetupInputActions();
@@ -518,29 +537,48 @@ public class InputManager : MonoBehaviour, IManager
         EnableAllInputActions();
     }
 
-    public void DisableLocomotionAndGameplayInput()
+    public void DisableNonUIInput()
     {
         if (isCleanedUp) return;
 
         //    Debug.Log("Disabling LOCOMOTION input actions");
-        locomotionActionMap?.Disable();
+        groundLocomotionActionMap?.Disable();
         gameplayActionMap?.Disable();
+        inventoryActionMap?.Disable();
     }
 
     private void DisableAllInputActions()
     {
         //        Debug.Log("Disabling all input actions");
-        locomotionActionMap?.Disable();
+        groundLocomotionActionMap?.Disable();
         uiActionMap?.Disable();
         gameplayActionMap?.Disable();
+        inventoryActionMap?.Disable();
     }
 
     private void EnableAllInputActions()
     {
         //        Debug.Log("Enabling all input actions");
-        locomotionActionMap?.Enable();
+        groundLocomotionActionMap?.Enable();
         uiActionMap?.Enable();
         gameplayActionMap?.Enable();
+        inventoryActionMap?.Enable();
+    }
+
+    public void EnableInventoryInput()
+    {
+        if (isCleanedUp) return;
+
+        // Debug.Log("Enabling inventory input actions");
+        inventoryActionMap?.Enable();
+    }
+
+    public void DisableInventoryInput()
+    {
+        if (isCleanedUp) return;
+
+        // Debug.Log("Disabling inventory input actions");
+        inventoryActionMap?.Disable();
     }
 
     public void EnableUIInput()
@@ -572,7 +610,7 @@ public class InputManager : MonoBehaviour, IManager
     {
         Debug.Log($"=== InputManager Debug Info (ID: {GetInstanceID()}) ===");
         Debug.Log($"IsCleanedUp: {isCleanedUp}");
-        Debug.Log($"LocomotionActionMap: {locomotionActionMap?.name} - Enabled: {locomotionActionMap?.enabled}");
+        Debug.Log($"LocomotionActionMap: {groundLocomotionActionMap?.name} - Enabled: {groundLocomotionActionMap?.enabled}");
         Debug.Log($"UIActionMap: {uiActionMap?.name} - Enabled: {uiActionMap?.enabled}");
         Debug.Log($"JumpAction: {jumpAction?.name} - Enabled: {jumpAction?.enabled}");
         Debug.Log($"MoveAction: {moveAction?.name} - Enabled: {moveAction?.enabled}");

@@ -114,12 +114,12 @@ public class PlayerAudio : MonoBehaviour
             effectSource.PlayOneShot(landClip, 0.8f);
     }
 
-    internal void OnMovementStateChanged(MovementState previousMovementState, MovementState newMovementState)
+    internal void OnMovementStateChanged(GroundMovementState previousMovementState, GroundMovementState newMovementState)
     {
-        if (newMovementState == MovementState.Jumping && previousMovementState != MovementState.Jumping)
+        if (newMovementState == GroundMovementState.Jumping && previousMovementState != GroundMovementState.Jumping)
             PlayJumpSound();
 
-        if (newMovementState == MovementState.Idle && previousMovementState == MovementState.Falling)
+        if (newMovementState == GroundMovementState.Idle && previousMovementState == GroundMovementState.Falling)
             PlayLandSound();
     }
 }

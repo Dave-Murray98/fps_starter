@@ -1,7 +1,7 @@
 using UnityEngine;
 
 
-public enum MovementState
+public enum GroundMovementState
 {
     Idle,
     Walking,
@@ -24,19 +24,19 @@ public enum GroundType
 }
 
 
-[RequireComponent(typeof(PlayerMovement))]
+[RequireComponent(typeof(PlayerGroundMovement))]
 [RequireComponent(typeof(PlayerCamera))]
 [RequireComponent(typeof(PlayerAudio))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Components")]
-    public PlayerMovement movement;
+    public PlayerGroundMovement movement;
     public PlayerCamera playerCamera;
     public PlayerAudio playerAudio;
 
     [Header("State")]
-    public MovementState currentState = MovementState.Idle;
-    public MovementState previousState = MovementState.Idle;
+    public GroundMovementState currentState = GroundMovementState.Idle;
+    public GroundMovementState previousState = GroundMovementState.Idle;
 
     [Header("Abilities")]
     public bool canMove = true;
@@ -53,12 +53,12 @@ public class PlayerController : MonoBehaviour
     private PlayerData playerData;
 
     // Events
-    public event System.Action<MovementState, MovementState> OnStateChanged;
+    public event System.Action<GroundMovementState, GroundMovementState> OnStateChanged;
 
     private void Awake()
     {
         // Get or find components
-        if (movement == null) movement = GetComponent<PlayerMovement>();
+        if (movement == null) movement = GetComponent<PlayerGroundMovement>();
         if (playerCamera == null) playerCamera = GetComponent<PlayerCamera>();
         if (playerAudio == null) playerAudio = GetComponent<PlayerAudio>();
         if (interactionController == null) interactionController = GetComponent<PlayerInteractionController>();
@@ -174,7 +174,7 @@ public class PlayerController : MonoBehaviour
 
     private void UpdateMovementState()
     {
-        MovementState newState = DetermineMovementState();
+        GroundMovementState newState = DetermineMovementState();
 
         if (newState != currentState)
         {
@@ -182,29 +182,29 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    private MovementState DetermineMovementState()
+    private GroundMovementState DetermineMovementState()
     {
         if (!movement.IsGrounded)
         {
-            return movement.Velocity.y > 0.1f ? MovementState.Jumping : MovementState.Falling;
+            return movement.Velocity.y > 0.1f ? GroundMovementState.Jumping : GroundMovementState.Falling;
         }
 
         if (movement.IsCrouching)
         {
-            return MovementState.Crouching;
+            return GroundMovementState.Crouching;
         }
 
         float horizontalSpeed = new Vector2(movement.Velocity.x, movement.Velocity.z).magnitude;
 
         if (horizontalSpeed < 0.1f)
         {
-            return MovementState.Idle;
+            return GroundMovementState.Idle;
         }
 
-        return movement.IsSprinting ? MovementState.Running : MovementState.Walking;
+        return movement.IsSprinting ? GroundMovementState.Running : GroundMovementState.Walking;
     }
 
-    private void ChangeState(MovementState newState)
+    private void ChangeState(GroundMovementState newState)
     {
         previousState = currentState;
         currentState = newState;

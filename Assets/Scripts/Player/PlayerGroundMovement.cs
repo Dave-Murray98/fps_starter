@@ -2,7 +2,7 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(CapsuleCollider))]
-public class PlayerMovement : MonoBehaviour
+public class PlayerGroundMovement : MonoBehaviour
 {
     [Header("Ground Detection")]
     public LayerMask groundMask = 1;
@@ -223,7 +223,7 @@ public class PlayerMovement : MonoBehaviour
     public void SetSprinting(bool running) => isSprinting = running;
 
     // State change notification
-    public void OnMovementStateChanged(MovementState previousState, MovementState newState)
+    public void OnMovementStateChanged(GroundMovementState previousState, GroundMovementState newState)
     {
         // Handle any movement-specific state change logic here
     }
