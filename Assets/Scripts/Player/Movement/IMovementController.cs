@@ -24,6 +24,11 @@ public interface IMovementController
     void HandlePrimaryAction();
 
     /// <summary>
+    /// Handle primary action release (Stop Jump/Stop Surfacing/Release Accelerate depending on context)
+    /// </summary>
+    public void HandlePrimaryActionReleased();
+
+    /// <summary>
     /// Handle secondary action (Crouch/Dive/Brake depending on context)
     /// </summary>
     void HandleSecondaryAction();

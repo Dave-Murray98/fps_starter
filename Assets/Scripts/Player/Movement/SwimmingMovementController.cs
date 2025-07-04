@@ -2,8 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Handles swimming movement physics and mechanics.
-/// Implements IMovementController for seamless integration with the modular movement system.
-/// Provides Subnautica-style swimming with 3D movement, buoyancy, and water resistance.
+/// FIXED: Proper movement reset, physics restoration, and input handling
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class SwimmingMovementController : MonoBehaviour, IMovementController
@@ -20,19 +19,21 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
     [SerializeField] private float waterDrag = 5f;
     [SerializeField] private float waterAngularDrag = 5f;
     [SerializeField] private float surfaceBuoyancyMultiplier = 2f;
-    [SerializeField] private float neutralBuoyancyDepth = 0.5f; // Depth where buoyancy balances gravity
+    [SerializeField] private float neutralBuoyancyDepth = 0.5f;
 
     [Header("Diving")]
-    [SerializeField] private float diveForce = 15f;
-    [SerializeField] private float surfaceForce = 20f;
+    [SerializeField] private float diveForce = 8f;
+    [SerializeField] private float surfaceForce = 30f;
     [SerializeField] private float minDiveDepth = 0.5f;
+    [SerializeField] private bool useGravityForDiving = false; // NEW: Option to disable gravity when diving
+    [SerializeField] private float diveGravityMultiplier = 0.3f; // NEW: Reduce gravity effect when diving
 
     [Header("Movement Settings")]
-    [SerializeField] private bool useGravityWhenSwimming = true; // Changed to true for better physics
+    [SerializeField] private bool useGravityWhenSwimming = true;
     [SerializeField] private float maxSwimSpeed = 8f;
     [SerializeField] private bool enableRotationTowardsMovement = true;
     [SerializeField] private float rotationSpeed = 2f;
-    [SerializeField] private float stopDrag = 8f; // Additional drag when not moving
+    [SerializeField] private float stopDrag = 12f; // Increased for better stopping
 
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogs = true;
@@ -40,10 +41,10 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
 
     // Interface properties
     public MovementMode MovementMode => MovementMode.Swimming;
-    public bool IsGrounded => false; // Swimming never considers player "grounded"
+    public bool IsGrounded => false;
     public bool IsMoving { get; private set; }
     public bool IsSpeedModified { get; private set; }
-    public bool IsSecondaryActive { get; private set; } // Diving
+    public bool IsSecondaryActive { get; private set; }
 
     // Component references
     private PlayerController playerController;
@@ -55,14 +56,14 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
     private Vector2 movementInput;
     private bool isFastSwimming;
     private bool isDiving;
-    private bool isSurfacing;
-    private bool isSurfacingActive; // Tracks if surfacing is actively happening
-    private float surfacingTimer;
-    private float surfacingDuration = 0.5f; // How long surfacing force is applied
+    private bool isSurfacingActive;
     private Vector3 swimDirection;
+
+    // Physics state storage
     private float originalDrag;
     private float originalAngularDrag;
     private bool originalUseGravity;
+    private bool physicsStateStored = false;
 
     // Water physics
     private float currentBuoyancy;
@@ -91,10 +92,15 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
             return;
         }
 
-        // Store original physics settings
-        originalDrag = rb.linearDamping;
-        originalAngularDrag = rb.angularDamping;
-        originalUseGravity = rb.useGravity;
+        // Store original physics settings ONCE during initialization
+        if (!physicsStateStored)
+        {
+            originalDrag = rb.linearDamping;
+            originalAngularDrag = rb.angularDamping;
+            originalUseGravity = rb.useGravity;
+            physicsStateStored = true;
+            DebugLog($"Stored original physics: Drag={originalDrag}, AngularDrag={originalAngularDrag}, Gravity={originalUseGravity}");
+        }
 
         DebugLog("Swimming movement controller initialized");
     }
@@ -106,41 +112,74 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         IsSpeedModified = isFastSwimming;
         IsMoving = moveInput.magnitude > 0.1f;
 
-        // Only calculate swim direction if we have input
-        if (IsMoving)
+        // FIXED: Always recalculate swim direction, including when input is zero
+        CalculateSwimDirection();
+    }
+
+    /// <summary>
+    /// FIXED: Enhanced surfacing that works while holding the button
+    /// </summary>
+    public void HandlePrimaryAction()
+    {
+        // FIXED: Start continuous surfacing instead of timed burst
+        if (!isSurfacingActive)
         {
-            CalculateSwimDirection();
-        }
-        else
-        {
-            // Clear swim direction when no input to prevent residual movement
-            swimDirection = Vector3.zero;
+            StartContinuousSurfacing();
+            DebugLog("Surface action triggered - starting continuous surfacing");
         }
     }
 
-    public void HandlePrimaryAction()
+    /// <summary>
+    /// FIXED: Starts continuous surfacing (no timer limit)
+    /// </summary>
+    private void StartContinuousSurfacing()
     {
-        // Surface action - swim upward with sustained force
-        StartSurfacing();
-        DebugLog("Surface action triggered - starting surfacing sequence");
+        isSurfacingActive = true;
+
+        // Stop diving when surfacing
+        if (isDiving)
+        {
+            isDiving = false;
+            IsSecondaryActive = false;
+        }
+
+        DebugLog("Continuous surfacing started");
     }
+
+
+    /// <summary>
+    /// NEW: Handle primary action release to stop surfacing
+    /// </summary>
+    public void HandlePrimaryActionReleased()
+    {
+        // FIXED: Stop surfacing when button is released
+        if (isSurfacingActive)
+        {
+            StopContinuousSurfacing();
+            DebugLog("Surface action released - stopping surfacing");
+        }
+    }
+
+    /// <summary>
+    /// FIXED: Stops continuous surfacing
+    /// </summary>
+    private void StopContinuousSurfacing()
+    {
+        isSurfacingActive = false;
+        DebugLog("Continuous surfacing stopped");
+    }
+
 
     public void HandleSecondaryAction()
     {
-        // Dive action - toggle diving (but with proper release handling)
         if (!isDiving)
         {
-            // Start diving
             isDiving = true;
             IsSecondaryActive = true;
             DebugLog("Started diving");
         }
-        // Note: Stopping dive is handled in HandleSecondaryActionReleased
     }
 
-    /// <summary>
-    /// Handle secondary action release (stop diving)
-    /// </summary>
     public void HandleSecondaryActionReleased()
     {
         if (isDiving)
@@ -161,35 +200,16 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         DebugLog("Swimming controller activated");
         SetupSwimmingPhysics();
 
-        // Reset swimming states to ensure clean activation
-        isDiving = false;
-        isSurfacingActive = false;
-        surfacingTimer = 0f;
-        IsSecondaryActive = false;
-
-        // Clear any residual swimming direction
-        swimDirection = Vector3.zero;
+        // FIXED: Complete state reset on activation
+        ResetSwimmingState();
     }
 
     public void OnControllerDeactivated()
     {
         DebugLog("Swimming controller deactivated");
-        RestoreOriginalPhysics();
 
-        // Clear swimming inputs and states
-        movementInput = Vector2.zero;
-        isFastSwimming = false;
-        isDiving = false;
-        isSurfacingActive = false;
-        surfacingTimer = 0f;
-
-        // Reset movement states
-        IsMoving = false;
-        IsSpeedModified = false;
-        IsSecondaryActive = false;
-
-        // Clear swim direction
-        swimDirection = Vector3.zero;
+        // FIXED: Comprehensive cleanup when deactivating
+        CompleteSwimmingCleanup();
     }
 
     public void Cleanup()
@@ -198,36 +218,77 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         DebugLog("Swimming controller cleaned up");
     }
 
+    /// <summary>
+    /// FIXED: Comprehensive state reset for clean activation
+    /// </summary>
+    private void ResetSwimmingState()
+    {
+        // Reset all input and movement state
+        movementInput = Vector2.zero;
+        isFastSwimming = false;
+        isDiving = false;
+        isSurfacingActive = false;
+        swimDirection = Vector3.zero;
+
+        // Reset interface properties
+        IsMoving = false;
+        IsSpeedModified = false;
+        IsSecondaryActive = false;
+
+        DebugLog("Swimming state completely reset");
+    }
+
+    /// <summary>
+    /// FIXED: Thorough cleanup including physics and velocity reset
+    /// </summary>
+    private void CompleteSwimmingCleanup()
+    {
+        // Stop any residual movement immediately
+        if (rb != null)
+        {
+            // FIXED: Zero out horizontal velocity to prevent drift
+            Vector3 currentVelocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(0f, currentVelocity.y, 0f);
+            DebugLog($"Cleared horizontal velocity: {currentVelocity} -> {rb.linearVelocity}");
+        }
+
+        // Restore physics before clearing state
+        RestoreOriginalPhysics();
+
+        // Clear all state
+        ResetSwimmingState();
+
+        DebugLog("Complete swimming cleanup performed");
+    }
+
     private void SetupSwimmingPhysics()
     {
         if (rb == null) return;
 
-        // Apply swimming physics settings
         rb.linearDamping = waterDrag;
         rb.angularDamping = waterAngularDrag;
         rb.useGravity = useGravityWhenSwimming;
 
-        DebugLog("Swimming physics applied");
+        DebugLog($"Swimming physics applied: Drag={waterDrag}, AngularDrag={waterAngularDrag}, Gravity={useGravityWhenSwimming}");
     }
 
     private void RestoreOriginalPhysics()
     {
-        if (rb == null) return;
+        if (rb == null || !physicsStateStored) return;
 
-        // Restore original physics settings
         rb.linearDamping = originalDrag;
         rb.angularDamping = originalAngularDrag;
         rb.useGravity = originalUseGravity;
 
-        DebugLog("Original physics restored");
+        DebugLog($"Original physics restored: Drag={originalDrag}, AngularDrag={originalAngularDrag}, Gravity={originalUseGravity}");
     }
 
+    /// <summary>
+    /// FIXED: Always calculate direction, including zero input for proper stopping
+    /// </summary>
     private void CalculateSwimDirection()
     {
-        if (playerController?.playerCamera == null) return;
-
-        // Only calculate direction if we have movement input
-        if (movementInput.magnitude < 0.1f && !isDiving && !isSurfacingActive)
+        if (playerController?.playerCamera == null)
         {
             swimDirection = Vector3.zero;
             return;
@@ -236,29 +297,33 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         Vector3 forward = playerController.playerCamera.GetCameraForward();
         Vector3 right = playerController.playerCamera.GetCameraRight();
 
-        // Calculate horizontal movement direction only if we have input
+        // FIXED: Always calculate direction, even for zero input
         Vector3 horizontalDirection = Vector3.zero;
         if (movementInput.magnitude > 0.1f)
         {
             horizontalDirection = (forward * movementInput.y + right * movementInput.x).normalized;
         }
 
-        // Calculate vertical component based on input state
+        // Calculate vertical component
         Vector3 verticalDirection = Vector3.zero;
-
         if (isDiving)
         {
             verticalDirection = Vector3.down;
         }
-        // Note: Surfacing is now handled separately in ApplySurfacingForce()
 
-        // Combine horizontal and vertical movement
+        // Combine directions
         swimDirection = horizontalDirection + verticalDirection;
 
-        // Normalize if we have both horizontal and vertical input
+        // Normalize if needed
         if (swimDirection.magnitude > 1f)
         {
             swimDirection.Normalize();
+        }
+
+        // FIXED: Explicit zero when no input
+        if (movementInput.magnitude < 0.1f && !isDiving && !isSurfacingActive)
+        {
+            swimDirection = Vector3.zero;
         }
     }
 
@@ -267,7 +332,6 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         if (playerController == null || rb == null) return;
 
         UpdateWaterPhysics();
-        UpdateSurfacingTimer();
         ApplySwimmingMovement();
         ApplyBuoyancy();
         ApplySurfacingForce();
@@ -284,19 +348,19 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
 
         waterDepth = waterDetector.FeetDepth;
         isNearSurface = waterDepth < minDiveDepth;
-
-        // Adjust buoyancy based on proximity to surface
         currentBuoyancy = isNearSurface ? buoyancyForce * surfaceBuoyancyMultiplier : buoyancyForce;
     }
 
+    /// <summary>
+    /// FIXED: Improved movement application with better stopping behavior
+    /// </summary>
     private void ApplySwimmingMovement()
     {
         Vector3 targetVelocity = Vector3.zero;
 
-        // Only apply movement if we have a swim direction
+        // Calculate target velocity based on swim direction
         if (swimDirection.magnitude > 0.01f)
         {
-            // Calculate target velocity when moving
             float targetSpeed = GetCurrentSwimSpeed();
             targetVelocity = swimDirection * targetSpeed;
         }
@@ -304,167 +368,112 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         // Get current velocity
         Vector3 currentVelocity = rb.linearVelocity;
 
-        // Calculate force needed to reach target velocity
+        // Calculate force needed
         Vector3 velocityDifference = targetVelocity - currentVelocity;
 
-        // Use different acceleration for speeding up vs slowing down
+        // Use different acceleration for movement vs stopping
         float acceleration = (swimDirection.magnitude > 0.01f) ? swimAcceleration : swimDeceleration;
 
         Vector3 force = velocityDifference * acceleration;
-
-        // Limit maximum force to prevent excessive acceleration
         force = Vector3.ClampMagnitude(force, maxSwimSpeed * acceleration);
 
         rb.AddForce(force, ForceMode.Acceleration);
 
-        // Apply extra strong drag when not moving to prevent any residual movement
+        // FIXED: Enhanced stopping force when no input
         if (swimDirection.magnitude < 0.01f)
         {
             Vector3 horizontalVelocity = new Vector3(currentVelocity.x, 0, currentVelocity.z);
             if (horizontalVelocity.magnitude > 0.1f)
             {
-                // Much stronger drag when completely stopped
-                rb.AddForce(-horizontalVelocity * (stopDrag * 2f), ForceMode.Acceleration);
+                // Stronger stopping force
+                Vector3 stopForce = -horizontalVelocity * stopDrag;
+                rb.AddForce(stopForce, ForceMode.Acceleration);
             }
         }
     }
 
+    /// <summary>
+    /// FIXED: Balanced buoyancy application that accounts for diving vs surfacing
+    /// </summary>
     private void ApplyBuoyancy()
     {
         if (!waterDetector.IsInWater) return;
 
-        // Calculate buoyancy based on depth - deeper = more buoyancy needed to counteract gravity
         float adjustedBuoyancy = CalculateDepthAdjustedBuoyancy();
-
         Vector3 buoyancyVector = Vector3.up * adjustedBuoyancy;
 
-        // Reduce buoyancy if player is actively diving
+        // FIXED: Different buoyancy handling for diving vs surfacing
         if (isDiving)
         {
-            buoyancyVector *= 0.1f; // Significantly reduce when diving
-        }
+            // OPTION 1: Stronger buoyancy reduction for diving
+            buoyancyVector *= 0.05f; // Further reduced from 0.1f
 
-        // Reduce buoyancy if player is actively surfacing (let surfacing force take priority)
-        if (isSurfacingActive)
+            // OPTION 2: Counter gravity when diving for more control
+            if (!useGravityForDiving)
+            {
+                // Add upward force to counteract gravity partially
+                float gravityCounter = Mathf.Abs(Physics.gravity.y) * rb.mass * (1f - diveGravityMultiplier);
+                buoyancyVector += Vector3.up * gravityCounter;
+            }
+        }
+        else if (isSurfacingActive)
         {
-            buoyancyVector *= 0.2f;
+            // FIXED: Slightly more buoyancy when surfacing
+            buoyancyVector *= 0.3f; // Increased from 0.2f
         }
 
         rb.AddForce(buoyancyVector, ForceMode.Acceleration);
 
-        // Apply additional diving force when actively diving
+        // FIXED: Enhanced diving force application with gravity consideration
         if (isDiving && waterDepth > minDiveDepth)
         {
-            rb.AddForce(Vector3.down * diveForce, ForceMode.Acceleration);
+            ApplyDivingForce();
         }
     }
 
     /// <summary>
-    /// Calculate buoyancy that balances gravity based on water depth
+    /// NEW: Separate diving force application for better control
     /// </summary>
-    private float CalculateDepthAdjustedBuoyancy()
+    private void ApplyDivingForce()
     {
-        // At surface: minimal buoyancy (let gravity work)
-        // At depth: full buoyancy to counteract gravity and provide neutral buoyancy
+        // Calculate diving force that accounts for existing gravity
+        float effectiveDiveForce = diveForce;
 
-        if (isNearSurface)
+        // OPTION 1: Reduce dive force to account for gravity already pulling down
+        if (useGravityForDiving)
         {
-            // Very close to surface - minimal buoyancy to prevent floating above water
-            float surfaceDepth = Mathf.Max(0.01f, waterDepth);
-            float surfaceBuoyancyRatio = Mathf.Clamp01(surfaceDepth / neutralBuoyancyDepth);
-            return buoyancyForce * surfaceBuoyancyRatio * 0.3f; // Much reduced at surface
-        }
-        else
-        {
-            // Underwater - provide enough buoyancy to counteract gravity for neutral buoyancy
-            float gravityMagnitude = Mathf.Abs(Physics.gravity.y);
-            float neutralBuoyancy = gravityMagnitude * rb.mass;
-
-            // Add some extra buoyancy based on settings, but not too much
-            return neutralBuoyancy + (buoyancyForce * 0.5f);
-        }
-    }
-
-    private void ApplyRotationTowardsMovement()
-    {
-        if (!IsMoving || swimDirection.magnitude < 0.1f) return;
-
-        // Calculate target rotation based on movement direction
-        Quaternion targetRotation = Quaternion.LookRotation(swimDirection);
-
-        // Smoothly rotate towards target
-        float rotationSpeedMultiplier = isFastSwimming ? rotationSpeed * 1.5f : rotationSpeed;
-        rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, rotationSpeedMultiplier * Time.fixedDeltaTime));
-    }
-
-    private float GetCurrentSwimSpeed()
-    {
-        float baseSpeed = isFastSwimming ? fastSwimSpeed : swimSpeed;
-
-        // Apply vertical speed modifier for diving/surfacing
-        if (Mathf.Abs(swimDirection.y) > 0.1f)
-        {
-            float verticalSpeedRatio = verticalSwimSpeed / swimSpeed;
-            baseSpeed *= verticalSpeedRatio;
+            // Since gravity is already pulling down, we need less additional force
+            effectiveDiveForce = diveForce * 0.6f;
         }
 
-        // Apply surface penalty - swimming at surface is slightly slower
-        if (isNearSurface && !isDiving)
-        {
-            baseSpeed *= 0.8f;
-        }
+        // OPTION 2: Apply consistent diving force regardless of gravity
+        // This gives more predictable diving speed
+        Vector3 diveVector = Vector3.down * effectiveDiveForce;
 
-        return baseSpeed;
+        // FIXED: Apply diving force
+        rb.AddForce(diveVector, ForceMode.Acceleration);
+
+        DebugLog($"Applied diving force: {effectiveDiveForce:F1}, UseGravity: {useGravityForDiving}");
     }
 
     /// <summary>
-    /// Starts the surfacing sequence with sustained upward force
-    /// </summary>
-    private void StartSurfacing()
-    {
-        isSurfacingActive = true;
-        surfacingTimer = surfacingDuration;
-
-        // Stop diving when surfacing
-        if (isDiving)
-        {
-            isDiving = false;
-            IsSecondaryActive = false;
-        }
-
-        DebugLog($"Surfacing started - will apply force for {surfacingDuration} seconds");
-    }
-
-    /// <summary>
-    /// Updates the surfacing timer
-    /// </summary>
-    private void UpdateSurfacingTimer()
-    {
-        if (isSurfacingActive)
-        {
-            surfacingTimer -= Time.fixedDeltaTime;
-            if (surfacingTimer <= 0f)
-            {
-                isSurfacingActive = false;
-                DebugLog("Surfacing sequence completed");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Applies sustained surfacing force when surfacing is active
+    /// FIXED: Enhanced surfacing force with gravity compensation
     /// </summary>
     private void ApplySurfacingForce()
     {
         if (!isSurfacingActive || !waterDetector.IsInWater) return;
 
-        // Apply strong upward force during surfacing
+        // FIXED: Calculate surface force that properly counters gravity
         float surfaceForceToApply = surfaceForce;
 
-        // Reduce force as we get closer to surface
+        // Add extra force to counter gravity for more responsive surfacing
+        float gravityCompensation = Mathf.Abs(Physics.gravity.y) * rb.mass;
+        surfaceForceToApply += gravityCompensation * 0.5f; // 50% gravity compensation
+
+        // Reduce force as we get closer to surface for smoother control
         if (isNearSurface)
         {
-            surfaceForceToApply *= 0.5f;
+            surfaceForceToApply *= 0.8f; // Slightly reduced from 0.7f
         }
 
         rb.AddForce(Vector3.up * surfaceForceToApply, ForceMode.Acceleration);
@@ -475,19 +484,98 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         {
             rb.AddForce(-horizontalVelocity * (waterDrag * 0.3f), ForceMode.Acceleration);
         }
+
+        DebugLog($"Applied surface force: {surfaceForceToApply:F1}, GravityComp: {gravityCompensation * 0.5f:F1}");
     }
 
     /// <summary>
-    /// Force surface - makes player quickly swim to surface
+    /// ALTERNATIVE: Gravity override system for balanced diving/surfacing
     /// </summary>
+    private void ApplyGravityOverride()
+    {
+        if (!waterDetector.IsInWater) return;
+
+        // Override gravity when diving or surfacing for more control
+        if (isDiving || isSurfacingActive)
+        {
+            // Cancel out Unity's gravity and apply our own controlled vertical force
+            Vector3 gravityCancel = -Physics.gravity * rb.mass;
+            rb.AddForce(gravityCancel, ForceMode.Acceleration);
+
+            if (isDiving)
+            {
+                // Apply controlled downward force
+                rb.AddForce(Vector3.down * diveForce, ForceMode.Acceleration);
+            }
+            else if (isSurfacingActive)
+            {
+                // Apply controlled upward force
+                rb.AddForce(Vector3.up * surfaceForce, ForceMode.Acceleration);
+            }
+        }
+    }
+
+    private float CalculateDepthAdjustedBuoyancy()
+    {
+        if (isNearSurface)
+        {
+            float surfaceDepth = Mathf.Max(0.01f, waterDepth);
+            float surfaceBuoyancyRatio = Mathf.Clamp01(surfaceDepth / neutralBuoyancyDepth);
+            return buoyancyForce * surfaceBuoyancyRatio * 0.3f;
+        }
+        else
+        {
+            float gravityMagnitude = Mathf.Abs(Physics.gravity.y);
+            float neutralBuoyancy = gravityMagnitude * rb.mass;
+            return neutralBuoyancy + (buoyancyForce * 0.5f);
+        }
+    }
+
+    private void ApplyRotationTowardsMovement()
+    {
+        if (!IsMoving || swimDirection.magnitude < 0.1f) return;
+
+        Quaternion targetRotation = Quaternion.LookRotation(swimDirection);
+        float rotationSpeedMultiplier = isFastSwimming ? rotationSpeed * 1.5f : rotationSpeed;
+        rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, rotationSpeedMultiplier * Time.fixedDeltaTime));
+    }
+
+    private float GetCurrentSwimSpeed()
+    {
+        float baseSpeed = isFastSwimming ? fastSwimSpeed : swimSpeed;
+
+        if (Mathf.Abs(swimDirection.y) > 0.1f)
+        {
+            float verticalSpeedRatio = verticalSwimSpeed / swimSpeed;
+            baseSpeed *= verticalSpeedRatio;
+        }
+
+        if (isNearSurface && !isDiving)
+        {
+            baseSpeed *= 0.8f;
+        }
+
+        return baseSpeed;
+    }
+
+    private void StartSurfacing()
+    {
+        isSurfacingActive = true;
+
+        if (isDiving)
+        {
+            isDiving = false;
+            IsSecondaryActive = false;
+        }
+
+    }
+
     public void ForceSurface()
     {
         if (rb == null || !waterDetector.IsInWater) return;
 
-        // Use the new surfacing system
         StartSurfacing();
 
-        // Also apply immediate upward velocity for instant response
         Vector3 currentVelocity = rb.linearVelocity;
         currentVelocity.y = Mathf.Max(currentVelocity.y, surfaceForce * 0.1f);
         rb.linearVelocity = currentVelocity;
@@ -495,9 +583,6 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         DebugLog("Force surface applied with immediate velocity boost");
     }
 
-    /// <summary>
-    /// Check if player can exit water (near surface with low vertical velocity)
-    /// </summary>
     public bool CanExitWater()
     {
         if (waterDetector == null) return false;
@@ -508,9 +593,6 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         return nearSurface && slowVerticalMovement;
     }
 
-    /// <summary>
-    /// Gets swimming state information for debugging
-    /// </summary>
     public string GetSwimmingStateInfo()
     {
         return $"Swimming - Speed: {GetCurrentSwimSpeed():F1}m/s, " +
@@ -532,7 +614,6 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
     {
         if (!showDebugGizmos || !Application.isPlaying) return;
 
-        // Draw swim direction
         if (swimDirection.magnitude > 0.1f)
         {
             Gizmos.color = Color.cyan;
@@ -540,14 +621,12 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
             Gizmos.DrawWireSphere(transform.position + swimDirection * 2f, 0.1f);
         }
 
-        // Draw velocity
         if (rb != null)
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawRay(transform.position, rb.linearVelocity);
         }
 
-        // Draw surfacing force visualization
         if (waterDetector != null && waterDetector.IsInWater)
         {
             if (isSurfacingActive)
@@ -565,7 +644,6 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
             }
         }
 
-        // Draw water depth indicator
         if (waterDetector != null)
         {
             Gizmos.color = isNearSurface ? Color.green : Color.blue;
@@ -576,50 +654,10 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         }
 
 #if UNITY_EDITOR
-        // Draw swimming state info
         string stateInfo = GetSwimmingStateInfo();
         UnityEditor.Handles.Label(transform.position + Vector3.up * 2f, stateInfo);
 #endif
     }
-
-    #endregion
-
-    #region Editor Helpers
-
-#if UNITY_EDITOR
-    [ContextMenu("Force Surface")]
-    private void Editor_ForceSurface()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Force surface only works in play mode");
-            return;
-        }
-        ForceSurface();
-    }
-
-    [ContextMenu("Toggle Diving")]
-    private void Editor_ToggleDiving()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Toggle diving only works in play mode");
-            return;
-        }
-        HandleSecondaryAction();
-    }
-
-    [ContextMenu("Log Swimming State")]
-    private void Editor_LogSwimmingState()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Swimming state logging only works in play mode");
-            return;
-        }
-        Debug.Log(GetSwimmingStateInfo());
-    }
-#endif
 
     #endregion
 }

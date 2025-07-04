@@ -82,11 +82,26 @@ public class GroundMovementController : MonoBehaviour, IMovementController
 
     public void HandlePrimaryAction()
     {
-        // Jump logic
+        // FIXED: Enhanced jump logic with debug logging
         if (IsGrounded && !isCrouching)
         {
             Jump();
         }
+        else
+        {
+            Debug.Log($"[GroundMovementController] Jump blocked - IsGrounded: {IsGrounded}, IsCrouching: {isCrouching}");
+        }
+    }
+
+    /// <summary>
+    /// UPDATED: GroundMovementController implementation of HandlePrimaryActionReleased
+    /// Ground movement doesn't need release handling for jump, so this is empty
+    /// </summary>
+    public void HandlePrimaryActionReleased()
+    {
+        // Ground movement doesn't need primary action release handling
+        // Jump is instantaneous, not continuous
+        // This method is here to satisfy the interface
     }
 
     public void HandleSecondaryAction()
@@ -117,6 +132,14 @@ public class GroundMovementController : MonoBehaviour, IMovementController
     public void OnControllerActivated()
     {
         Debug.Log("[GroundMovementController] Controller activated");
+
+        // FIXED: Ensure physics are properly set when activated
+        if (rb != null)
+        {
+            rb.useGravity = true;
+            rb.freezeRotation = true;
+            Debug.Log($"[GroundMovementController] Physics confirmed - Gravity: {rb.useGravity}, FreezeRotation: {rb.freezeRotation}");
+        }
     }
 
     public void OnControllerDeactivated()
@@ -261,13 +284,24 @@ public class GroundMovementController : MonoBehaviour, IMovementController
 
     private void Jump()
     {
-        if (!IsGrounded || rb == null) return;
+        if (!IsGrounded || rb == null)
+        {
+            Debug.Log($"[GroundMovementController] Jump failed - IsGrounded: {IsGrounded}, rb: {rb != null}");
+            return;
+        }
 
         float jumpHeight = playerData?.jumpHeight ?? 2f;
         float jumpForce = Mathf.Sqrt(2f * Mathf.Abs(Physics.gravity.y) * jumpHeight);
+
+        // FIXED: Ensure we clear any downward velocity before jumping
+        Vector3 currentVelocity = rb.linearVelocity;
+        currentVelocity.y = 0f; // Clear downward velocity
+        rb.linearVelocity = currentVelocity;
+
+        // Apply jump force
         rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
-        Debug.Log($"[GroundMovementController] Jump executed - Force: {jumpForce}");
+        Debug.Log($"[GroundMovementController] Jump executed - Force: {jumpForce}, ClearedVelocity: {currentVelocity.y}");
     }
 
     private void StartCrouch()

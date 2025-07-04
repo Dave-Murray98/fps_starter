@@ -774,7 +774,7 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 0
+  m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 112
@@ -997,22 +997,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 91107727df7831244bb65eac9a665763, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  swimSpeed: 4
-  fastSwimSpeed: 6
-  verticalSwimSpeed: 3
+  swimSpeed: 6
+  fastSwimSpeed: 8
+  verticalSwimSpeed: 5
   swimAcceleration: 15
   swimDeceleration: 10
-  buoyancyForce: 20
+  buoyancyForce: 0
   waterDrag: 5
   waterAngularDrag: 5
   surfaceBuoyancyMultiplier: 2
+  neutralBuoyancyDepth: 0.5
   diveForce: 15
-  surfaceForce: 20
+  surfaceForce: 30
   minDiveDepth: 0.5
-  useGravityWhenSwimming: 0
+  useGravityForDiving: 0
+  diveGravityMultiplier: 0.3
+  useGravityWhenSwimming: 1
   maxSwimSpeed: 8
   enableRotationTowardsMovement: 0
   rotationSpeed: 2
+  stopDrag: 12
   enableDebugLogs: 1
   showDebugGizmos: 1
 --- !u!1 &8863942212892959195

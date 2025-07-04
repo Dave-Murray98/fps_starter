@@ -12,7 +12,7 @@ public class EntityData : ScriptableObject
     public float walkSpeed = 5f;
     public float runSpeed = 8f;
     public float crouchSpeed = 2.5f;
-    public float jumpHeight = 2f;
+    public float jumpHeight = 4f;
     public float gravity = -9.81f;
     public float stopForce = 10f; // Force applied to stop the character when not moving
 

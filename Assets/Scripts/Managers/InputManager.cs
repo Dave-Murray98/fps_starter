@@ -113,27 +113,72 @@ public class InputManager : MonoBehaviour, IManager
     {
         isCleanedUp = false;
         SetupInputActions();
+
+        // CRITICAL FIX: Enable UI actions first (always active)
+        if (uiActionMap != null)
+        {
+            uiActionMap.Enable();
+            Debug.Log("[InputManager] UI ActionMap enabled");
+        }
+
+        // CRITICAL FIX: Enable core movement actions
+        if (coreMovementActionMap != null)
+        {
+            coreMovementActionMap.Enable();
+            Debug.Log("[InputManager] Core Movement ActionMap enabled");
+        }
+
+        // CRITICAL FIX: Set initial movement mode BEFORE enabling gameplay input
+        currentMovementMode = MovementMode.Ground;
+        currentMovementActionMap = groundLocomotionActionMap;
+
+        // CRITICAL FIX: Now enable gameplay input which will enable the current movement action map
         EnableGameplayInput();
 
         // Subscribe to game events
         GameEvents.OnGamePaused += DisableGameplayInput;
         GameEvents.OnGameResumed += EnableGameplayInput;
 
-        // Set initial movement mode
-        SetMovementMode(MovementMode.Ground);
+        Debug.Log($"[InputManager] Initialize complete - Current mode: {currentMovementMode}, ActionMap: {currentMovementActionMap?.name}");
+
+        // Notify that InputManager is ready
+        StartCoroutine(NotifyInputManagerReady());
+    }
+
+    /// <summary>
+    /// FIXED: Ensures input manager ready notification happens after full setup
+    /// </summary>
+    private System.Collections.IEnumerator NotifyInputManagerReady()
+    {
+        yield return null; // Wait one frame to ensure everything is set up
 
         // Notify that InputManager is ready
         OnInputManagerReady?.Invoke(this);
+        Debug.Log($"[InputManager] Ready notification sent - ID: {GetInstanceID()}");
     }
 
+    /// <summary>
+    /// CRITICAL FIX: Enhanced RefreshReferences to ensure proper ActionMap setup
+    /// </summary>
     public void RefreshReferences()
     {
         if (!isCleanedUp)
         {
+            Debug.Log("[InputManager] RefreshReferences called - re-enabling gameplay input");
+
+            // CRITICAL FIX: Ensure we're in the correct movement mode
+            if (currentMovementActionMap == null)
+            {
+                Debug.LogWarning("[InputManager] currentMovementActionMap is null during refresh - resetting to ground");
+                currentMovementMode = MovementMode.Ground;
+                currentMovementActionMap = groundLocomotionActionMap;
+            }
+
             EnableGameplayInput();
             OnInputManagerReady?.Invoke(this);
         }
     }
+
 
     public void Cleanup()
     {
@@ -165,16 +210,22 @@ public class InputManager : MonoBehaviour, IManager
     #region Movement Mode Management
 
     /// <summary>
-    /// Switches between movement contexts (Ground, Swimming, Vehicle)
+    /// CRITICAL FIX: Enhanced movement mode switching with explicit ActionMap management
     /// </summary>
     public void SetMovementMode(MovementMode mode)
     {
         if (currentMovementMode == mode) return;
 
-        // Disable current movement action map
-        currentMovementActionMap?.Disable();
+        Debug.Log($"[InputManager] Switching movement mode: {currentMovementMode} -> {mode}");
 
-        // Enable new movement action map
+        // CRITICAL FIX: Properly disable current movement action map
+        if (currentMovementActionMap != null)
+        {
+            currentMovementActionMap.Disable();
+            Debug.Log($"[InputManager] Disabled ActionMap: {currentMovementActionMap.name}");
+        }
+
+        // CRITICAL FIX: Set new movement action map
         switch (mode)
         {
             case MovementMode.Ground:
@@ -183,16 +234,22 @@ public class InputManager : MonoBehaviour, IManager
             case MovementMode.Swimming:
                 currentMovementActionMap = swimmingActionMap;
                 break;
-                // case MovementMode.Vehicle: // Future
-        }
-
-        if (gameplayInputEnabled)
-        {
-            currentMovementActionMap?.Enable();
         }
 
         currentMovementMode = mode;
-        Debug.Log($"[InputManager] Switched to movement mode: {mode}");
+
+        // CRITICAL FIX: Enable new movement action map if gameplay input is enabled
+        if (gameplayInputEnabled && currentMovementActionMap != null)
+        {
+            currentMovementActionMap.Enable();
+            Debug.Log($"[InputManager] Enabled ActionMap: {currentMovementActionMap.name}");
+        }
+        else
+        {
+            Debug.LogWarning($"[InputManager] Could not enable ActionMap - gameplayInputEnabled: {gameplayInputEnabled}, currentMovementActionMap: {currentMovementActionMap?.name ?? "null"}");
+        }
+
+        Debug.Log($"[InputManager] Movement mode change complete: {mode}");
     }
 
     /// <summary>
@@ -221,19 +278,101 @@ public class InputManager : MonoBehaviour, IManager
     }
 
     /// <summary>
-    /// Enables all gameplay input (called when unpaused)
+    /// CRITICAL FIX: Enhanced gameplay input enabling with explicit ActionMap control
     /// </summary>
     public void EnableGameplayInput()
     {
         if (isCleanedUp) return;
 
         gameplayInputEnabled = true;
-        coreMovementActionMap?.Enable();
-        currentMovementActionMap?.Enable();
-        gameplayActionMap?.Enable();
-        inventoryActionMap?.Enable();
 
-        Debug.Log("[InputManager] Gameplay input enabled");
+        // Enable core systems first
+        if (coreMovementActionMap != null)
+        {
+            coreMovementActionMap.Enable();
+            Debug.Log("[InputManager] Core Movement ActionMap enabled");
+        }
+
+        // CRITICAL FIX: Enable current movement action map
+        if (currentMovementActionMap != null)
+        {
+            currentMovementActionMap.Enable();
+            Debug.Log($"[InputManager] Current Movement ActionMap enabled: {currentMovementActionMap.name}");
+        }
+        else
+        {
+            Debug.LogError("[InputManager] currentMovementActionMap is null! This should not happen.");
+
+            // EMERGENCY FIX: Force set to ground locomotion if null
+            if (groundLocomotionActionMap != null)
+            {
+                currentMovementActionMap = groundLocomotionActionMap;
+                currentMovementActionMap.Enable();
+                Debug.Log("[InputManager] EMERGENCY: Forced ground locomotion ActionMap");
+            }
+        }
+
+        // Enable other gameplay systems
+        if (gameplayActionMap != null)
+        {
+            gameplayActionMap.Enable();
+            Debug.Log("[InputManager] Gameplay ActionMap enabled");
+        }
+
+        if (inventoryActionMap != null)
+        {
+            inventoryActionMap.Enable();
+            Debug.Log("[InputManager] Inventory ActionMap enabled");
+        }
+
+        Debug.Log($"[InputManager] EnableGameplayInput complete - Current mode: {currentMovementMode}");
+
+        // CRITICAL FIX: Verify all expected ActionMaps are enabled
+        VerifyActionMapStates();
+    }
+
+    /// <summary>
+    /// CRITICAL FIX: Verification method to ensure ActionMaps are in expected states
+    /// </summary>
+    private void VerifyActionMapStates()
+    {
+        Debug.Log("=== INPUT MANAGER ACTIONMAP VERIFICATION ===");
+
+        if (uiActionMap != null)
+            Debug.Log($"UI ActionMap: {uiActionMap.name} - Enabled: {uiActionMap.enabled}");
+
+        if (coreMovementActionMap != null)
+            Debug.Log($"Core Movement ActionMap: {coreMovementActionMap.name} - Enabled: {coreMovementActionMap.enabled}");
+
+        if (groundLocomotionActionMap != null)
+            Debug.Log($"Ground Locomotion ActionMap: {groundLocomotionActionMap.name} - Enabled: {groundLocomotionActionMap.enabled}");
+
+        if (swimmingActionMap != null)
+            Debug.Log($"Swimming ActionMap: {swimmingActionMap.name} - Enabled: {swimmingActionMap.enabled}");
+
+        if (gameplayActionMap != null)
+            Debug.Log($"Gameplay ActionMap: {gameplayActionMap.name} - Enabled: {gameplayActionMap.enabled}");
+
+        if (inventoryActionMap != null)
+            Debug.Log($"Inventory ActionMap: {inventoryActionMap.name} - Enabled: {inventoryActionMap.enabled}");
+
+        Debug.Log($"Current Movement Mode: {currentMovementMode}");
+        Debug.Log($"Current Movement ActionMap: {currentMovementActionMap?.name ?? "NULL"} - Enabled: {currentMovementActionMap?.enabled ?? false}");
+
+        // CRITICAL CHECK: Verify ground locomotion actions
+        if (currentMovementMode == MovementMode.Ground)
+        {
+            if (jumpAction != null)
+                Debug.Log($"Jump Action: {jumpAction.name} - Enabled: {jumpAction.enabled} - ActionMap Enabled: {jumpAction.actionMap?.enabled ?? false}");
+
+            if (sprintAction != null)
+                Debug.Log($"Sprint Action: {sprintAction.name} - Enabled: {sprintAction.enabled} - ActionMap Enabled: {sprintAction.actionMap?.enabled ?? false}");
+
+            if (crouchAction != null)
+                Debug.Log($"Crouch Action: {crouchAction.name} - Enabled: {crouchAction.enabled} - ActionMap Enabled: {crouchAction.actionMap?.enabled ?? false}");
+        }
+
+        Debug.Log("============================================");
     }
 
     private void DisableAllInputActions()
