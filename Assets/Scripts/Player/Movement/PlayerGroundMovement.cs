@@ -223,7 +223,7 @@ public class PlayerGroundMovement : MonoBehaviour
     public void SetSprinting(bool running) => isSprinting = running;
 
     // State change notification
-    public void OnMovementStateChanged(GroundMovementState previousState, GroundMovementState newState)
+    public void OnMovementStateChanged(MovementState previousState, MovementState newState)
     {
         // Handle any movement-specific state change logic here
     }

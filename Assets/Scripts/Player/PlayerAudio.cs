@@ -71,7 +71,7 @@ public class PlayerAudio : MonoBehaviour
     private void PlayFootstep()
     {
         if (footstepAudioSource == null) return;
-        AudioClip[] footstepClips = GetFootstepClipsForSurface(playerController.movement.CurrentGroundType);
+        AudioClip[] footstepClips = GetFootstepClipsForSurface(playerController.groundMovementController.CurrentGroundType);
 
         if (footstepClips != null && footstepClips.Length > 0)
         {
@@ -114,12 +114,12 @@ public class PlayerAudio : MonoBehaviour
             effectSource.PlayOneShot(landClip, 0.8f);
     }
 
-    internal void OnMovementStateChanged(GroundMovementState previousMovementState, GroundMovementState newMovementState)
+    internal void OnMovementStateChanged(MovementState previousMovementState, MovementState newMovementState)
     {
-        if (newMovementState == GroundMovementState.Jumping && previousMovementState != GroundMovementState.Jumping)
+        if (newMovementState == MovementState.Jumping && previousMovementState != MovementState.Jumping)
             PlayJumpSound();
 
-        if (newMovementState == GroundMovementState.Idle && previousMovementState == GroundMovementState.Falling)
+        if (newMovementState == MovementState.Idle && previousMovementState == MovementState.Falling)
             PlayLandSound();
     }
 }

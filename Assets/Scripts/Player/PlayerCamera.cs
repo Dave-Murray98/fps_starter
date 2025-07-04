@@ -396,10 +396,10 @@ public class PlayerCamera : MonoBehaviour
     public void SetLookInput(Vector2 input) => lookInput = input;
 
     // State change notification
-    public void OnMovementStateChanged(GroundMovementState previousState, GroundMovementState newState)
+    public void OnMovementStateChanged(MovementState previousState, MovementState newState)
     {
         // Reset bob timer when transitioning to/from idle
-        if (previousState == GroundMovementState.Idle || newState == GroundMovementState.Idle)
+        if (previousState == MovementState.Idle || newState == MovementState.Idle)
         {
             bobTimer = 0f;
         }
@@ -407,21 +407,21 @@ public class PlayerCamera : MonoBehaviour
         // Handle FOV changes based on state
         switch (newState)
         {
-            case GroundMovementState.Running:
+            case MovementState.Running:
                 SetRunningFOV();
                 break;
-            case GroundMovementState.Crouching:
+            case MovementState.Crouching:
                 SetCrouchingFOV();
                 break;
-            case GroundMovementState.Walking:
-            case GroundMovementState.Idle:
+            case MovementState.Walking:
+            case MovementState.Idle:
                 SetNormalFOV();
                 break;
         }
 
         // Camera shake on landing - trigger for ANY grounded state after falling
-        if (previousState == GroundMovementState.Falling &&
-            (newState == GroundMovementState.Idle || newState == GroundMovementState.Walking || newState == GroundMovementState.Running))
+        if (previousState == MovementState.Falling &&
+            (newState == MovementState.Idle || newState == MovementState.Walking || newState == MovementState.Running))
         {
             //Debug.Log($"Landing detected: {previousState} → {newState} - triggering shake");
             PlayLandingShake();

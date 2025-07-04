@@ -129,6 +129,37 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!1 &2684741086279512794
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8765362138868653503}
+  m_Layer: 6
+  m_Name: Feet
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8765362138868653503
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2684741086279512794}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.9, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 812140022349102725}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2722009498164535054
 GameObject:
   m_ObjectHideFlags: 0
@@ -469,6 +500,102 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!1 &5628327833265001858
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7515739938124579561}
+  m_Layer: 6
+  m_Name: Head
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7515739938124579561
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5628327833265001858}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.4, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 812140022349102725}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7597922238368805177
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 812140022349102725}
+  m_Layer: 6
+  m_Name: WaterHeightDetectionTransforms
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &812140022349102725
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7597922238368805177}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7515739938124579561}
+  - {fileID: 9124941376555367683}
+  - {fileID: 8765362138868653503}
+  m_Father: {fileID: 2191865824696234482}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7602415691401717707
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9124941376555367683}
+  m_Layer: 6
+  m_Name: Chest
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9124941376555367683
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7602415691401717707}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 812140022349102725}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8751534629185110387
 GameObject:
   m_ObjectHideFlags: 0
@@ -516,12 +643,14 @@ GameObject:
   - component: {fileID: 6600956315893582412}
   - component: {fileID: 7237429830213187544}
   - component: {fileID: 5026250899846009166}
-  - component: {fileID: 5584297369560187998}
   - component: {fileID: 3165935447440300241}
   - component: {fileID: 5255883665865847148}
   - component: {fileID: 3657837451461529809}
   - component: {fileID: 9014781814499418554}
   - component: {fileID: 8571626392060770434}
+  - component: {fileID: 8443148236753306099}
+  - component: {fileID: 594916656411516035}
+  - component: {fileID: 6533242269200131884}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -544,6 +673,7 @@ Transform:
   m_Children:
   - {fileID: 508227566044439791}
   - {fileID: 3545627277458070859}
+  - {fileID: 812140022349102725}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &458099597814126668
@@ -661,9 +791,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1edf5b68598f4e14e8a4a3cf827e986d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  movement: {fileID: 5584297369560187998}
   playerCamera: {fileID: 3165935447440300241}
   playerAudio: {fileID: 5255883665865847148}
+  waterDetector: {fileID: 8443148236753306099}
+  groundMovementController: {fileID: 594916656411516035}
+  swimmingMovementController: {fileID: 6533242269200131884}
   currentState: 0
   previousState: 0
   canMove: 1
@@ -671,27 +803,11 @@ MonoBehaviour:
   canSprint: 1
   canCrouch: 1
   canLook: 1
+  canSwim: 1
   interactionController: {fileID: 8571626392060770434}
   canInteract: 1
---- !u!114 &5584297369560187998
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8847058725108387975}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 73d1629d985496947a622d97767d12f3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  groundMask:
-    serializedVersion: 2
-    m_Bits: 8
-  groundCheckDistance: 0.1
-  slopeLimit: 45
-  showGroundDebug: 0
-  rb: {fileID: 0}
+  waterTransitionDelay: 0.1
+  enableDebugLogs: 1
 --- !u!114 &3165935447440300241
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -822,6 +938,83 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   canInteract: 1
   enableDebugLogs: 1
+--- !u!114 &8443148236753306099
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8847058725108387975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67313a7cddb349543ad50fe2c0ed1c6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  waterLayerMask:
+    serializedVersion: 2
+    m_Bits: 16
+  enableDebugLogs: 1
+  showDebugGizmos: 1
+  feetPoint: {fileID: 8765362138868653503}
+  chestPoint: {fileID: 9124941376555367683}
+  headPoint: {fileID: 7515739938124579561}
+  autoCreateDetectionPoints: 0
+  feetOffset: 0.1
+  chestOffset: 1
+  headOffset: 1.4
+  waterEntryThreshold: 0.1
+  waterExitThreshold: 0.05
+  underwaterThreshold: 0.1
+--- !u!114 &594916656411516035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8847058725108387975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e22da0ae245a71549aadbd64d0b2a611, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 8
+  groundCheckDistance: 0.1
+  slopeLimit: 45
+  acceleration: 50
+  deceleration: 50
+  showGroundDebug: 0
+--- !u!114 &6533242269200131884
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8847058725108387975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91107727df7831244bb65eac9a665763, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  swimSpeed: 4
+  fastSwimSpeed: 6
+  verticalSwimSpeed: 3
+  swimAcceleration: 15
+  swimDeceleration: 10
+  buoyancyForce: 20
+  waterDrag: 5
+  waterAngularDrag: 5
+  surfaceBuoyancyMultiplier: 2
+  diveForce: 15
+  surfaceForce: 20
+  minDiveDepth: 0.5
+  useGravityWhenSwimming: 0
+  maxSwimSpeed: 8
+  enableRotationTowardsMovement: 0
+  rotationSpeed: 2
+  enableDebugLogs: 1
+  showDebugGizmos: 1
 --- !u!1 &8863942212892959195
 GameObject:
   m_ObjectHideFlags: 0
