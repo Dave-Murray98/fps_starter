@@ -11794,7 +11794,7 @@ MonoBehaviour:
   _debug:
     _drawBounds: 0
     _drawSlicesInEditor: 0
-  _waveBuffers: {fileID: 1698794205}
+  _waveBuffers: {fileID: 0}
 --- !u!1 &998362290
 GameObject:
   m_ObjectHideFlags: 0
@@ -12231,7 +12231,7 @@ Transform:
   m_GameObject: {fileID: 1061979843}
   serializedVersion: 2
   m_LocalRotation: {x: 0.0000000037252899, y: -0, z: -0.0000000074505797, w: 1}
-  m_LocalPosition: {x: -30.223118, y: 7.95146, z: 18.32661}
+  m_LocalPosition: {x: -7.27221, y: 8.080651, z: 34.307896}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -12591,7 +12591,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1171002046
 Transform:
   m_ObjectHideFlags: 0
@@ -14349,43 +14349,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 7451878236314022147, guid: 0693b691865928f4fa10e2f3d0d5f457, type: 3}
   m_PrefabInstance: {fileID: 1695434197}
   m_PrefabAsset: {fileID: 0}
---- !u!84 &1698794205
-RenderTexture:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: GerstnerCascades
-  m_ImageContentsHash:
-    serializedVersion: 2
-    Hash: 00000000000000000000000000000000
-  m_IsAlphaChannelOptional: 0
-  serializedVersion: 6
-  m_Width: 64
-  m_Height: 64
-  m_AntiAliasing: 1
-  m_MipCount: -1
-  m_DepthStencilFormat: 0
-  m_ColorFormat: 48
-  m_MipMap: 0
-  m_GenerateMips: 1
-  m_SRGB: 0
-  m_UseDynamicScale: 0
-  m_UseDynamicScaleExplicit: 0
-  m_BindMS: 0
-  m_EnableCompatibleFormat: 1
-  m_EnableRandomWrite: 1
-  m_TextureSettings:
-    serializedVersion: 2
-    m_FilterMode: 1
-    m_Aniso: 0
-    m_MipBias: 0
-    m_WrapU: 1
-    m_WrapV: 1
-    m_WrapW: 1
-  m_Dimension: 5
-  m_VolumeDepth: 16
-  m_ShadowSamplingMode: 2
 --- !u!1 &1714623904
 GameObject:
   m_ObjectHideFlags: 0
