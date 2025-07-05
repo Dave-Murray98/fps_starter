@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4c635f80577a69348b6b8008c1e72c94
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Props/TreeTrunk/LICENSE.txt
+  uploadId: 690874

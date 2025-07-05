@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 44dc0ab645750fa408485c4a52649262
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Props/Bowling Pin/Material.001.mat
+  uploadId: 690874

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8a6e17bf36d03aa4ab4def0e38caeeef
+timeCreated: 1494186493
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Ships/Racer/Materials/SI-7IZ.mat
+  uploadId: 690874

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 64a5c0300bd8e5540932e9abaaa60649
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Props/Crate/Crate2.mat
+  uploadId: 690874

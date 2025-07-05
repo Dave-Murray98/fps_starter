@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 37c3ab07e7ccbe046ad2301535a80b59
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Common/Models/Character/Character DWP2.prefab
+  uploadId: 690874

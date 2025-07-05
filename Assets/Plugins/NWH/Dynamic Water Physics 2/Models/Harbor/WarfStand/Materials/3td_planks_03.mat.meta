@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 90ae35ed4ca08704ab5a6586854b6686
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Harbor/WarfStand/Materials/3td_planks_03.mat
+  uploadId: 690874

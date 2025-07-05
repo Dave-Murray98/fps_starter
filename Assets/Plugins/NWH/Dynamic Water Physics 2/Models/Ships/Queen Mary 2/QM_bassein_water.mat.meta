@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2350b780afd57274690bfa5b8f1d04a0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Ships/Queen Mary 2/QM_bassein_water.mat
+  uploadId: 690874

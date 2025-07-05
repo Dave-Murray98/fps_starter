@@ -15,7 +15,6 @@ public class PlayerInteractionController : MonoBehaviour
     // Components
     private PlayerController playerController;
     private PlayerInteractionDetector interactionDetector;
-    private InputManager inputManager;
 
     // Current state
     private bool isInteracting = false;
@@ -45,7 +44,6 @@ public class PlayerInteractionController : MonoBehaviour
 
     private void RefreshReferences()
     {
-        inputManager = GameManager.Instance?.inputManager;
         ConnectToInputManager();
     }
 
@@ -56,19 +54,13 @@ public class PlayerInteractionController : MonoBehaviour
 
     private void ConnectToInputManager()
     {
-        // Disconnect from previous input manager
-        if (inputManager != null)
-        {
-            inputManager.OnInteractPressed -= HandleInteractInput;
-        }
+
+        InputManager.Instance.OnInteractPressed -= HandleInteractInput;
 
         // Connect to current input manager
-        inputManager = GameManager.Instance?.inputManager;
-        if (inputManager != null)
-        {
-            inputManager.OnInteractPressed += HandleInteractInput;
-            //DebugLog($"Connected to InputManager: {inputManager.GetInstanceID()}");
-        }
+        InputManager.Instance.OnInteractPressed += HandleInteractInput;
+        //DebugLog($"Connected to InputManager: {inputManager.GetInstanceID()}");
+
     }
 
     private void HandleInteractInput()
@@ -175,9 +167,7 @@ public class PlayerInteractionController : MonoBehaviour
         GameManager.OnManagersRefreshed -= RefreshReferences;
         InputManager.OnInputManagerReady -= OnInputManagerReady;
 
-        if (inputManager != null)
-        {
-            inputManager.OnInteractPressed -= HandleInteractInput;
-        }
+        InputManager.Instance.OnInteractPressed -= HandleInteractInput;
+
     }
 }

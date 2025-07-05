@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a8291d01aabdff24bbfce17c929d5147
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Harbor/WarfStand/MetRoof04.mat
+  uploadId: 690874

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b5e72630399af7343951fcb2d35440c1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Props/Bowling Pin/Bowling
+    Pin.prefab
+  uploadId: 690874

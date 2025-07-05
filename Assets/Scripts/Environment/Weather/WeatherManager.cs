@@ -1,53 +1,57 @@
 using UnityEngine;
 using System.Collections.Generic;
-using System.Linq;
 using Sirenix.OdinInspector;
+using DistantLands.Cozy;
 
 /// <summary>
-/// Main weather system controller that manages weather events and ALL temperature calculations.
-/// Handles base temperature, seasonal effects, day/night cycles, and weather event modifiers.
-/// Integrates with InGameTimeManager for time-based updates but owns all temperature logic.
+/// Enhanced Weather Manager that properly integrates with Cozy Weather 3's native save system.
+/// Uses Cozy's built-in CozySaveLoadModule module for state persistence rather than trying to read
+/// internal state. This provides reliable weather restoration across scene transitions and save/load.
+/// 
+/// COZY-NATIVE APPROACH: Leverages Cozy's own save/load module for maximum compatibility
+/// and reliability. Weather state is handled by Cozy itself, we just coordinate the timing.
 /// </summary>
 public class WeatherManager : MonoBehaviour, IManager
 {
     public static WeatherManager Instance { get; private set; }
 
-    [Header("Weather Events Configuration")]
-    [SerializeField] private List<WeatherEvent> availableWeatherEvents = new List<WeatherEvent>();
-    [SerializeField] private bool enableWeatherEvents = true;
+    [Header("Cozy Integration Settings")]
+    [SerializeField] private bool enableCozyIntegration = true;
+    [SerializeField] private float cozyReadInterval = 0.2f; // How often to read from Cozy
+    [SerializeField] private bool trackWeatherChanges = true;
+    [SerializeField] private bool trackTemperatureChanges = true;
 
-    [Header("Temperature System - Complete")]
-    [SerializeField] private float baseTemperature = 20f; // Base temperature in Celsius
-    [SerializeField] private float seasonalTemperatureVariance = 15f; // How much seasons affect temperature
-    [SerializeField] private AnimationCurve seasonalTemperatureCurve = AnimationCurve.EaseInOut(0f, -1f, 1f, 1f);
-    [SerializeField] private float dayNightTemperatureVariance = 8f; // Day/night temperature variation
-    [SerializeField] private AnimationCurve dayNightTemperatureCurve = AnimationCurve.EaseInOut(0f, -1f, 1f, 1f);
-
-    [Header("Weather Timing")]
-    [SerializeField] private float weatherCheckInterval = 1f; // Game hours between weather checks
-    [SerializeField, Range(0f, 1f)] private float weatherEventChance = 0.15f; // Base chance per check
+    [Header("Save Integration Settings")]
+    [SerializeField] private bool useCozySaveModule = true;
+    [SerializeField] private string cozyDataFileName = "CozyWeatherState";
+    [SerializeField] private float significantTempChange = 0.5f; // °C change to trigger events
 
     [Header("Debug Settings")]
     [SerializeField] private bool showDebugLogs = true;
 
-    // Current weather state
-    [ShowInInspector, ReadOnly] private List<WeatherEventInstance> activeWeatherEvents = new List<WeatherEventInstance>();
+    // Cozy module references
+    [ShowInInspector, ReadOnly] private CozySaveLoadModule cozySaveModule;
+    [ShowInInspector, ReadOnly] private CozyWeatherModule weatherModule;
+    [ShowInInspector, ReadOnly] private CozyClimateModule climateModule;
+    [ShowInInspector, ReadOnly] private bool isCozyConnected = false;
+
+    // Current state read from Cozy
+    [ShowInInspector, ReadOnly] private string currentWeatherName = "Clear";
     [ShowInInspector, ReadOnly] private float currentTemperature = 20f;
-    [ShowInInspector, ReadOnly] private float lastWeatherCheckTime = 0f;
+    [ShowInInspector, ReadOnly] private float currentHumidity = 0.5f;
+    [ShowInInspector, ReadOnly] private float currentPrecipitation = 0f;
 
-    // Temperature breakdown for debugging
-    [ShowInInspector, ReadOnly] private float seasonalModifier = 0f;
-    [ShowInInspector, ReadOnly] private float dayNightModifier = 0f;
-    [ShowInInspector, ReadOnly] private float weatherModifier = 0f;
-
-    // Cached references
-    private InGameTimeManager timeManager;
+    // Change tracking
+    [ShowInInspector, ReadOnly] private string previousWeatherName = "";
+    [ShowInInspector, ReadOnly] private float previousTemperature = 20f;
+    [ShowInInspector, ReadOnly] private float lastCozyReadTime = 0f;
 
     // Events for external systems
-    public static event System.Action<WeatherEventInstance> OnWeatherEventStarted;
-    public static event System.Action<WeatherEventInstance> OnWeatherEventEnded;
-    public static event System.Action<float> OnTemperatureChanged;
-    public static event System.Action<List<WeatherEventInstance>> OnActiveWeatherChanged;
+    public static event System.Action<string> OnWeatherChanged; // Weather profile name
+    public static event System.Action<float> OnTemperatureChanged; // Current temperature
+    public static event System.Action<CozyWeatherData> OnCozyWeatherUpdated; // Complete weather data
+    public static event System.Action OnWeatherSaveComplete;
+    public static event System.Action<bool> OnWeatherLoadComplete; // bool = success
 
     private void Awake()
     {
@@ -55,7 +59,7 @@ public class WeatherManager : MonoBehaviour, IManager
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            //            DebugLog("WeatherManager initialized");
+            DebugLog("WeatherManager initialized with Cozy Weather 3 integration");
         }
         else
         {
@@ -68,542 +72,579 @@ public class WeatherManager : MonoBehaviour, IManager
     public void Initialize()
     {
         RefreshReferences();
-        CalculateCurrentTemperature();
+        ConnectToCozy();
+
+        if (isCozyConnected)
+        {
+            ReadInitialCozyState();
+        }
+
+        DebugLog("WeatherManager initialized - using Cozy Weather 3 native save system");
     }
 
     public void RefreshReferences()
     {
-
-        timeManager = InGameTimeManager.Instance;
-
-        Cleanup();
-
-        if (timeManager != null)
-        {
-            // Subscribe to time events for weather updates
-            InGameTimeManager.OnTimeChanged += HandleTimeChanged;
-            InGameTimeManager.OnSeasonChanged += HandleSeasonChanged;
-        }
-        else
-        {
-            DebugLog("InGameTimeManager not found - weather system may not function properly");
-        }
+        ConnectToCozy();
+        DebugLog("References refreshed");
     }
 
     public void Cleanup()
     {
-        if (timeManager != null)
+        DebugLog("Cleanup completed");
+    }
+
+    #endregion
+
+    private void Update()
+    {
+        if (enableCozyIntegration && isCozyConnected)
         {
-            InGameTimeManager.OnTimeChanged -= HandleTimeChanged;
-            InGameTimeManager.OnSeasonChanged -= HandleSeasonChanged;
+            ReadFromCozy();
+        }
+    }
+
+    #region Cozy Connection and Data Reading
+
+    /// <summary>
+    /// Connects to Cozy Weather 3's modules and save system
+    /// </summary>
+    private void ConnectToCozy()
+    {
+        if (!enableCozyIntegration)
+        {
+            isCozyConnected = false;
+            DebugLog("Cozy integration disabled");
+            return;
+        }
+
+        if (CozyWeather.instance == null)
+        {
+            isCozyConnected = false;
+            DebugLog("CozyWeather.instance not found");
+            return;
+        }
+
+        try
+        {
+            // Connect to weather module
+            weatherModule = CozyWeather.instance.weatherModule;
+
+            // Connect to climate module
+            climateModule = CozyWeather.instance.climateModule;
+
+            // Connect to save/load module
+            if (useCozySaveModule)
+            {
+                cozySaveModule = CozyWeather.instance.GetModule<CozySaveLoadModule>();
+                if (cozySaveModule == null)
+                {
+                    Debug.LogWarning("[WeatherManager] CozySaveLoadModule module not found! Add the Save & Load module to Cozy Weather 3");
+                }
+            }
+
+            bool hasWeatherModule = weatherModule != null;
+            bool hasClimateModule = climateModule != null;
+            bool hasSaveModule = !useCozySaveModule || cozySaveModule != null;
+
+            isCozyConnected = hasWeatherModule && hasSaveModule;
+
+            if (isCozyConnected)
+            {
+                DebugLog($"Connected to Cozy - Weather: {hasWeatherModule}, Climate: {hasClimateModule}, Save: {hasSaveModule}");
+            }
+            else
+            {
+                DebugLog("Failed to connect to required Cozy modules");
+            }
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error connecting to Cozy: {e.Message}");
+            isCozyConnected = false;
+        }
+    }
+
+    /// <summary>
+    /// Reads initial state from Cozy when connecting
+    /// </summary>
+    private void ReadInitialCozyState()
+    {
+        if (!isCozyConnected) return;
+
+        try
+        {
+            ReadCurrentWeather();
+            ReadCurrentTemperature();
+            ReadCurrentClimateData();
+
+            // Initialize previous values
+            previousWeatherName = currentWeatherName;
+            previousTemperature = currentTemperature;
+
+            DebugLog($"Initial Cozy state - Weather: {currentWeatherName}, Temp: {currentTemperature:F1}°C");
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error reading initial Cozy state: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Reads current state from Cozy at regular intervals
+    /// </summary>
+    private void ReadFromCozy()
+    {
+        // Read at intervals to avoid excessive processing
+        if (Time.time - lastCozyReadTime < cozyReadInterval) return;
+        lastCozyReadTime = Time.time;
+
+        if (!isCozyConnected)
+        {
+            ConnectToCozy();
+            return;
+        }
+
+        try
+        {
+            ReadCurrentWeather();
+            ReadCurrentTemperature();
+            ReadCurrentClimateData();
+
+            CheckForWeatherChanges();
+            CheckForTemperatureChanges();
+            FireWeatherDataUpdateEvent();
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error reading from Cozy: {e.Message}");
+            isCozyConnected = false;
+        }
+    }
+
+    /// <summary>
+    /// Reads current weather from Cozy's weather module
+    /// </summary>
+    private void ReadCurrentWeather()
+    {
+        if (weatherModule?.ecosystem == null) return;
+
+        try
+        {
+            var currentWeather = weatherModule.ecosystem.currentWeather;
+            if (currentWeather != null)
+            {
+                currentWeatherName = currentWeather.name ?? "Unknown";
+            }
+            else
+            {
+                currentWeatherName = "Clear";
+            }
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error reading weather: {e.Message}");
+            currentWeatherName = "Error";
+        }
+    }
+
+    /// <summary>
+    /// Reads current temperature from Cozy's climate module
+    /// </summary>
+    private void ReadCurrentTemperature()
+    {
+        try
+        {
+            if (climateModule != null)
+            {
+                // Use Cozy's temperature system
+                currentTemperature = climateModule.currentTemperature;
+            }
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error reading temperature: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Reads additional climate data from Cozy
+    /// </summary>
+    private void ReadCurrentClimateData()
+    {
+        try
+        {
+            if (climateModule != null)
+            {
+                // Read humidity if available
+                var humidityProperty = climateModule.GetType().GetProperty("humidity") ??
+                                     climateModule.GetType().GetProperty("currentHumidity");
+                if (humidityProperty != null)
+                {
+                    currentHumidity = (float)humidityProperty.GetValue(climateModule);
+                }
+
+                // Read precipitation if available
+                var precipProperty = climateModule.GetType().GetProperty("precipitation") ??
+                                   climateModule.GetType().GetProperty("currentPrecipitation");
+                if (precipProperty != null)
+                {
+                    currentPrecipitation = (float)precipProperty.GetValue(climateModule);
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error reading climate data: {e.Message}");
         }
     }
 
     #endregion
 
-    #region Complete Temperature System
+    #region Change Detection and Events
 
     /// <summary>
-    /// Calculates the current temperature based on ALL factors:
-    /// base temperature + seasonal effects + day/night cycle + weather events.
-    /// This is the single source of truth for temperature in the game.
+    /// Checks for weather changes and fires events
     /// </summary>
-    private void CalculateCurrentTemperature()
+    private void CheckForWeatherChanges()
     {
-        if (timeManager == null) return;
+        if (!trackWeatherChanges) return;
 
-        float temperature = baseTemperature;
-
-        // Add seasonal temperature variation
-        SeasonType currentSeason = timeManager.GetCurrentSeason();
-        seasonalModifier = GetSeasonalTemperatureModifier(currentSeason);
-        temperature += seasonalModifier;
-
-        // Add day/night temperature variation
-        dayNightModifier = GetDayNightTemperatureModifier(timeManager.GetCurrentTimeOfDay());
-        temperature += dayNightModifier;
-
-        // Add weather event temperature modifiers
-        weatherModifier = 0f;
-        foreach (var weatherEvent in activeWeatherEvents)
+        if (currentWeatherName != previousWeatherName)
         {
-            if (weatherEvent.HasTemperatureEffect)
-            {
-                float eventModifier = weatherEvent.GetCurrentTemperatureModifier();
-                weatherModifier += eventModifier;
-            }
-        }
-        temperature += weatherModifier;
-
-        // Update cached values and fire events
-        float previousTemperature = currentTemperature;
-        currentTemperature = temperature;
-
-        // Fire temperature change event if significant change
-        if (Mathf.Abs(currentTemperature - previousTemperature) > 0.1f)
-        {
-            OnTemperatureChanged?.Invoke(currentTemperature);
+            DebugLog($"Weather changed: {previousWeatherName} → {currentWeatherName}");
+            OnWeatherChanged?.Invoke(currentWeatherName);
+            previousWeatherName = currentWeatherName;
         }
     }
 
     /// <summary>
-    /// Gets the seasonal temperature modifier based on the current season.
+    /// Checks for temperature changes and fires events
     /// </summary>
-    private float GetSeasonalTemperatureModifier(SeasonType season)
+    private void CheckForTemperatureChanges()
     {
-        float normalizedSeason = season switch
+        if (!trackTemperatureChanges) return;
+
+        float tempDifference = Mathf.Abs(currentTemperature - previousTemperature);
+        if (tempDifference >= significantTempChange)
         {
-            SeasonType.Spring => 0.25f,
-            SeasonType.Summer => 0.75f,
-            SeasonType.Fall => 0.5f,
-            SeasonType.Winter => 0f,
-            _ => 0.5f
+            DebugLog($"Temperature changed: {previousTemperature:F1}°C → {currentTemperature:F1}°C");
+            OnTemperatureChanged?.Invoke(currentTemperature);
+            previousTemperature = currentTemperature;
+        }
+    }
+
+    /// <summary>
+    /// Fires comprehensive weather data update event
+    /// </summary>
+    private void FireWeatherDataUpdateEvent()
+    {
+        var weatherData = new CozyWeatherData
+        {
+            weatherName = currentWeatherName,
+            weatherProfile = weatherModule?.ecosystem?.currentWeather,
+            temperature = currentTemperature,
+            humidity = currentHumidity,
+            precipitation = currentPrecipitation,
+            isConnected = isCozyConnected,
+            timestamp = Time.time
         };
 
-        return seasonalTemperatureCurve.Evaluate(normalizedSeason) * seasonalTemperatureVariance;
+        OnCozyWeatherUpdated?.Invoke(weatherData);
     }
 
+    #endregion
+
+    #region Cozy Native Save/Load Integration
+
     /// <summary>
-    /// Gets the day/night temperature modifier based on time of day.
-    /// Cooler at night (around 3 AM), warmer during day (around 3 PM).
+    /// Saves current Cozy weather state using Cozy's native save system
     /// </summary>
-    private float GetDayNightTemperatureModifier(float timeOfDay)
+    public void SaveCozyWeatherState()
     {
-        // Convert time to 0-1 range where noon = 1, midnight = 0
-        float normalizedTime = Mathf.Sin((timeOfDay - 6f) / 24f * 2f * Mathf.PI) * 0.5f + 0.5f;
+        if (!isCozyConnected || cozySaveModule == null)
+        {
+            DebugLog("Cannot save Cozy state - not connected or save module missing");
+            return;
+        }
 
-        // Apply day/night temperature curve
-        float curveValue = dayNightTemperatureCurve.Evaluate(normalizedTime);
-        return curveValue * dayNightTemperatureVariance;
+        try
+        {
+            DebugLog("Saving Cozy weather state using native save module");
+            cozySaveModule.Save();
+            OnWeatherSaveComplete?.Invoke();
+            DebugLog("Cozy weather state saved successfully");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[WeatherManager] Failed to save Cozy state: {e.Message}");
+        }
     }
 
     /// <summary>
-    /// Gets the current calculated temperature including all modifiers.
-    /// This is the main temperature API for other systems.
+    /// Loads Cozy weather state using Cozy's native save system
+    /// </summary>
+    public void LoadCozyWeatherState()
+    {
+        if (!isCozyConnected || cozySaveModule == null)
+        {
+            DebugLog("Cannot load Cozy state - not connected or save module missing");
+            OnWeatherLoadComplete?.Invoke(false);
+            return;
+        }
+
+        try
+        {
+            DebugLog("Loading Cozy weather state using native save module");
+            cozySaveModule.Load();
+
+            // Wait a frame then read the updated state
+            StartCoroutine(PostLoadStateUpdate());
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[WeatherManager] Failed to load Cozy state: {e.Message}");
+            OnWeatherLoadComplete?.Invoke(false);
+        }
+    }
+
+    /// <summary>
+    /// Updates our cached state after Cozy load completes
+    /// </summary>
+    private System.Collections.IEnumerator PostLoadStateUpdate()
+    {
+        yield return new WaitForEndOfFrame();
+
+        // Force immediate state read
+        lastCozyReadTime = 0f;
+        ReadFromCozy();
+
+        DebugLog("Cozy weather state loaded and updated successfully");
+        OnWeatherLoadComplete?.Invoke(true);
+    }
+
+    /// <summary>
+    /// Gets basic weather data for external save systems (fallback)
+    /// </summary>
+    public CozyWeatherSaveData GetBasicWeatherData()
+    {
+        return new CozyWeatherSaveData
+        {
+            weatherName = currentWeatherName,
+            temperature = currentTemperature,
+            humidity = currentHumidity,
+            precipitation = currentPrecipitation,
+            saveTimestamp = System.DateTime.Now,
+            cozyConnected = isCozyConnected,
+            usesNativeSave = useCozySaveModule
+        };
+    }
+
+    /// <summary>
+    /// Applies basic weather data (fallback for when native save isn't available)
+    /// </summary>
+    public void ApplyBasicWeatherData(CozyWeatherSaveData saveData)
+    {
+        if (saveData == null)
+        {
+            DebugLog("Cannot apply weather data - data is null");
+            return;
+        }
+
+        DebugLog($"Applying fallback weather data - Weather: {saveData.weatherName}, Temp: {saveData.temperature:F1}°C");
+
+        // This is a fallback - we can't directly set Cozy's state without the save module
+        // But we can try to find and set a weather profile with the saved name
+        if (weatherModule?.ecosystem != null && !string.IsNullOrEmpty(saveData.weatherName))
+        {
+            TrySetWeatherByName(saveData.weatherName);
+        }
+
+        // Force immediate read to sync our state
+        ReadInitialCozyState();
+    }
+
+    /// <summary>
+    /// Attempts to set weather by finding a profile with the given name
+    /// </summary>
+    private void TrySetWeatherByName(string weatherName)
+    {
+        try
+        {
+            // This would require access to Cozy's weather profile list
+            // Implementation depends on Cozy's specific API for weather profiles
+            DebugLog($"Attempting to set weather to: {weatherName} (implementation depends on Cozy API)");
+
+            // You would need to implement profile lookup based on Cozy's available API
+            // For example: weatherModule.ecosystem.SetWeather(foundProfile);
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"Error setting weather by name: {e.Message}");
+        }
+    }
+
+    #endregion
+
+    #region Public API for Game Logic
+
+    /// <summary>
+    /// Gets current weather name from Cozy
+    /// </summary>
+    public string GetCurrentWeatherName() => currentWeatherName;
+
+    /// <summary>
+    /// Gets current temperature from Cozy (°C)
     /// </summary>
     public float GetCurrentTemperature() => currentTemperature;
 
     /// <summary>
-    /// Gets the temperature modifier from weather events only.
+    /// Gets current humidity from Cozy (0-1)
     /// </summary>
-    public float GetWeatherTemperatureModifier() => weatherModifier;
+    public float GetCurrentHumidity() => currentHumidity;
 
     /// <summary>
-    /// Gets the seasonal temperature modifier.
+    /// Gets current precipitation level from Cozy
     /// </summary>
-    public float GetSeasonalTemperatureModifier() => seasonalModifier;
+    public float GetCurrentPrecipitation() => currentPrecipitation;
 
     /// <summary>
-    /// Gets the day/night temperature modifier.
+    /// Gets current weather profile object from Cozy
     /// </summary>
-    public float GetDayNightTemperatureModifier() => dayNightModifier;
+    public object GetCurrentWeatherProfile() => weatherModule?.ecosystem?.currentWeather;
 
     /// <summary>
-    /// Gets the base temperature (before any modifiers).
+    /// Checks if currently connected to Cozy
     /// </summary>
-    public float GetBaseTemperature() => baseTemperature;
+    public bool IsCozyConnected() => isCozyConnected;
 
     /// <summary>
-    /// Sets the base temperature and recalculates total temperature.
+    /// Checks if using Cozy's native save system
     /// </summary>
-    public void SetBaseTemperature(float temperature)
+    public bool IsUsingNativeSave() => useCozySaveModule && cozySaveModule != null;
+
+    /// <summary>
+    /// Gets complete weather data structure
+    /// </summary>
+    public CozyWeatherData GetCurrentWeatherData()
     {
-        baseTemperature = temperature;
-        CalculateCurrentTemperature();
+        return new CozyWeatherData
+        {
+            weatherName = currentWeatherName,
+            weatherProfile = weatherModule?.ecosystem?.currentWeather,
+            temperature = currentTemperature,
+            humidity = currentHumidity,
+            precipitation = currentPrecipitation,
+            isConnected = isCozyConnected,
+            timestamp = Time.time
+        };
     }
 
     /// <summary>
-    /// Sets the seasonal temperature variance and recalculates temperature.
+    /// Checks if specific weather is currently active (by name)
     /// </summary>
-    public void SetSeasonalTemperatureVariance(float variance)
+    public bool IsWeatherActive(string weatherName)
     {
-        seasonalTemperatureVariance = Mathf.Max(0f, variance);
-        CalculateCurrentTemperature();
+        return currentWeatherName.Contains(weatherName, System.StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
-    /// Sets the day/night temperature variance and recalculates temperature.
+    /// Checks if it's currently raining/snowing (precipitation > 0)
     /// </summary>
-    public void SetDayNightTemperatureVariance(float variance)
-    {
-        dayNightTemperatureVariance = Mathf.Max(0f, variance);
-        CalculateCurrentTemperature();
-    }
+    public bool IsPrecipitating() => currentPrecipitation > 0.1f;
+
+    /// <summary>
+    /// Gets temperature in Fahrenheit for UI display
+    /// </summary>
+    public float GetTemperatureFahrenheit() => (currentTemperature * 9f / 5f) + 32f;
 
     #endregion
 
-    #region Weather Event Management
+    #region Manual Controls (For Testing)
 
     /// <summary>
-    /// Updates all active weather events and checks for new weather events.
-    /// IMPROVED: Better game time delta calculation and debugging.
+    /// Forces immediate read from Cozy
     /// </summary>
-    private void UpdateWeatherSystem(float currentTimeOfDay)
+    [Button("Force Read From Cozy")]
+    public void ForceReadFromCozy()
     {
-        // Calculate actual game time delta since last update
-        float gameTimeDelta = CalculateGameTimeDelta();
-
-        // Update existing weather events
-        UpdateActiveWeatherEvents(gameTimeDelta);
-
-        // Check for new weather events
-        if (enableWeatherEvents && ShouldCheckForNewWeather())
+        if (isCozyConnected)
         {
-            CheckForNewWeatherEvents();
-            lastWeatherCheckTime = currentTimeOfDay;
+            lastCozyReadTime = 0f;
+            ReadFromCozy();
+            DebugLog("Forced read from Cozy completed");
         }
-
-        // Recalculate temperature after weather updates
-        CalculateCurrentTemperature();
+        else
+        {
+            DebugLog("Not connected to Cozy - cannot force read");
+        }
     }
 
-
-    private float lastUpdateTime = -1f; // Make this a class field if it isn't already
     /// <summary>
-    /// Calculates the actual game time that has passed since the last weather update.
+    /// Reconnects to Cozy modules
     /// </summary>
-    /// 
-    private float CalculateGameTimeDelta()
+    [Button("Reconnect to Cozy")]
+    public void ReconnectToCozy()
     {
-        if (timeManager == null)
+        ConnectToCozy();
+        if (isCozyConnected)
         {
-            return 0f;
+            ReadInitialCozyState();
+            DebugLog("Reconnected to Cozy");
         }
-
-        // Get current time
-        float currentTime = timeManager.GetCurrentTimeOfDay();
-
-        if (lastUpdateTime < 0f)
-        {
-            lastUpdateTime = currentTime;
-            return 0f;
-        }
-
-        // Calculate delta, handling day rollover
-        float delta = currentTime - lastUpdateTime;
-        if (delta < 0f)
-        {
-            delta += 24f; // Handle day boundary crossing
-        }
-
-        lastUpdateTime = currentTime;
-
-        // Limit delta to prevent huge jumps (e.g., when loading saves)
-        float originalDelta = delta;
-        delta = Mathf.Min(delta, 2f); // Max 2 game hours per update
-
-        return delta;
     }
+
     /// <summary>
-    /// Updates all currently active weather events with proper game time progression.
-    /// IMPROVED: Better handling of time deltas and event cleanup.
+    /// Tests Cozy native save functionality
     /// </summary>
-    private void UpdateActiveWeatherEvents(float gameTimeDelta)
+    [Button("Test Cozy Save")]
+    public void TestCozySave()
     {
-        if (gameTimeDelta <= 0f)
+        if (IsUsingNativeSave())
         {
-            return;
+            SaveCozyWeatherState();
         }
-
-        for (int i = activeWeatherEvents.Count - 1; i >= 0; i--)
+        else
         {
-            var weatherEvent = activeWeatherEvents[i];
+            DebugLog("Cozy native save not available");
+        }
+    }
 
-            // Update the event
-            weatherEvent.UpdateEvent(gameTimeDelta);
+    /// <summary>
+    /// Tests Cozy native load functionality
+    /// </summary>
+    [Button("Test Cozy Load")]
+    public void TestCozyLoad()
+    {
+        if (IsUsingNativeSave())
+        {
+            LoadCozyWeatherState();
+        }
+        else
+        {
+            DebugLog("Cozy native load not available");
+        }
+    }
 
-            // Remove completed weather events
-            if (weatherEvent.HasEnded)
+    /// <summary>
+    /// Toggles Cozy integration on/off
+    /// </summary>
+    [Button("Toggle Cozy Integration")]
+    public void ToggleCozyIntegration()
+    {
+        enableCozyIntegration = !enableCozyIntegration;
+        if (enableCozyIntegration)
+        {
+            ConnectToCozy();
+            if (isCozyConnected)
             {
-                DebugLog($"Weather event ended: {weatherEvent.DisplayName} (ran for {weatherEvent.GetElapsedDuration():F1} game hours)");
-                EndWeatherEvent(weatherEvent);
-            }
-
-        }
-
-        // Notify about active weather changes if there were any changes
-        OnActiveWeatherChanged?.Invoke(activeWeatherEvents);
-    }
-
-
-    /// <summary>
-    /// Determines if it's time to check for new weather events.
-    /// </summary>
-    private bool ShouldCheckForNewWeather()
-    {
-        if (timeManager == null) return false;
-
-        float currentTime = timeManager.GetCurrentTimeOfDay();
-        float timeSinceLastCheck = currentTime - lastWeatherCheckTime;
-
-        // Handle day rollover
-        if (timeSinceLastCheck < 0)
-            timeSinceLastCheck += 24f;
-
-        return timeSinceLastCheck >= weatherCheckInterval;
-    }
-
-    /// <summary>
-    /// Checks for new weather events based on current conditions and probabilities.
-    /// </summary>
-    private void CheckForNewWeatherEvents()
-    {
-        if (timeManager == null || availableWeatherEvents.Count == 0) return;
-
-        // Check if we should spawn a weather event
-        if (Random.value > weatherEventChance) return;
-
-        // Get eligible weather events for current conditions
-        var eligibleEvents = GetEligibleWeatherEvents();
-        if (eligibleEvents.Count == 0) return;
-
-        // Select weather event based on weighted probability
-        var selectedEvent = SelectWeatherEventByWeight(eligibleEvents);
-        if (selectedEvent != null)
-        {
-            StartWeatherEvent(selectedEvent);
-        }
-    }
-
-    /// <summary>
-    /// Gets weather events that can occur under current conditions.
-    /// </summary>
-    private List<WeatherEvent> GetEligibleWeatherEvents()
-    {
-        if (timeManager == null) return new List<WeatherEvent>();
-
-        SeasonType currentSeason = timeManager.GetCurrentSeason();
-        float currentTime = timeManager.GetCurrentTimeOfDay();
-
-        return availableWeatherEvents.Where(weatherEvent =>
-        {
-            // Check season eligibility
-            if (!weatherEvent.CanOccurInSeason(currentSeason))
-                return false;
-
-            // Check for incompatible active weather
-            foreach (var activeEvent in activeWeatherEvents)
-            {
-                if (!weatherEvent.IsCompatibleWith(activeEvent.EventType))
-                    return false;
-            }
-
-            // Check if we've reached the maximum simultaneous events
-            var sameTypeEvents = activeWeatherEvents.Count(e => e.EventType == weatherEvent.EventType);
-            if (sameTypeEvents >= weatherEvent.MaxSimultaneousEvents)
-                return false;
-
-            return true;
-        }).ToList();
-    }
-
-    /// <summary>
-    /// Selects a weather event from eligible events using weighted random selection.
-    /// </summary>
-    private WeatherEvent SelectWeatherEventByWeight(List<WeatherEvent> eligibleEvents)
-    {
-        if (eligibleEvents.Count == 0) return null;
-
-        float currentTime = timeManager.GetCurrentTimeOfDay();
-        float totalWeight = 0f;
-
-        // Calculate total weight including time preferences
-        var weightedEvents = eligibleEvents.Select(e => new
-        {
-            Event = e,
-            Weight = e.RarityWeight * e.GetTimePreferenceMultiplier(currentTime)
-        }).ToList();
-
-        totalWeight = weightedEvents.Sum(w => w.Weight);
-
-        // Select random event based on weight
-        float randomValue = Random.value * totalWeight;
-        float currentWeight = 0f;
-
-        foreach (var weightedEvent in weightedEvents)
-        {
-            currentWeight += weightedEvent.Weight;
-            if (randomValue <= currentWeight)
-            {
-                return weightedEvent.Event;
+                ReadInitialCozyState();
             }
         }
-
-        // Fallback to first event
-        return eligibleEvents[0];
-    }
-
-    /// <summary>
-    /// Starts a new weather event instance.
-    /// </summary>
-    private void StartWeatherEvent(WeatherEvent weatherEvent)
-    {
-        var instance = new WeatherEventInstance(weatherEvent);
-        activeWeatherEvents.Add(instance);
-
-        DebugLog($"Started weather event: {weatherEvent.DisplayName} (Duration: {instance.TotalDuration:F1}h)");
-        OnWeatherEventStarted?.Invoke(instance);
-
-        // Recalculate temperature with new weather event
-        CalculateCurrentTemperature();
-    }
-
-    /// <summary>
-    /// Ends and removes a weather event.
-    /// </summary>
-    private void EndWeatherEvent(WeatherEventInstance weatherEvent)
-    {
-        activeWeatherEvents.Remove(weatherEvent);
-        DebugLog($"Ended weather event: {weatherEvent.DisplayName}");
-        OnWeatherEventEnded?.Invoke(weatherEvent);
-
-        // Recalculate temperature without this weather event
-        CalculateCurrentTemperature();
-    }
-
-    #endregion
-
-    #region Event Handlers
-
-    /// <summary>
-    /// Handles time change events from InGameTimeManager.
-    /// </summary>
-    private void HandleTimeChanged(float timeOfDay)
-    {
-        // DebugLog("WeatherManager.HandleTimeChanged() called - checking for new weather events");
-        UpdateWeatherSystem(timeOfDay);
-    }
-
-    /// <summary>
-    /// Handles season change events from InGameTimeManager.
-    /// </summary>
-    private void HandleSeasonChanged(SeasonType newSeason)
-    {
-        DebugLog($"Season changed to {newSeason} - recalculating temperature");
-        CalculateCurrentTemperature();
-
-        // End weather events that are not compatible with the new season
-        for (int i = activeWeatherEvents.Count - 1; i >= 0; i--)
+        else
         {
-            var weatherEvent = activeWeatherEvents[i];
-            if (!weatherEvent.CanOccurInSeason(newSeason))
-            {
-                DebugLog($"Ending {weatherEvent.DisplayName} due to season change");
-                EndWeatherEvent(weatherEvent);
-            }
+            isCozyConnected = false;
         }
-    }
-
-    #endregion
-
-    #region Public API
-
-    /// <summary>
-    /// Gets all currently active weather events.
-    /// </summary>
-    public List<WeatherEventInstance> GetActiveWeatherEvents()
-    {
-        return new List<WeatherEventInstance>(activeWeatherEvents);
-    }
-
-    /// <summary>
-    /// Checks if a specific weather type is currently active.
-    /// </summary>
-    public bool IsWeatherActive(WeatherEventType weatherType)
-    {
-        return activeWeatherEvents.Any(e => e.EventType == weatherType);
-    }
-
-    /// <summary>
-    /// Gets the most intense active weather event (highest intensity).
-    /// </summary>
-    public WeatherEventInstance GetDominantWeather()
-    {
-        return activeWeatherEvents.OrderByDescending(e => e.CurrentIntensity).FirstOrDefault();
-    }
-
-    /// <summary>
-    /// Manually starts a weather event (for testing or scripted events).
-    /// </summary>
-    [Button("Start Weather Event")]
-    public void ManuallyStartWeatherEvent(WeatherEvent weatherEvent)
-    {
-        if (weatherEvent != null)
-        {
-            StartWeatherEvent(weatherEvent);
-        }
-    }
-
-    /// <summary>
-    /// Clears all active weather events. Used by save system and for testing.
-    /// </summary>
-    public void ClearAllWeather()
-    {
-        if (activeWeatherEvents.Count > 0)
-        {
-            // Fire end events for each weather event
-            var eventsToEnd = new List<WeatherEventInstance>(activeWeatherEvents);
-            foreach (var weatherEvent in eventsToEnd)
-            {
-                OnWeatherEventEnded?.Invoke(weatherEvent);
-            }
-
-            activeWeatherEvents.Clear();
-
-            // Recalculate temperature without weather events
-            CalculateCurrentTemperature();
-
-            // Notify about weather changes
-            OnActiveWeatherChanged?.Invoke(activeWeatherEvents);
-        }
-    }
-
-
-    /// <summary>
-    /// Restores a weather event instance from save data (used by save system).
-    /// </summary>
-    public void RestoreWeatherEvent(WeatherEventInstance weatherEventInstance)
-    {
-        if (weatherEventInstance != null && !weatherEventInstance.HasEnded)
-        {
-            activeWeatherEvents.Add(weatherEventInstance);
-            DebugLog($"Restored weather event: {weatherEventInstance.DisplayName} ({weatherEventInstance.CurrentPhase}, {weatherEventInstance.RemainingDuration:F1}h remaining)");
-
-            // Fire event for UI updates
-            OnWeatherEventStarted?.Invoke(weatherEventInstance);
-
-            // Recalculate temperature with restored weather event
-            CalculateCurrentTemperature();
-
-            // Notify about active weather changes
-            OnActiveWeatherChanged?.Invoke(activeWeatherEvents);
-        }
-    }
-
-    /// <summary>
-    /// Restores multiple weather events from save data.
-    /// </summary>
-    public void RestoreWeatherEvents(List<WeatherEventInstance> weatherEvents)
-    {
-        if (weatherEvents == null || weatherEvents.Count == 0)
-        {
-            DebugLog("No weather events to restore");
-            return;
-        }
-
-        foreach (var weatherEvent in weatherEvents)
-        {
-            RestoreWeatherEvent(weatherEvent);
-        }
-
-    }
-
-    /// <summary>
-    /// Forces an immediate temperature recalculation (useful after loading saves).
-    /// </summary>
-    public void ForceTemperatureUpdate()
-    {
-        CalculateCurrentTemperature();
+        DebugLog($"Cozy integration {(enableCozyIntegration ? "enabled" : "disabled")}");
     }
 
     #endregion
@@ -618,11 +659,55 @@ public class WeatherManager : MonoBehaviour, IManager
 
     private void OnValidate()
     {
-        // Validate configuration
-        weatherCheckInterval = Mathf.Max(0.1f, weatherCheckInterval);
-        weatherEventChance = Mathf.Clamp01(weatherEventChance);
-        seasonalTemperatureVariance = Mathf.Max(0f, seasonalTemperatureVariance);
-        dayNightTemperatureVariance = Mathf.Max(0f, dayNightTemperatureVariance);
-        baseTemperature = Mathf.Clamp(baseTemperature, -50f, 80f); // Reasonable temperature range
+        cozyReadInterval = Mathf.Max(0.01f, cozyReadInterval);
+        significantTempChange = Mathf.Max(0.1f, significantTempChange);
+    }
+}
+
+/// <summary>
+/// Enhanced data structure for current weather information from Cozy
+/// </summary>
+[System.Serializable]
+public class CozyWeatherData
+{
+    public string weatherName;
+    public object weatherProfile;
+    public float temperature;
+    public float humidity;
+    public float precipitation;
+    public bool isConnected;
+    public float timestamp;
+
+    public string GetDebugInfo()
+    {
+        return $"Weather: {weatherName}, Temp: {temperature:F1}°C, Humidity: {humidity:F2}, Precip: {precipitation:F2}, Connected: {isConnected}";
+    }
+}
+
+/// <summary>
+/// Enhanced save data structure for Cozy weather state
+/// </summary>
+[System.Serializable]
+public class CozyWeatherSaveData
+{
+    public string weatherName = "Clear";
+    public float temperature = 20f;
+    public float humidity = 0.5f;
+    public float precipitation = 0f;
+    public System.DateTime saveTimestamp;
+    public bool cozyConnected = false;
+    public bool usesNativeSave = false;
+
+    public bool IsValid()
+    {
+        return !string.IsNullOrEmpty(weatherName) &&
+               temperature > -100f && temperature < 100f &&
+               precipitation >= 0f &&
+               humidity >= 0f && humidity <= 1f;
+    }
+
+    public string GetDebugInfo()
+    {
+        return $"Weather: {weatherName}, Temp: {temperature:F1}°C, Humidity: {humidity:F2}, Precip: {precipitation:F2}, Native Save: {usesNativeSave}, Saved: {saveTimestamp:yyyy-MM-dd HH:mm}";
     }
 }

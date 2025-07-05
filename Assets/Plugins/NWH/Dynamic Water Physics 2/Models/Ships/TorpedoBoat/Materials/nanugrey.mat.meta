@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: aad983600e52a5b46831bae0c2a5765c
+timeCreated: 1494184328
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 147990
+  packageName: Dynamic Water Physics 2
+  packageVersion: 2.22
+  assetPath: Assets/Plugins/NWH/Dynamic Water Physics 2/Models/Ships/TorpedoBoat/Materials/nanugrey.mat
+  uploadId: 690874

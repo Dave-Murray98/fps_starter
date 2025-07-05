@@ -27,7 +27,8 @@ public interface IManager
 }
 
 /// <summary>
-/// Central coordinator for all game managers and core systems.
+/// UPDATED: Central coordinator for all game managers and core systems.
+/// Now properly handles singleton InputManager and provides enhanced manager lifecycle management.
 /// Handles manager lifecycle, scene transition coordination, and provides
 /// unified access to save/load functionality and game state control.
 /// </summary>
@@ -38,12 +39,10 @@ public class GameManager : MonoBehaviour
     [Header("Configurations")]
     public PlayerData playerData;
 
-    [Header("Managers")]
+    [Header("Scene-Based Managers")]
     public PlayerManager playerManager;
-    public InputManager inputManager;
     public UIManager uiManager;
     public AudioManager audioManager;
-
     public InGameTimeManager timeManager;
     public WeatherManager weatherManager;
 
@@ -54,7 +53,12 @@ public class GameManager : MonoBehaviour
     public static event Action OnManagersInitialized;
     public static event Action OnManagersRefreshed;
 
+    // UPDATED: Separate tracking for scene-based vs persistent managers
+    private List<IManager> sceneBasedManagers = new List<IManager>();
     private List<IManager> allManagers = new List<IManager>();
+
+    // UPDATED: InputManager is now accessed via singleton
+    public InputManager InputManager => InputManager.Instance;
 
     private void Awake()
     {
@@ -86,7 +90,7 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Handles scene loaded events by refreshing manager references after a delay.
+    /// UPDATED: Handles scene loaded events with improved singleton manager handling
     /// </summary>
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
@@ -94,60 +98,131 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Discovers and initializes all managers implementing IManager interface.
+    /// UPDATED: Enhanced manager initialization that handles both persistent and scene-based managers
     /// </summary>
     private void InitializeManagers()
     {
-        FindAndRegisterManagers();
-        InitializeAllManagers();
+        Debug.Log("[GameManager] Starting manager initialization");
+
+        // STEP 1: Initialize or connect to persistent singleton managers
+        InitializePersistentManagers();
+
+        // STEP 2: Find and initialize scene-based managers
+        FindAndRegisterSceneManagers();
+        InitializeSceneBasedManagers();
+
         OnManagersInitialized?.Invoke();
+        Debug.Log("[GameManager] Manager initialization complete");
     }
 
     /// <summary>
-    /// Locates all manager components in the scene and registers them.
+    /// UPDATED: Handles persistent singleton managers (InputManager, etc.)
     /// </summary>
-    private void FindAndRegisterManagers()
+    private void InitializePersistentManagers()
     {
-        allManagers.Clear();
+        Debug.Log("[GameManager] Initializing persistent managers");
 
-        // Find scene-based managers
-        playerManager = FindFirstObjectByType<PlayerManager>();
-        inputManager = FindFirstObjectByType<InputManager>();
-        uiManager = FindFirstObjectByType<UIManager>();
-        audioManager = FindFirstObjectByType<AudioManager>();
-        timeManager = FindFirstObjectByType<InGameTimeManager>();
-        weatherManager = FindFirstObjectByType<WeatherManager>();
-
-
-        // Register managers that implement IManager
-        if (playerManager != null) allManagers.Add(playerManager);
-        if (inputManager != null) allManagers.Add(inputManager);
-        if (uiManager != null) allManagers.Add(uiManager);
-        if (audioManager != null) allManagers.Add(audioManager);
-        if (timeManager != null) allManagers.Add(timeManager);
-        if (weatherManager != null) allManagers.Add(weatherManager);
-    }
-
-    /// <summary>
-    /// Calls Initialize() on all registered managers with error handling.
-    /// </summary>
-    private void InitializeAllManagers()
-    {
-        foreach (var manager in allManagers)
+        // InputManager - Check if singleton exists, create if needed
+        if (InputManager.Instance == null)
         {
-            try
+            Debug.Log("[GameManager] Creating InputManager singleton");
+            // InputManager will be created by finding it in scene or creating a new one
+            var inputManagerGO = FindFirstObjectByType<InputManager>();
+            if (inputManagerGO == null)
             {
-                manager.Initialize();
+                Debug.LogWarning("[GameManager] No InputManager found in scene! You need to add one.");
             }
-            catch (System.Exception e)
+            else
             {
-                Debug.LogError($"Failed to initialize manager {manager.GetType().Name}: {e.Message}");
+                // The InputManager's Awake() will handle singleton setup
+                inputManagerGO.Initialize();
+            }
+        }
+        else
+        {
+            Debug.Log("[GameManager] InputManager singleton already exists - refreshing");
+            InputManager.Instance.RefreshReferences();
+        }
+
+        // Add InputManager to manager list if it exists
+        if (InputManager.Instance != null)
+        {
+            if (!allManagers.Contains(InputManager.Instance))
+            {
+                allManagers.Add(InputManager.Instance);
             }
         }
     }
 
     /// <summary>
-    /// Refreshes manager references with timing to ensure scene is fully loaded.
+    /// UPDATED: Finds and registers only scene-based managers
+    /// </summary>
+    private void FindAndRegisterSceneManagers()
+    {
+        sceneBasedManagers.Clear();
+
+        // Find scene-based managers (not persistent singletons)
+        playerManager = FindFirstObjectByType<PlayerManager>();
+        uiManager = FindFirstObjectByType<UIManager>();
+        audioManager = FindFirstObjectByType<AudioManager>();
+        timeManager = FindFirstObjectByType<InGameTimeManager>();
+        weatherManager = FindFirstObjectByType<WeatherManager>();
+
+        // Register scene-based managers that implement IManager
+        if (playerManager != null) sceneBasedManagers.Add(playerManager);
+        if (uiManager != null) sceneBasedManagers.Add(uiManager);
+        if (audioManager != null) sceneBasedManagers.Add(audioManager);
+        if (timeManager != null) sceneBasedManagers.Add(timeManager);
+        if (weatherManager != null) sceneBasedManagers.Add(weatherManager);
+
+        Debug.Log($"[GameManager] Found {sceneBasedManagers.Count} scene-based managers");
+
+        // Update the combined manager list
+        UpdateAllManagersList();
+    }
+
+    /// <summary>
+    /// UPDATED: Combines persistent and scene-based managers
+    /// </summary>
+    private void UpdateAllManagersList()
+    {
+        allManagers.Clear();
+
+        // Add persistent managers
+        if (InputManager.Instance != null)
+        {
+            allManagers.Add(InputManager.Instance);
+        }
+
+        // Add scene-based managers
+        allManagers.AddRange(sceneBasedManagers);
+
+        Debug.Log($"[GameManager] Total managers tracked: {allManagers.Count}");
+    }
+
+    /// <summary>
+    /// UPDATED: Initializes only scene-based managers (persistent ones are already initialized)
+    /// </summary>
+    private void InitializeSceneBasedManagers()
+    {
+        Debug.Log("[GameManager] Initializing scene-based managers");
+
+        foreach (var manager in sceneBasedManagers)
+        {
+            try
+            {
+                manager.Initialize();
+                Debug.Log($"[GameManager] Initialized {manager.GetType().Name}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[GameManager] Failed to initialize {manager.GetType().Name}: {e.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// UPDATED: Enhanced reference refresh with proper singleton handling
     /// </summary>
     private IEnumerator RefreshManagerReferencesCoroutine()
     {
@@ -157,25 +232,58 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Refreshes all manager references after scene changes.
+    /// UPDATED: Refreshes all manager references with singleton awareness
     /// </summary>
     private void RefreshManagerReferences()
     {
-        FindAndRegisterManagers();
+        Debug.Log("[GameManager] Refreshing manager references");
 
-        foreach (var manager in allManagers)
+        // STEP 1: Handle persistent managers
+        RefreshPersistentManagers();
+
+        // STEP 2: Re-find scene-based managers (they may have changed)
+        FindAndRegisterSceneManagers();
+
+        // STEP 3: Refresh scene-based managers
+        foreach (var manager in sceneBasedManagers)
         {
             try
             {
                 manager.RefreshReferences();
+                Debug.Log($"[GameManager] Refreshed {manager.GetType().Name}");
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Failed to refresh references for manager {manager.GetType().Name}: {e.Message}");
+                Debug.LogError($"[GameManager] Failed to refresh {manager.GetType().Name}: {e.Message}");
             }
         }
 
         OnManagersRefreshed?.Invoke();
+        Debug.Log("[GameManager] Manager refresh complete");
+    }
+
+    /// <summary>
+    /// UPDATED: Handles refresh for persistent singleton managers
+    /// </summary>
+    private void RefreshPersistentManagers()
+    {
+        // InputManager - Should persist across scenes, just refresh
+        if (InputManager.Instance != null)
+        {
+            try
+            {
+                InputManager.Instance.RefreshReferences();
+                Debug.Log("[GameManager] Refreshed InputManager singleton");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[GameManager] Failed to refresh InputManager: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[GameManager] InputManager singleton is null during refresh!");
+        }
     }
 
     /// <summary>
@@ -248,17 +356,63 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Manually triggers manager reference refresh (editor only).
+    /// UPDATED: Manually triggers manager reference refresh with singleton support
     /// </summary>
+    [Button]
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
     public void RefreshReferences()
     {
         RefreshManagerReferences();
     }
 
+    /// <summary>
+    /// UPDATED: Gets the InputManager instance (singleton)
+    /// </summary>
+    public InputManager GetInputManager()
+    {
+        return InputManager.Instance;
+    }
+
+    /// <summary>
+    /// UPDATED: Checks if all critical managers are available
+    /// </summary>
+    public bool AreManagersReady()
+    {
+        bool inputManagerReady = InputManager.Instance != null && InputManager.Instance.IsProperlyInitialized;
+        bool playerManagerReady = playerManager != null;
+
+        return inputManagerReady && playerManagerReady;
+    }
+
+    /// <summary>
+    /// UPDATED: Returns debug info about manager states
+    /// </summary>
+    [Button]
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void DebugManagerStates()
+    {
+        Debug.Log("=== GAMEMANAGER DEBUG INFO ===");
+        Debug.Log($"Total Managers: {allManagers.Count}");
+        Debug.Log($"Scene-Based Managers: {sceneBasedManagers.Count}");
+
+        Debug.Log($"InputManager: {(InputManager.Instance != null ? "Available" : "NULL")}");
+        if (InputManager.Instance != null)
+        {
+            Debug.Log($"  - Initialized: {InputManager.Instance.IsProperlyInitialized}");
+            Debug.Log($"  - Current Mode: {InputManager.Instance.GetCurrentMovementMode()}");
+        }
+
+        Debug.Log($"PlayerManager: {(playerManager != null ? "Available" : "NULL")}");
+        Debug.Log($"UIManager: {(uiManager != null ? "Available" : "NULL")}");
+        Debug.Log($"AudioManager: {(audioManager != null ? "Available" : "NULL")}");
+        Debug.Log("==============================");
+    }
+
     private void OnDestroy()
     {
-        foreach (var manager in allManagers)
+        // Only cleanup scene-based managers
+        // Persistent managers handle their own cleanup
+        foreach (var manager in sceneBasedManagers)
         {
             try
             {
@@ -266,7 +420,7 @@ public class GameManager : MonoBehaviour
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Failed to cleanup manager {manager.GetType().Name}: {e.Message}");
+                Debug.LogError($"[GameManager] Failed to cleanup {manager.GetType().Name}: {e.Message}");
             }
         }
     }
