@@ -382,7 +382,7 @@ GameObject:
   - component: {fileID: 3355721406017529719}
   - component: {fileID: 7536292396798428511}
   m_Layer: 6
-  m_Name: FootstepAudioSource
+  m_Name: MovementAudioSource
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -851,34 +851,83 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6cf5c91688f5c3e4fabafac23629c1a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  footstepAudioSource: {fileID: 7536292396798428511}
-  effectSource: {fileID: 5010575935116863467}
-  defaultFootstepClips:
-  - {fileID: 8300000, guid: aed00059dd8dbf342bca5676b3434102, type: 3}
-  - {fileID: 8300000, guid: ddf2e4b5b1513c041ba3fee70a406ece, type: 3}
-  - {fileID: 8300000, guid: be07f2650a3dfbe4ba4fb249ebb46514, type: 3}
-  - {fileID: 8300000, guid: 1a15e71153343554db5b2e469a977420, type: 3}
-  - {fileID: 8300000, guid: 19c5c7586018a3042a278236b30ea60a, type: 3}
-  grassFootstepClips:
-  - {fileID: 8300000, guid: 2ec3a15c0d2992640b87be50b5e7fa14, type: 3}
-  - {fileID: 8300000, guid: 56f9e6d65bca8074fae2dcc20d4d6c26, type: 3}
-  - {fileID: 8300000, guid: dcb2de657eb914c48b293824081e8534, type: 3}
-  - {fileID: 8300000, guid: 627dc39237508694a958b8e6186e5eb8, type: 3}
-  - {fileID: 8300000, guid: 662309c17286d624a9776c8d8efbd3da, type: 3}
-  metalFootstepClips:
-  - {fileID: 8300000, guid: af41d2ace95fad84cb42e35adc1e73a7, type: 3}
-  - {fileID: 8300000, guid: 1843bd82793812f44a598ca25148046e, type: 3}
-  - {fileID: 8300000, guid: 753c7c85f7227cc42b1c188eea2137a3, type: 3}
-  - {fileID: 8300000, guid: 4d64803ea92f9a940bdc31b70cde4f90, type: 3}
-  - {fileID: 8300000, guid: b45fba70646fc2c4194c91c777040a72, type: 3}
-  woodFootstepClips:
-  - {fileID: 8300000, guid: 81d83ee6685372a44aa7e3210bb0c0f1, type: 3}
-  - {fileID: 8300000, guid: 8988855045c88c84b846fdd65f5ffbc7, type: 3}
-  - {fileID: 8300000, guid: 582db7f58f9c8ab42aa80d504fd22179, type: 3}
-  - {fileID: 8300000, guid: 67d3d30e58d0fa14880382ab12f2bbd5, type: 3}
-  - {fileID: 8300000, guid: 50a0a8a9b8bf7074491456da23ab3f3d, type: 3}
+  movementAudioSource: {fileID: 7536292396798428511}
+  effectAudioSource: {fileID: 5010575935116863467}
+  defaultFootsteps:
+    clips:
+    - {fileID: 8300000, guid: aed00059dd8dbf342bca5676b3434102, type: 3}
+    - {fileID: 8300000, guid: ddf2e4b5b1513c041ba3fee70a406ece, type: 3}
+    - {fileID: 8300000, guid: be07f2650a3dfbe4ba4fb249ebb46514, type: 3}
+    - {fileID: 8300000, guid: 1a15e71153343554db5b2e469a977420, type: 3}
+    - {fileID: 8300000, guid: 19c5c7586018a3042a278236b30ea60a, type: 3}
+    pitchVariation: {x: 0.9, y: 1.1}
+    baseVolume: 1
+  grassFootsteps:
+    clips:
+    - {fileID: 8300000, guid: 2ec3a15c0d2992640b87be50b5e7fa14, type: 3}
+    - {fileID: 8300000, guid: 56f9e6d65bca8074fae2dcc20d4d6c26, type: 3}
+    - {fileID: 8300000, guid: dcb2de657eb914c48b293824081e8534, type: 3}
+    - {fileID: 8300000, guid: 627dc39237508694a958b8e6186e5eb8, type: 3}
+    - {fileID: 8300000, guid: 662309c17286d624a9776c8d8efbd3da, type: 3}
+    pitchVariation: {x: 0.9, y: 1.1}
+    baseVolume: 1
+  metalFootsteps:
+    clips:
+    - {fileID: 8300000, guid: af41d2ace95fad84cb42e35adc1e73a7, type: 3}
+    - {fileID: 8300000, guid: 1843bd82793812f44a598ca25148046e, type: 3}
+    - {fileID: 8300000, guid: 753c7c85f7227cc42b1c188eea2137a3, type: 3}
+    - {fileID: 8300000, guid: 4d64803ea92f9a940bdc31b70cde4f90, type: 3}
+    - {fileID: 8300000, guid: b45fba70646fc2c4194c91c777040a72, type: 3}
+    pitchVariation: {x: 0.9, y: 1.1}
+    baseVolume: 1
+  woodFootsteps:
+    clips:
+    - {fileID: 8300000, guid: 81d83ee6685372a44aa7e3210bb0c0f1, type: 3}
+    - {fileID: 8300000, guid: 8988855045c88c84b846fdd65f5ffbc7, type: 3}
+    - {fileID: 8300000, guid: 582db7f58f9c8ab42aa80d504fd22179, type: 3}
+    - {fileID: 8300000, guid: 67d3d30e58d0fa14880382ab12f2bbd5, type: 3}
+    - {fileID: 8300000, guid: 50a0a8a9b8bf7074491456da23ab3f3d, type: 3}
+    pitchVariation: {x: 0.9, y: 1.1}
+    baseVolume: 1
+  waterFootsteps:
+    clips:
+    - {fileID: 8300000, guid: 6b1ca652f359a574b842705935546eaa, type: 3}
+    - {fileID: 8300000, guid: 755346e2b1272044ebd637b912216fc0, type: 3}
+    - {fileID: 8300000, guid: b3b227491abe1274f9f78cbddfaa8c0a, type: 3}
+    - {fileID: 8300000, guid: fea8ecad7d92a9c4286fd0d5a7af730e, type: 3}
+    - {fileID: 8300000, guid: 7c4c4dff99616b4459b067f0b0cd8065, type: 3}
+    pitchVariation: {x: 0.9, y: 1.1}
+    baseVolume: 1
+  surfaceSwimming:
+    normalSwimmingClips:
+    - {fileID: 8300000, guid: 56dae54fcbad0bc4abfd013b1d0d51cf, type: 3}
+    - {fileID: 8300000, guid: 7c5ca67900568fb4cbb1cd3d3e746b01, type: 3}
+    - {fileID: 8300000, guid: 941873d4a65422745a0db08e52bd4171, type: 3}
+    fastSwimmingClips:
+    - {fileID: 8300000, guid: 3fe6d614d55f4f648b1d7d1dcde74397, type: 3}
+    - {fileID: 8300000, guid: f8cf1b046245f194882469aa33d7cb63, type: 3}
+    - {fileID: 8300000, guid: 2ea7a21715247d647959424e19e571c2, type: 3}
+    - {fileID: 8300000, guid: f70cf4c8656a45d48804fdde72586217, type: 3}
+    pitchVariation: {x: 0.9, y: 1.1}
+    baseVolume: 1
+  underwaterSwimming:
+    normalSwimmingClips:
+    - {fileID: 8300000, guid: a8b8baa3bc7c1484590ee3220d819547, type: 3}
+    - {fileID: 8300000, guid: da2f9ab4057ffb34281e4e28a786e0e8, type: 3}
+    - {fileID: 8300000, guid: 5de0e0a4a87c19344942b87ccd514fab, type: 3}
+    fastSwimmingClips:
+    - {fileID: 8300000, guid: 1494a6e907303e34eaeeb61a101e3b61, type: 3}
+    - {fileID: 8300000, guid: b8a17947639222b4b81f48649a801263, type: 3}
+    - {fileID: 8300000, guid: 3a17d3910e6ad5c43856b36f4cc39d9a, type: 3}
+    pitchVariation: {x: 0.9, y: 1.1}
+    baseVolume: 1
   jumpClip: {fileID: 8300000, guid: 121ce804802ecd54eb68a6ab5e516e89, type: 3}
   landClip: {fileID: 8300000, guid: 343cfd8f1ddbeef4394b9b0744231e7a, type: 3}
+  waterEnterClip: {fileID: 8300000, guid: ae3915440b06b4f448a2d1e9d4d72329, type: 3}
+  waterExitClip: {fileID: 8300000, guid: 82b6e4a78e504e846965621cc6bb9212, type: 3}
+  footstepBaseRate: 0.5
+  swimmingBaseRate: 0.6
+  enableDebugLogs: 0
 --- !u!114 &3657837451461529809
 MonoBehaviour:
   m_ObjectHideFlags: 0
