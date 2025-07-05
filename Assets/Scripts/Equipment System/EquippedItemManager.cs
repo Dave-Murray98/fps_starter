@@ -32,7 +32,6 @@ public class EquippedItemManager : MonoBehaviour
 
     // Component references - found automatically or via events
     private InventoryManager inventoryManager;
-    private InputManager inputManager;
 
     // Input timing control
     private float lastScrollTime = 0f;
@@ -96,7 +95,6 @@ public class EquippedItemManager : MonoBehaviour
     /// </summary>
     private void RefreshReferences()
     {
-        inputManager = GameManager.Instance?.inputManager;
         if (inventoryManager == null)
         {
             inventoryManager = InventoryManager.Instance;
@@ -108,7 +106,6 @@ public class EquippedItemManager : MonoBehaviour
     /// </summary>
     private void OnInputManagerReady(InputManager newInputManager)
     {
-        inputManager = newInputManager;
         SetupInputHandlers();
     }
 
@@ -119,11 +116,9 @@ public class EquippedItemManager : MonoBehaviour
     /// </summary>
     private void SetupInputHandlers()
     {
-        if (inputManager != null)
-        {
-            inputManager.OnScrollWheelInput += HandleScrollInput;
-            inputManager.OnHotkeyPressed += OnHotkeyPressed;
-        }
+        InputManager.Instance.OnScrollWheelInput += HandleScrollInput;
+        InputManager.Instance.OnHotkeyPressed += OnHotkeyPressed;
+
     }
 
     /// <summary>
@@ -160,7 +155,7 @@ public class EquippedItemManager : MonoBehaviour
     private void Update()
     {
         // Fallback input handling when InputManager is unavailable
-        if (inputManager == null)
+        if (InputManager.Instance == null)
         {
             HandleHotkeyInputs();
         }
@@ -718,10 +713,7 @@ public class EquippedItemManager : MonoBehaviour
             inventoryManager.OnItemAdded -= OnInventoryItemAdded;
         }
 
-        if (inputManager != null)
-        {
-            inputManager.OnScrollWheelInput -= HandleScrollInput;
-            inputManager.OnHotkeyPressed -= OnHotkeyPressed;
-        }
+        InputManager.Instance.OnScrollWheelInput -= HandleScrollInput;
+        InputManager.Instance.OnHotkeyPressed -= OnHotkeyPressed;
     }
 }

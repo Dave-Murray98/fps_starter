@@ -608,6 +608,32 @@ public class SwimmingMovementController : MonoBehaviour, IMovementController
         }
     }
 
+    /// <summary>
+    /// ENHANCED: Force clean state for proper transitions and save/load operations
+    /// </summary>
+    public void ForceCleanState()
+    {
+        DebugLog("Force cleaning swimming state");
+
+        // Reset all swimming state
+        movementInput = Vector2.zero;
+        isFastSwimming = false;
+        isDiving = false;
+        isSurfacingActive = false;
+        swimDirection = Vector3.zero;
+
+        // Reset interface properties
+        IsMoving = false;
+        IsSpeedModified = false;
+        IsSecondaryActive = false;
+
+        // Force restore original physics immediately
+        RestoreOriginalPhysics();
+
+        DebugLog("Swimming movement state cleaned and physics restored");
+    }
+
+
     #region Gizmos and Debug
 
     private void OnDrawGizmos()

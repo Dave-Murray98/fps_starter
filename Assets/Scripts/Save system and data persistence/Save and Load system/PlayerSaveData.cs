@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Player-specific save data
-/// CLEANED: Removed hardcoded inventory and equipment fields - now fully modular
+/// ENHANCED: Player-specific save data with movement state persistence
+/// Now tracks movement mode and environmental context for proper restoration
 /// </summary>
 [System.Serializable]
 public class PlayerSaveData
@@ -29,6 +29,11 @@ public class PlayerSaveData
     public bool canJump = true;
     public bool canSprint = true;
     public bool canCrouch = true;
+
+    [Header("Movement State")]
+    public MovementMode savedMovementMode = MovementMode.Ground;
+    public MovementState savedMovementState = MovementState.Idle;
+    public bool wasInWater = false;
 
     /// <summary>
     /// Dictionary to store the data of each player dependent data component (inventory, equipment, etc.) 
@@ -126,6 +131,52 @@ public class PlayerSaveData
 
     #endregion
 
+    #region ENHANCED: Movement State Utilities
+
+    /// <summary>
+    /// Sets movement context information for save operations
+    /// </summary>
+    public void SetMovementContext(MovementMode mode, MovementState state, bool inWater)
+    {
+        savedMovementMode = mode;
+        savedMovementState = state;
+        wasInWater = inWater;
+    }
+
+    /// <summary>
+    /// Gets whether the saved state indicates the player should be in a water environment
+    /// </summary>
+    public bool ShouldBeInWater()
+    {
+        return wasInWater || savedMovementMode == MovementMode.Swimming;
+    }
+
+    /// <summary>
+    /// Validates that movement state is consistent with environment
+    /// </summary>
+    public bool IsMovementStateConsistent()
+    {
+        // If player was in water, they should be in swimming mode
+        if (wasInWater && savedMovementMode != MovementMode.Swimming)
+            return false;
+
+        // If player is in swimming mode, they should have been in water
+        if (savedMovementMode == MovementMode.Swimming && !wasInWater)
+            return false;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Returns debug information about movement state
+    /// </summary>
+    public string GetMovementDebugInfo()
+    {
+        return $"Movement: {savedMovementMode} | State: {savedMovementState} | InWater: {wasInWater} | Position: {position}";
+    }
+
+    #endregion
+
     #region Helper Methods
 
     /// <summary>
@@ -144,6 +195,41 @@ public class PlayerSaveData
                 customStats[kvp.Key] = kvp.Value;
             }
         }
+    }
+
+    /// <summary>
+    /// Creates a copy of this PlayerSaveData with all data intact
+    /// </summary>
+    public PlayerSaveData CreateCopy()
+    {
+        var copy = new PlayerSaveData
+        {
+            position = position,
+            rotation = rotation,
+            currentScene = currentScene,
+            currentHealth = currentHealth,
+            maxHealth = maxHealth,
+            level = level,
+            experience = experience,
+            lookSensitivity = lookSensitivity,
+            masterVolume = masterVolume,
+            sfxVolume = sfxVolume,
+            musicVolume = musicVolume,
+            canJump = canJump,
+            canSprint = canSprint,
+            canCrouch = canCrouch,
+            savedMovementMode = savedMovementMode,
+            savedMovementState = savedMovementState,
+            wasInWater = wasInWater
+        };
+
+        // Deep copy custom stats
+        foreach (var kvp in customStats)
+        {
+            copy.customStats[kvp.Key] = kvp.Value;
+        }
+
+        return copy;
     }
 
     #endregion

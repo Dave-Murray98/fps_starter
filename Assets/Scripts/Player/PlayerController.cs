@@ -3,7 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Updated PlayerController with modular movement system.
+/// ENHANCED: PlayerController with comprehensive movement validation and clean state management.
+/// Now handles save/load validation, doorway transitions, and environmental consistency checks.
 /// Manages different movement controllers (Ground, Swimming, Vehicle) and coordinates
 /// state transitions based on environmental conditions like water detection.
 /// </summary>
@@ -41,17 +42,24 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float waterTransitionDelay = 0.1f;
     [SerializeField] private bool enableDebugLogs = true;
 
+    [Header("ENHANCED: Validation Settings")]
+    [SerializeField] private bool enableMovementValidation = true;
+    [SerializeField] private float validationDelay = 0.2f;
+
     // Current active movement controller
     private IMovementController currentMovementController;
     private MovementMode currentMovementMode = MovementMode.Ground;
 
-    // Input system reference
-    private InputManager inputManager;
+    // ENHANCED: Input system reference - now uses singleton
     private PlayerData playerData;
 
     // Water transition state
     private bool isTransitioningMovementMode = false;
     private float transitionTimer = 0f;
+
+    // ENHANCED: Initialization and validation state
+    private bool isFullyInitialized = false;
+    private bool needsEnvironmentValidation = false;
 
     // Events
     public event System.Action<MovementState, MovementState> OnStateChanged;
@@ -103,8 +111,25 @@ public class PlayerController : MonoBehaviour
         // Subscribe to water detection events
         SetupWaterDetectionEvents();
 
-        // FIXED: Force initial input connection after a frame delay
-        StartCoroutine(EnsureInputConnectionOnStart());
+        // ENHANCED: Start validation coroutine after initialization
+        StartCoroutine(DelayedValidationSetup());
+    }
+
+    /// <summary>
+    /// ENHANCED: Sets up validation after all systems are initialized
+    /// </summary>
+    private System.Collections.IEnumerator DelayedValidationSetup()
+    {
+        yield return new WaitForSecondsRealtime(0.2f);
+
+        // Perform initial environment validation
+        if (enableMovementValidation)
+        {
+            ForceMovementModeValidation();
+        }
+
+        isFullyInitialized = true;
+        DebugLog("PlayerController fully initialized with validation");
     }
 
     private void Initialize()
@@ -123,7 +148,7 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// FIXED: Enhanced initialization to ensure only ground controller starts enabled
+    /// ENHANCED: Movement controller initialization with proper enable/disable management
     /// </summary>
     private void InitializeMovementControllers()
     {
@@ -131,50 +156,34 @@ public class PlayerController : MonoBehaviour
         groundMovementController?.Initialize(this);
         swimmingMovementController?.Initialize(this);
 
-        // CRITICAL FIX: Disable all controllers first
+        // ENHANCED: Disable all controllers first for clean state
         if (groundMovementController is MonoBehaviour groundComp)
         {
             groundComp.enabled = false;
-            DebugLog("FIXED: Initially disabled ground controller component");
+            DebugLog("Initially disabled ground controller component");
         }
 
         if (swimmingMovementController is MonoBehaviour swimmingComp)
         {
             swimmingComp.enabled = false;
-            DebugLog("FIXED: Initially disabled swimming controller component");
+            DebugLog("Initially disabled swimming controller component");
         }
 
-        // FIXED: Set initial controller and enable only that one
+        // Set initial controller and enable only that one
         currentMovementController = groundMovementController;
         if (currentMovementController != null)
         {
             if (currentMovementController is MonoBehaviour activeComp)
             {
                 activeComp.enabled = true;
-                DebugLog("FIXED: Enabled initial ground controller component");
+                DebugLog("Enabled initial ground controller component");
             }
             currentMovementController.OnControllerActivated();
-            DebugLog("FIXED: Initial ground movement controller activated");
+            DebugLog("Initial ground movement controller activated");
         }
 
-        DebugLog("FIXED: Movement controllers initialized with proper enable/disable");
+        DebugLog("Movement controllers initialized with proper enable/disable");
     }
-
-    /// <summary>
-    /// FIXED: Ensures input manager connection after all initialization is complete
-    /// </summary>
-    private System.Collections.IEnumerator EnsureInputConnectionOnStart()
-    {
-        yield return null; // Wait one frame
-        yield return new WaitForSecondsRealtime(0.1f); // Small additional delay
-
-        if (inputManager == null && GameManager.Instance?.inputManager != null)
-        {
-            ConnectToInputManager(GameManager.Instance.inputManager);
-            DebugLog("FIXED: Forced input manager connection on start");
-        }
-    }
-
 
     private void SetupWaterDetectionEvents()
     {
@@ -196,46 +205,45 @@ public class PlayerController : MonoBehaviour
 
     private void RefreshComponentReferences()
     {
-        inputManager = GameManager.Instance?.inputManager;
         playerData = GameManager.Instance?.playerData;
 
-        if (inputManager != null)
+        // ENHANCED: Connect to singleton InputManager
+        if (InputManager.Instance != null)
         {
-            ConnectToInputManager(inputManager);
+            ConnectToInputManager(InputManager.Instance);
         }
     }
 
     /// <summary>
-    /// ENHANCED: Input manager connection with primary action release handling
+    /// ENHANCED: Simplified input manager connection using singleton pattern
     /// </summary>
-    private void ConnectToInputManager(InputManager newInputManager)
+    private void ConnectToInputManager(InputManager inputManager)
     {
         DisconnectFromInputManager();
-
-        inputManager = newInputManager;
 
         if (inputManager != null)
         {
             // Connect to unified action events
             inputManager.OnPrimaryActionPressed += HandlePrimaryActionInput;
-            inputManager.OnPrimaryActionReleased += HandlePrimaryActionReleased; // NEW: Handle release
+            inputManager.OnPrimaryActionReleased += HandlePrimaryActionReleased;
             inputManager.OnSecondaryActionPressed += HandleSecondaryActionInput;
             inputManager.OnSecondaryActionReleased += HandleSecondaryActionReleased;
 
-            DebugLog($"PlayerController connected to InputManager: {inputManager.GetInstanceID()}");
+            DebugLog($"PlayerController connected to InputManager singleton");
         }
     }
+
     /// <summary>
-    /// ENHANCED: Disconnect with primary action release handling
+    /// ENHANCED: Disconnect from singleton InputManager
     /// </summary>
     private void DisconnectFromInputManager()
     {
-        if (inputManager != null)
+        if (InputManager.Instance != null)
         {
-            inputManager.OnPrimaryActionPressed -= HandlePrimaryActionInput;
-            inputManager.OnPrimaryActionReleased -= HandlePrimaryActionReleased; // NEW: Disconnect release
-            inputManager.OnSecondaryActionPressed -= HandleSecondaryActionInput;
-            inputManager.OnSecondaryActionReleased -= HandleSecondaryActionReleased;
+            InputManager.Instance.OnPrimaryActionPressed -= HandlePrimaryActionInput;
+            InputManager.Instance.OnPrimaryActionReleased -= HandlePrimaryActionReleased;
+            InputManager.Instance.OnSecondaryActionPressed -= HandleSecondaryActionInput;
+            InputManager.Instance.OnSecondaryActionReleased -= HandleSecondaryActionReleased;
         }
     }
 
@@ -246,6 +254,13 @@ public class PlayerController : MonoBehaviour
         UpdateTransitionTimer();
         UpdateMovementState();
         HandleInput();
+
+        // ENHANCED: Handle validation requests
+        if (needsEnvironmentValidation && enableMovementValidation)
+        {
+            PerformEnvironmentValidation();
+            needsEnvironmentValidation = false;
+        }
     }
 
     private void UpdateTransitionTimer()
@@ -263,7 +278,7 @@ public class PlayerController : MonoBehaviour
 
     private void HandleInput()
     {
-        if (inputManager == null || currentMovementController == null) return;
+        if (InputManager.Instance == null || currentMovementController == null) return;
 
         // Movement input (handled by current movement controller)
         if (canMove)
@@ -274,20 +289,20 @@ public class PlayerController : MonoBehaviour
             switch (currentMovementMode)
             {
                 case MovementMode.Ground:
-                    speedModifier = canSprint && inputManager.SpeedModifierHeld;
+                    speedModifier = canSprint && InputManager.Instance.SpeedModifierHeld;
                     break;
                 case MovementMode.Swimming:
-                    speedModifier = canSwim && inputManager.SpeedModifierHeld;
+                    speedModifier = canSwim && InputManager.Instance.SpeedModifierHeld;
                     break;
             }
 
-            currentMovementController.HandleMovement(inputManager.MovementInput, speedModifier);
+            currentMovementController.HandleMovement(InputManager.Instance.MovementInput, speedModifier);
         }
 
         // Look input
         if (canLook)
         {
-            playerCamera.SetLookInput(inputManager.LookInput);
+            playerCamera.SetLookInput(InputManager.Instance.LookInput);
         }
     }
 
@@ -372,31 +387,29 @@ public class PlayerController : MonoBehaviour
         DebugLog($"State changed: {previousState} -> {currentState}");
     }
 
-    #region Movement Mode Management
+    #region ENHANCED: Movement Mode Management with Validation
 
     /// <summary>
-    /// FIXED: Enhanced movement mode switching with component enable/disable
-    /// This ensures only the active controller runs its FixedUpdate
+    /// ENHANCED: Movement mode switching with comprehensive validation and clean transitions
     /// </summary>
     private void SetMovementMode(MovementMode newMode)
     {
         if (currentMovementMode == newMode) return;
 
         MovementMode previousMode = currentMovementMode;
-
-        DebugLog($"FIXED: Switching movement mode: {previousMode} -> {newMode}");
+        DebugLog($"ENHANCED: Switching movement mode: {previousMode} -> {newMode}");
 
         // STEP 1: Properly deactivate current controller
         if (currentMovementController != null)
         {
-            DebugLog($"FIXED: Deactivating {currentMovementController.GetType().Name}");
+            DebugLog($"Deactivating {currentMovementController.GetType().Name}");
             currentMovementController.OnControllerDeactivated();
 
-            // CRITICAL FIX: Disable the component so FixedUpdate stops running
+            // Disable the component so FixedUpdate stops running
             if (currentMovementController is MonoBehaviour currentComponent)
             {
                 currentComponent.enabled = false;
-                DebugLog($"FIXED: Disabled component {currentComponent.GetType().Name}");
+                DebugLog($"Disabled component {currentComponent.GetType().Name}");
             }
         }
 
@@ -416,49 +429,134 @@ public class PlayerController : MonoBehaviour
         // STEP 3: Properly activate new controller
         if (currentMovementController != null)
         {
-            // CRITICAL FIX: Enable the component so FixedUpdate starts running
+            // Enable the component so FixedUpdate starts running
             if (currentMovementController is MonoBehaviour newComponent)
             {
                 newComponent.enabled = true;
-                DebugLog($"FIXED: Enabled component {newComponent.GetType().Name}");
+                DebugLog($"Enabled component {newComponent.GetType().Name}");
             }
 
-            DebugLog($"FIXED: Activating {currentMovementController.GetType().Name}");
+            DebugLog($"Activating {currentMovementController.GetType().Name}");
             currentMovementController.OnControllerActivated();
         }
 
-        // STEP 4: Update input manager
-        if (inputManager != null)
+        // STEP 4: Update InputManager
+        if (InputManager.Instance != null)
         {
-            inputManager.SetMovementMode(newMode);
-            DebugLog($"FIXED: Updated InputManager to movement mode: {newMode}");
+            InputManager.Instance.SetMovementMode(newMode);
+            DebugLog($"Updated InputManager to movement mode: {newMode}");
         }
 
         OnMovementModeChanged?.Invoke(previousMode, newMode);
-        DebugLog($"FIXED: Movement mode change complete: {previousMode} -> {newMode}");
+        DebugLog($"Movement mode change complete: {previousMode} -> {newMode}");
     }
 
-
-    private void HandleSecondaryActionReleased()
+    /// <summary>
+    /// ENHANCED: Sets initial movement mode for save/load operations
+    /// </summary>
+    public void SetInitialMovementMode(MovementMode mode)
     {
-        if (currentMovementController == null) return;
+        DebugLog($"Setting initial movement mode to: {mode}");
+        SetMovementMode(mode);
+    }
 
-        // Context-aware secondary action release handling
-        switch (currentMovementMode)
+    /// <summary>
+    /// ENHANCED: Forces validation of movement mode against current environment
+    /// Used after save/load and doorway transitions to ensure consistency
+    /// </summary>
+    public void ForceMovementModeValidation()
+    {
+        if (!enableMovementValidation)
         {
-            case MovementMode.Ground:
-                if (canCrouch)
-                {
-                    currentMovementController.HandleSecondaryActionReleased();
-                }
-                break;
-            case MovementMode.Swimming:
-                if (canSwim)
-                {
-                    currentMovementController.HandleSecondaryActionReleased(); // Stop diving
-                }
-                break;
+            DebugLog("Movement validation disabled");
+            return;
         }
+
+        DebugLog("FORCE VALIDATION: Checking movement mode against environment");
+
+        // Check what mode we SHOULD be in based on current position
+        bool shouldBeSwimming = waterDetector?.IsInWater ?? false;
+        bool currentlySwimming = currentMovementMode == MovementMode.Swimming;
+
+        DebugLog($"Should be swimming: {shouldBeSwimming}, Currently swimming: {currentlySwimming}");
+
+        if (shouldBeSwimming != currentlySwimming)
+        {
+            MovementMode correctMode = shouldBeSwimming ? MovementMode.Swimming : MovementMode.Ground;
+            DebugLog($"CORRECTING movement mode mismatch: {currentMovementMode} → {correctMode}");
+
+            // Force clean state reset
+            ForceCleanMovementState();
+
+            // Set correct movement mode
+            SetMovementMode(correctMode);
+        }
+        else
+        {
+            DebugLog("Movement mode is correct, but cleaning physics state anyway");
+            ForceCleanMovementState();
+        }
+    }
+
+    /// <summary>
+    /// ENHANCED: Cleans any residual physics state from previous movement modes
+    /// </summary>
+    private void ForceCleanMovementState()
+    {
+        var rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            // Clear velocity to prevent weird movement artifacts
+            Vector3 currentVelocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(0f, currentVelocity.y * 0.5f, 0f); // Keep some Y for landing
+
+            DebugLog($"Cleaned velocity: {currentVelocity} → {rb.linearVelocity}");
+        }
+
+        // Force both movement controllers to clean their state
+        if (groundMovementController != null)
+        {
+            groundMovementController.ForceCleanState();
+        }
+
+        if (swimmingMovementController != null)
+        {
+            swimmingMovementController.ForceCleanState();
+        }
+    }
+
+    /// <summary>
+    /// ENHANCED: Requests environment validation on next frame
+    /// </summary>
+    public void RequestEnvironmentValidation()
+    {
+        needsEnvironmentValidation = true;
+        DebugLog("Environment validation requested");
+    }
+
+    /// <summary>
+    /// ENHANCED: Performs environment validation with proper timing
+    /// </summary>
+    private void PerformEnvironmentValidation()
+    {
+        if (!isFullyInitialized)
+        {
+            DebugLog("Skipping validation - not fully initialized");
+            return;
+        }
+
+        StartCoroutine(DelayedEnvironmentValidation());
+    }
+
+    /// <summary>
+    /// ENHANCED: Delayed validation to ensure physics and positioning have settled
+    /// </summary>
+    private System.Collections.IEnumerator DelayedEnvironmentValidation()
+    {
+        yield return new WaitForSecondsRealtime(validationDelay);
+
+        DebugLog("Performing delayed environment validation");
+        ForceMovementModeValidation();
     }
 
     #endregion
@@ -469,7 +567,7 @@ public class PlayerController : MonoBehaviour
     {
         if (!canSwim) return;
 
-        DebugLog("FIXED: Water entered - transitioning to swimming mode");
+        DebugLog("ENHANCED: Water entered - transitioning to swimming mode");
         isTransitioningMovementMode = true;
         transitionTimer = 0f;
         SetMovementMode(MovementMode.Swimming);
@@ -477,17 +575,17 @@ public class PlayerController : MonoBehaviour
 
     private void HandleWaterExited()
     {
-        DebugLog("FIXED: Water exited - transitioning to ground mode");
+        DebugLog("ENHANCED: Water exited - transitioning to ground mode");
         isTransitioningMovementMode = true;
         transitionTimer = 0f;
         SetMovementMode(MovementMode.Ground);
 
-        // FIXED: Force a brief pause to let physics settle
+        // ENHANCED: Force a brief pause to let physics settle
         StartCoroutine(PostWaterExitCleanup());
     }
 
     /// <summary>
-    /// FIXED: Additional cleanup after water exit to prevent residual movement
+    /// ENHANCED: Additional cleanup after water exit to prevent residual movement
     /// </summary>
     private System.Collections.IEnumerator PostWaterExitCleanup()
     {
@@ -504,7 +602,7 @@ public class PlayerController : MonoBehaviour
                 velocity.x *= 0.5f; // Dampen horizontal movement
                 velocity.z *= 0.5f;
                 rb.linearVelocity = velocity;
-                DebugLog("FIXED: Post-water-exit velocity cleanup applied");
+                DebugLog("Post-water-exit velocity cleanup applied");
             }
         }
     }
@@ -551,7 +649,7 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// NEW: Handle primary action release (needed for continuous surfacing)
+    /// ENHANCED: Handle primary action release (needed for continuous surfacing)
     /// </summary>
     private void HandlePrimaryActionReleased()
     {
@@ -562,19 +660,17 @@ public class PlayerController : MonoBehaviour
         {
             case MovementMode.Ground:
                 // Ground movement doesn't need release handling for jump
+                currentMovementController.HandlePrimaryActionReleased();
                 break;
             case MovementMode.Swimming:
                 if (canSwim)
                 {
-                    // Call release handler for swimming controller
-                    if (swimmingMovementController != null)
-                    {
-                        swimmingMovementController.HandlePrimaryActionReleased();
-                    }
+                    currentMovementController.HandlePrimaryActionReleased();
                 }
                 break;
         }
     }
+
     private void HandleSecondaryActionInput()
     {
         if (currentMovementController == null) return;
@@ -592,6 +688,28 @@ public class PlayerController : MonoBehaviour
                 if (canSwim)
                 {
                     currentMovementController.HandleSecondaryAction(); // Dive
+                }
+                break;
+        }
+    }
+
+    private void HandleSecondaryActionReleased()
+    {
+        if (currentMovementController == null) return;
+
+        // Context-aware secondary action release handling
+        switch (currentMovementMode)
+        {
+            case MovementMode.Ground:
+                if (canCrouch)
+                {
+                    currentMovementController.HandleSecondaryActionReleased();
+                }
+                break;
+            case MovementMode.Swimming:
+                if (canSwim)
+                {
+                    currentMovementController.HandleSecondaryActionReleased(); // Stop diving
                 }
                 break;
         }
@@ -665,10 +783,18 @@ public class PlayerController : MonoBehaviour
         Debug.Log($"Is In Water: {IsInWater}");
         Debug.Log($"Current Velocity: {Velocity}");
         Debug.Log($"Active Controller: {currentMovementController?.GetType().Name ?? "None"}");
+        Debug.Log($"Is Fully Initialized: {isFullyInitialized}");
         if (waterDetector != null)
         {
             Debug.Log($"Water State: {waterDetector.GetWaterStateInfo()}");
         }
+    }
+
+    [ContextMenu("Force Movement Mode Validation")]
+    private void DebugForceValidation()
+    {
+        if (!Application.isPlaying) return;
+        ForceMovementModeValidation();
     }
 
     [ContextMenu("Force Swimming Mode")]

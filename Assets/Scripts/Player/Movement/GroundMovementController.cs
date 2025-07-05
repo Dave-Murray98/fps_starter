@@ -349,6 +349,36 @@ public class GroundMovementController : MonoBehaviour, IMovementController
         Debug.Log($"[GroundMovementController] Player landed on {currentGroundType}");
     }
 
+
+    /// <summary>
+    /// ENHANCED: Force clean state for proper transitions and save/load operations
+    /// </summary>
+    public void ForceCleanState()
+    {
+        // Reset ground movement state
+        movementInput = Vector2.zero;
+        isSprintingInput = false;
+        IsSpeedModified = false;
+        IsMoving = false;
+
+        // Reset crouch state safely
+        if (isCrouching)
+        {
+            if (CanStandUp())
+            {
+                isCrouching = false;
+                IsSecondaryActive = false;
+                if (capsuleCollider != null)
+                {
+                    capsuleCollider.height = originalHeight;
+                    capsuleCollider.center = originalCenter;
+                }
+            }
+        }
+
+        Debug.Log("[GroundMovementController] Force cleaned state");
+    }
+
     private void OnDrawGizmos()
     {
         if (!showGroundDebug || capsuleCollider == null) return;

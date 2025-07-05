@@ -2,9 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Central orchestrator for all scene loading operations. Coordinates loading screens,
-/// data persistence, and ensures proper restoration order. This is the single entry point
-/// for scene transitions - no other systems should directly handle scene loading.
+/// ENHANCED: Central orchestrator for all scene loading operations with movement validation.
+/// Now includes comprehensive doorway transition validation to ensure movement mode
+/// consistency between scenes. Coordinates loading screens, data persistence, and ensures 
+/// proper restoration order with environmental validation.
 /// </summary>
 public class SceneTransitionManager : MonoBehaviour
 {
@@ -13,6 +14,10 @@ public class SceneTransitionManager : MonoBehaviour
     [Header("Transition Settings")]
     public float minLoadingTime = 1f;
     public bool showDebugLogs = true;
+
+    [Header("ENHANCED: Validation Settings")]
+    [SerializeField] private bool enableDoorwayValidation = true;
+    [SerializeField] private float doorwayValidationDelay = 0.2f;
 
     // Current transition state tracking
     private RestoreContext currentRestoreContext = RestoreContext.DoorwayTransition;
@@ -212,12 +217,13 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Handles data restoration for doorway transitions.
-    /// Restores player stats but not position, restores scene objects, then positions player.
+    /// ENHANCED: Handles data restoration for doorway transitions with movement validation.
+    /// Restores player stats but not position, restores scene objects, positions player,
+    /// then validates movement mode consistency.
     /// </summary>
     private System.Collections.IEnumerator HandleDoorwayTransitionRestore(string sceneName)
     {
-        DebugLog("=== DOORWAY TRANSITION RESTORATION ===");
+        DebugLog("=== ENHANCED DOORWAY TRANSITION RESTORATION ===");
 
         // 1. Restore player data (excluding position)
         if (PlayerPersistenceManager.Instance != null)
@@ -243,6 +249,15 @@ public class SceneTransitionManager : MonoBehaviour
             DebugLog($"Positioning player at doorway: {pendingTargetDoorwayID}");
             PositionPlayerAtDoorway(pendingTargetDoorwayID);
         }
+
+        // 4. ENHANCED: Force validate movement mode after positioning
+        if (enableDoorwayValidation)
+        {
+            yield return new WaitForSecondsRealtime(doorwayValidationDelay);
+            ForceValidateMovementModeAfterDoorway();
+        }
+
+        DebugLog("Enhanced doorway transition restoration complete");
     }
 
     /// <summary>
@@ -340,6 +355,15 @@ public class SceneTransitionManager : MonoBehaviour
             var player = FindFirstObjectByType<PlayerController>();
             if (player != null)
             {
+                // ENHANCED: Clean velocity before positioning
+                var rb = player.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                    DebugLog("Cleared velocity before doorway positioning");
+                }
+
                 Vector3 doorwayPosition = targetDoorway.transform.position + Vector3.up * 0.1f;
                 player.transform.position = doorwayPosition;
                 DebugLog($"Positioned player at doorway: {doorwayID} ({doorwayPosition})");
@@ -356,6 +380,24 @@ public class SceneTransitionManager : MonoBehaviour
     }
 
     /// <summary>
+    /// ENHANCED: Forces validation of movement mode after doorway positioning
+    /// Ensures movement mode is consistent with the new environment
+    /// </summary>
+    private void ForceValidateMovementModeAfterDoorway()
+    {
+        var playerController = FindFirstObjectByType<PlayerController>();
+        if (playerController != null)
+        {
+            DebugLog("Validating movement mode after doorway transition");
+            playerController.ForceMovementModeValidation();
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController not found - cannot validate movement mode");
+        }
+    }
+
+    /// <summary>
     /// Gets the current restoration context for debugging purposes.
     /// </summary>
     public RestoreContext GetCurrentRestoreContext() => currentRestoreContext;
@@ -364,6 +406,27 @@ public class SceneTransitionManager : MonoBehaviour
     /// Checks if currently handling a specific restoration context.
     /// </summary>
     public bool IsHandlingContext(RestoreContext context) => currentRestoreContext == context;
+
+    /// <summary>
+    /// ENHANCED: Returns debug information about current transition state
+    /// </summary>
+    public string GetTransitionDebugInfo()
+    {
+        return $"Context: {currentRestoreContext}, TargetDoorway: {pendingTargetDoorwayID ?? "None"}, " +
+               $"HasSaveData: {pendingSaveData != null}, ValidationEnabled: {enableDoorwayValidation}";
+    }
+
+    /// <summary>
+    /// ENHANCED: Manually triggers movement validation (for testing/debugging)
+    /// </summary>
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void DebugForceMovementValidation()
+    {
+        if (!Application.isPlaying) return;
+
+        DebugLog("Manual movement validation triggered");
+        ForceValidateMovementModeAfterDoorway();
+    }
 
     private void DebugLog(string message)
     {
@@ -377,4 +440,24 @@ public class SceneTransitionManager : MonoBehaviour
     {
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
+
+    #region Editor Debug Methods
+
+#if UNITY_EDITOR
+    [ContextMenu("Debug Transition State")]
+    private void DebugTransitionState()
+    {
+        Debug.Log($"=== SceneTransitionManager Debug Info ===");
+        Debug.Log(GetTransitionDebugInfo());
+        Debug.Log("========================================");
+    }
+
+    [ContextMenu("Force Movement Validation")]
+    private void EditorForceMovementValidation()
+    {
+        DebugForceMovementValidation();
+    }
+#endif
+
+    #endregion
 }
