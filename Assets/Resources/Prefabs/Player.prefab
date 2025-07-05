@@ -175,6 +175,8 @@ GameObject:
   - component: {fileID: 6614210278226016749}
   - component: {fileID: 5204788647208767145}
   - component: {fileID: 3969708537005614776}
+  - component: {fileID: 6637342200095835441}
+  - component: {fileID: 6623453375928804875}
   m_Layer: 6
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -190,8 +192,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2722009498164535054}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.000000029802322, z: 0.00000067055225}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -371,6 +373,54 @@ MonoBehaviour:
     _viewStencil: 0
     _disableHeightAboveWaterOptimization: 0
     _disableArtifactCorrection: 0
+--- !u!169 &6637342200095835441
+AudioLowPassFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2722009498164535054}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_LowpassResonanceQ: 1
+  lowpassLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.22727273
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!164 &6623453375928804875
+AudioReverbFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2722009498164535054}
+  m_Enabled: 1
+  m_DryLevel: 0
+  m_Room: 0
+  m_RoomHF: 0
+  m_DecayTime: 1
+  m_DecayHFRatio: 0.5
+  m_ReflectionsLevel: -10000
+  m_ReverbLevel: 0
+  m_ReverbDelay: 0.04
+  m_Diffusion: 100
+  m_Density: 100
+  m_HFReference: 5000
+  m_RoomLF: 0
+  m_LFReference: 250
+  m_ReflectionsDelay: 0
+  m_ReverbPreset: 27
 --- !u!1 &4010381084805428103
 GameObject:
   m_ObjectHideFlags: 0
@@ -926,7 +976,9 @@ MonoBehaviour:
   waterEnterClip: {fileID: 8300000, guid: ae3915440b06b4f448a2d1e9d4d72329, type: 3}
   waterExitClip: {fileID: 8300000, guid: 82b6e4a78e504e846965621cc6bb9212, type: 3}
   footstepBaseRate: 0.5
-  swimmingBaseRate: 0.6
+  swimmingBaseRate: 2
+  verticalSwimmingRateMultiplier: 2
+  combinedMovementRateMultiplier: 2
   enableDebugLogs: 0
 --- !u!114 &3657837451461529809
 MonoBehaviour:
@@ -1033,7 +1085,7 @@ MonoBehaviour:
   slopeLimit: 45
   acceleration: 50
   deceleration: 50
-  showGroundDebug: 0
+  showGroundDebug: 1
 --- !u!114 &6533242269200131884
 MonoBehaviour:
   m_ObjectHideFlags: 0
